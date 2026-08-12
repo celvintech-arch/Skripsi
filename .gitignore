@@ -12,8 +12,19 @@
 *.toc
 *.xdv
 
-# PDF output (hapus baris ini jika ingin include PDF)
-# *.pdf
+# Gambar / Images (hilangkan agar zip lebih kecil)
+Gambar/
+*.png
+*.jpg
+*.jpeg
+*.PNG
+*.JPG
+
+# PDF files
+*.pdf
+
+# Font
+Font/
 
 # VS Code
 .vscode/
