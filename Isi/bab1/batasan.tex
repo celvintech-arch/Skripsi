@@ -1,0 +1,12 @@
+Dalam perancangan dan pengembangan aplikasi pengarsipan data otomatis serta portal \textit{on-demand retrieval} ini, terdapat beberapa batasan masalah yang ditetapkan sebagai fokus penelitian, antara lain:
+\begin{enumerate}
+    \item Rentang waktu dan kriteria pengarsipan data historis mahasiswa (seperti berdasarkan Tahun Akademik atau rentang Nomor Induk Mahasiswa / NIM) bersifat dinamis dan fleksibel sesuai dengan konfigurasi sistem yang dapat diatur oleh administrator, serta tidak terikat pada aturan baku jangka waktu tertentu.
+
+    \item Eksekusi pemindahan data tidak dilakukan secara langsung pada server utama Pusdatin UNTAR melalui eksekusi lokal, melainkan menggunakan arsitektur \textit{Client-Worker} terdistribusi yang berkomunikasi melalui layanan HTTP API JSON (\textit{agent.ashx}).
+
+    \item Eksekusi antrean tugas (\textit{task queue}) pengarsipan menggunakan SQL Server Agent dan skrip PowerShell yang dipasang pada mesin terpisah (\textit{external machine}) bertindak sebagai \textit{primary agent} untuk mengatasi batasan infrastruktur dan kapasitas komputasi pada server kampus.
+
+    \item Portal \textit{web} pengarsipan dan pencarian data dikembangkan menggunakan kerangka kerja ASP.NET (C\# / Web Forms) dan terintegrasi dengan basis data Microsoft SQL Server.
+
+    \item Seluruh proses pengujian dan validasi fungsi sistem aplikasi sepenuhnya dieksekusi di dalam lingkungan pengembangan (\textit{development/staging environment}), bukan pada basis data produksi langsung.
+\end{enumerate}

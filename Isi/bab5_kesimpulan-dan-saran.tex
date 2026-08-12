@@ -1,0 +1,20 @@
+\chapter{KESIMPULAN DAN SARAN}
+
+\section{Kesimpulan}
+Kesimpulan dari perancangan aplikasi presensi \textit{online} berbasis web pada PT Password Solusi Sistem yaitu sebagai berikut:
+\begin{enumerate}
+    \item Aplikasi presensi \textit{online} berhasil mengimplementasikan teknik \textit{Geolocation} untuk memperoleh lokasi pengguna dengan tingkat akurasi yang baik. Selain itu, algoritma Haversine diterapkan untuk menghitung jarak antara lokasi \textit{Staff Infrastructure} dengan lokasi kantor MyPassword. Pengujian akurasi perhitungan dilakukan dengan membandingkan hasil algoritma Haversine dengan \textit{Google Geometry} API, menghasilkan rata-rata selisih sebesar 0,0113 km dari 20 lokasi yang berbeda.
+    \item Aplikasi presensi \textit{online} mendukung manajer dalam proses perhitungan lembur melalui fitur perhitungan lembur otomatis. Fitur ini berfungsi ketika \textit{Staff Infrastructure} melakukan presensi di luar jadwal \textit{shift} atau pada hari libur perusahaan. Pengujian fitur ini dilakukan melalui beberapa skenario pengujian (\textit{test case}), yang menunjukkan hasil perhitungan yang akurat dan sesuai dengan kebutuhan.
+    \item Aplikasi presensi \textit{online} dilengkapi dengan fitur validasi wajah berbasis TensorFlow, yang mengharuskan wajah \textit{Staff Infrastructure} terdeteksi sebelum presensi dapat dilakukan. Pengujian fitur validasi wajah dilakukan menggunakan berbagai skenario pengujian, yang seluruhnya menunjukkan hasil yang sesuai dengan harapan.
+    \item Aplikasi presensi \textit{online} berbasis web telah dilakukan pengujian kepada 10 \textit{staff non-}IT MyPassword dengan metode \textit{blackbox testing} yang mendapatkan hasil valid untuk semua skenario dan pengujian SUS juga dilakukan yang mendapatkan hasil skor 79,5 yang merupakan peringkat A-.
+    
+\end{enumerate}
+
+
+\section{Saran}
+Berikut ini adalah beberapa saran untuk pengembangan lebih lanjut dari aplikasi presensi \textit{online} berbasis web:
+\begin{enumerate}
+    \item Saat ini aplikasi sudah memiliki fitur deteksi wajah saat pengambilan foto presensi, namun akan lebih baik jika dilengkapi dengan verifikasi wajah pengguna untuk memastikan kesesuaian dengan foto yang terdaftar sebelumnya seperti integrasi dengan \textit{library FaceApi JS}.
+    \item Meningkatkan tampilan \textit{User Interface} (UI) yang lebih baik.
+    \item Menambah fitur untuk perhitungan gaji serta mengintegrasikan fitur penggajian kepada karyawan secara otomatis.
+\end{enumerate}

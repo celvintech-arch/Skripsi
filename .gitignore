@@ -1,0 +1,23 @@
+# LaTeX generated files
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.lof
+*.lot
+*.out
+*.synctex.gz
+*.toc
+*.xdv
+
+# PDF output (hapus baris ini jika ingin include PDF)
+# *.pdf
+
+# VS Code
+.vscode/
+
+# Windows
+Thumbs.db
+desktop.ini

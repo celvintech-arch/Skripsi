@@ -1,0 +1,329 @@
+\begin{longtable}{ |p{3cm}|p{4cm}|p{4cm}|p{2cm}|}
+\caption{Hasil \textit{Whitebox Testing} Aplikasi Presensi \textit{Online} Oleh \textit{Programmer}}\label{tab:table-whitebox-testing-aplikasi-presensi-online-oleh-programmer}
+\\
+\hline
+\textbf{Fitur}
+&\textbf{Skenario}
+&\textbf{Hasil yang diharapkan}
+&\textbf{Hasil uji}
+\\ 
+\hline
+
+\multirow{2}{*}{Registrasi}
+&Registrasi dengan email perusahaan
+&Menyimpan data user baru dan mengirimkan email verifikasi ke user
+&Valid
+\\
+
+\cline{2-4}
+&Verifikasi email
+&Mengecek kesesuaian kode OTP yang dimasukkan dan mengubah data akun pada status email menjadi terverifikasi
+&Valid
+\\
+
+\hline
+
+\multirow{3}{*}{\textit{Login}}
+&Login menggunakan akun yang benar
+&Mengecek dan menambah user pada table session dan mengalihkan ke halaman utama
+&Valid
+\\
+
+\cline{2-4}
+&Login menggunakan akun inactive
+&Mengalihkan ke halaman yang berisi informasi akun belum diaktifkan
+&Valid
+\\
+
+\cline{2-4}
+&Login menggunakan akun yang salah atau akun yang belum diverifikasi
+&Menampilkan pop up pesan error
+&Valid
+\\
+
+\hline
+
+\multirow{1}{*}{\textit{Change Password}}
+&Mengubah password akun
+&Password akun akan diperbarui dan menampilkan pop up pesan berhasil
+&Valid
+\\
+\hline
+
+\multirow{3}{*}{Presensi}
+&Menampilkan tanggal dan waktu terkini
+&Mengambil data tanggal dan waktu terkini kota Jakarta/Indonesia melalui API dan  memperbarui tampilan waktu setiap detik
+&Valid
+\\
+
+\cline{2-4}
+&Menampilkan list jadwal kerja
+&Menampilkan semua hari dan waktu jadwal kerja pada pengguna
+&Valid
+\\
+
+\cline{2-4}
+&Menampilkan alamat lokasi terkini
+&Meminta perizinan akses GPS pada pengguna dan mengambil titik koordinat pengguna, kemudian dikonversi menjadi gambar peta titik lokasi dan nama alamat lengkap pengguna melalui API
+&Valid
+\\
+\hline
+
+\multirow{2}{*}{}
+&Melakukan pengambilan foto wajah
+&Meminta perizinan akses kamera pada perangkat dan saat pengambilan wajah akan dilakukan pengecekkan dengan BlazeFace dari TensorFlow
+&Valid
+\\
+
+\cline{2-4}
+&Melakukan presensi masuk
+&Mengecek baris data presensi terakhir pada user, mengambil data tanggal waktu serta alamat lokasi pengguna melalui API, menghitung jarak lokasi pengguna dengan kantor menggunakan algoritma Haversine dan membuat data presensi baru
+&Valid
+\\
+\hline
+
+\multirow{1}{*}{}
+&Melakukan presensi keluar
+&Mengecek baris data presensi terakhir pengguna, mengambil data tanggal waktu serta alamat lokasi pengguna melalui API, menghitung jarak lokasi pengguna dengan kantor menggunakan algoritma Haversine, mengecek jadwal shift pengguna, mengecek hari libur pengguna, memperbarui baris data presensi terakhir pengguna, dan membuat data lembur baru jika shift tidak ditemukan atau hari libur ditemukan
+&Valid
+\\
+\hline
+
+
+\multirow{1}{*}{\textit{Request Overtime}}
+&Melakukan formulir pengajuan lembur manual
+&Menghitung total lembur dan menyimpan data lembur baru
+&Valid
+\\
+\hline
+
+\multirow{2}{*}{\textit{Attendance History}}
+&Menampilkan riwayat presensi
+&Menampilkan semua riwayat presensi
+&Valid
+\\
+
+\cline{2-4}
+&Menampilkan detail presensi
+&Menampilkan informasi lengkap presensi
+&Valid
+\\
+\hline
+
+\multirow{1}{*}{}
+&Melakukan export data presensi
+&Membuka tab baru dan men-download data presensi dalam format Excel
+&Valid
+\\
+\hline
+
+\multirow{3}{*}{\textit{Overtime History}}
+&Menampilkan riwayat lembur
+&Menampilkan semua riwayat lembur
+&Valid
+\\
+
+\cline{2-4}
+&Menampilkan detail lembur
+&Menampilkan informasi lengkap lembur
+&Valid
+\\
+
+\cline{2-4}
+&Melakukan export data lembur
+&Membuka tab baru dan men-download data lembur dalam format Excel
+&Valid
+\\
+\hline
+
+\multirow{3}{*}{\textit{Reject} Lembur}
+&Menampilkan list data lembur dengan status approved
+&Menampikan seluruh data lembur dengan status approved
+&Valid
+\\
+
+\cline{2-4}
+&Melakukan reject pada satu data lembur
+&Status pada data lembur akan diperbarui menjadi reject
+&Valid
+\\
+
+\cline{2-4}
+&Melakukan reject lebih dari satu data lembur
+&Status seluruh data lembur yang dipilih akan terubah menjadi reject
+&Valid
+\\
+\hline
+
+\multirow{1}{*}{}
+&Melakukan export data lembur dengan status approved menjadi format excel
+&Membuka tab baru dan men-download data lembur dengan status approved dalam format Excel
+&Valid
+\\
+\hline
+
+\multirow{3}{*}{\textit{Setting User}}
+&Menampilkan list data user
+&Menampilkan seluruh data user yang sudah verifikasi email
+&Valid
+\\
+
+\cline{2-4}
+&Mengubah user
+&Data user yang diperbarui
+&Valid
+\\
+
+\cline{2-4}
+&Menghapus data user
+&Data user terhapus
+&Valid
+\\
+\hline
+
+\multirow{3}{*}{\textit{Setting Department}}
+&Menampilkan list data department
+&Menampilkan seluruh data department
+&Valid
+\\
+
+\cline{2-4}
+&Mengubah department
+&Data department diperbarui
+&Valid
+\\
+
+\cline{2-4}
+&Menghapus data department
+&Data department terhapus
+&Valid
+\\
+\hline
+
+\multirow{3}{*}{\textit{Setting} Libur}
+&Menampilkan list data jenis libur perusahaan
+&Menampilkan seluruh data jenis libur perusahaan
+&Valid
+\\
+
+\cline{2-4}
+&Menambah jenis libur perusahaan
+&Data jenis libur perusahaan ditambahkan
+&Valid
+\\
+
+\cline{2-4}
+&Menghapus jenis libur perusahaan
+&Data jenis libur perusahaan terhapus
+&Valid
+\\
+\hline
+
+\multirow{4}{*}{}
+&Menampikan list hari pada jenis libur perusahaan
+&Menampilkan seluruh hari pada jenis libur perusahaan
+&Valid
+\\
+
+\cline{2-4}
+&Menambah hari pada jenis libur perusahaan
+&Data hari ditambahkan pada jenis libur perusahaan
+&Valid
+\\
+
+\cline{2-4}
+&Melakukan import hari melalui API libur nasional Indonesia
+&Mengambil data libur nasional Indonesia berdasarkan reequest tahun melalui API dan menambahkan data hari pada jenis libur perusahaan
+&Valid
+\\
+
+\cline{2-4}
+&Menghapus hari pada jenis libur perusahaan
+&Data hari pada jenis libur perusahaan terhapus
+&Valid
+\\
+\hline
+
+\multirow{4}{*}{\textit{Setting Shift}}
+&Menampikan list data jenis shift
+&Menampikan seluruh data jenis shift
+&Valid
+\\
+
+\cline{2-4}
+&Menambah jenis shift
+&Data jenis shift baru ditambahkan
+&Valid
+\\
+
+\cline{2-4}
+&Menghapus jenis shift
+&Data jenis shift terhapus
+&Valid
+\\
+
+\cline{2-4}
+&Menampilkan list hari pada jenis shift
+&Menampilkan seluruh hari pada jenis shift
+&Valid
+\\
+\hline
+\vspace{1cm}
+\multirow{2}{*}{}
+&Menambah hari pada jenis shift
+&Data hari baru ditambahkan pada jenis shift
+&Valid
+\\
+
+\cline{2-4}
+&Menghapus hari pada jenis shift
+&Data hari terhapus pada jenis shift
+&Valid
+\\
+\hline
+
+\multirow{6}{*}{\textit{Shift Scheduling}}
+&Menampilkan list data penjadwalan shift
+&Menampilkan seluruh data penjadwalan shift
+&Valid
+\\
+
+\cline{2-4}
+&Menambah penjadwalan shift
+&Data penjadwalan shift baru ditambahkan
+&Valid
+\\
+
+\cline{2-4}
+&Mengubah penjadwalan shift
+&Berhasil mengubah penjadwalan shift
+&Valid
+\\
+
+\cline{2-4}
+&Menghapus penjadwalan shift
+&Berhasil menghapus penjadwalan shift
+&Valid
+\\
+
+\cline{2-4}
+&Melakukan export data penjadwalan shift
+&Membuka tab baru dan men-download data penjadwalan shift dalam format Excel
+&Valid
+\\
+
+\cline{2-4}
+&Melakukan import data penjadwalan shift
+&Menambahkan seluruh data penjadwalan shift yang ada pada baris Excel dan menampilkan tabel yang berisi data gagal import
+&Valid
+\\
+\hline
+
+\multirow{1}{*}{\textit{Logout}}
+&Melakukan logout
+&Menghapus user dari tabel session dan mengalihkan ke halaman login
+&Valid
+\\
+\hline
+
+\end{longtable}

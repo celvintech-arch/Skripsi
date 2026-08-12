@@ -1,0 +1,19 @@
+\subsection{Tujuan}
+Tujuan dari penelitian dan perancangan aplikasi ini adalah:
+\begin{enumerate}
+    \item Merancang aplikasi pengarsipan data (\textit{data archiving}) otomatis dengan arsitektur \textit{Client-Worker} terdistribusi melalui HTTP API JSON (\textit{agent.ashx}) guna memindahkan data historis dari basis data produksi ke basis data arsip.
+    
+    \item Membangun portal \textit{web} berbasis ASP.NET yang menyediakan layanan \textit{on-demand retrieval} untuk memfasilitasi pencarian dan penarikan data historis lintas basis data secara fleksibel dan cepat.
+
+    \item Mengimplementasikan sistem antrean tugas (\textit{task queue}) menggunakan SQL Server Agent dan skrip PowerShell pada mesin eksternal terpisah guna menjalankan eksekusi pemindahan data tanpa membebani infrastruktur server utama Pusdatin UNTAR.
+\end{enumerate}
+
+\subsection{Manfaat}
+Manfaat yang diharapkan dari hasil penelitian ini antara lain:
+\begin{enumerate}
+    \item **Bagi Pusdatin UNTAR**: Meningkatkan performa eksekusi kueri operasional harian dan efisiensi ruang penyimpanan pada basis data produksi melalui pengurangan beban akumulasi data historis.
+
+    \item **Bagi Sistem dan Infrastruktur**: Mempercepat proses pencadangan data (\textit{backup process}) karena ukuran basis data produksi aktif menjadi lebih kecil dan efisien untuk dicadangkan.
+
+    \item **Bagi Layanan Akademik dan Audit**: Memudahkan staf operasional dalam memenuhi kebutuhan penarikan data historis mahasiswa secara cepat saat diperlukan untuk keperluan regulasi maupun audit internal/eksternal.
+\end{enumerate}

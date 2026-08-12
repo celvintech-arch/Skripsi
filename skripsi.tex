@@ -1,0 +1,289 @@
+\documentclass[12pt,a4paper]{report}
+\renewcommand{\baselinestretch}{1.5}
+\usepackage{cite}
+\usepackage{fontspec}
+% \usepackage[T1]{fontenc}
+% \usepackage{times,newtxmath,newtxtext}
+
+% ini coba ganti format
+\usepackage{chngcntr}
+\counterwithout{figure}{chapter}
+\counterwithout{table}{chapter}
+% ini coba ganti format
+\usepackage{pifont}
+\usepackage{placeins}
+\usepackage[utf8]{inputenc}
+\usepackage{subcaption}
+\usepackage{setspace}
+\usepackage{multirow}
+\usepackage{multicol}
+\usepackage[tableposition=top]{caption}
+\usepackage[table,xcdraw]{xcolor}
+\usepackage{varwidth}
+\usepackage{titlesec}
+\usepackage{indentfirst}
+\usepackage{enumitem}
+\usepackage{overpic}
+\usepackage{tikz}
+\usepackage{pdflscape}
+\usepackage{xurl}
+\usepackage{multirow}
+\usepackage{amssymb}
+\usepackage{tabularx}
+\usepackage[table,xcdraw]{xcolor}
+\setlength{\tabcolsep}{1.505625pt}
+\renewcommand{\arraystretch}{1.2}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{soul} % Required for highlighting
+\definecolor{Gainsboro}{RGB}{232,232,232}
+\definecolor{Gainsboro3}{RGB}{248,248,248}
+\definecolor{highlightbg}{RGB}{255, 255, 153} % Define the highlight color
+\lstdefinelanguage{myLang}
+{
+  % list of keywords
+  morekeywords=[4]{Feature, Scenario},
+  morekeywords=[2]{Given, When, Then, And},
+  morekeywords=[3]{url, path, param, params, method, request, status, response},
+  keywordstyle=[4]\color{blue}, % style of comments
+  keywordstyle=[2]\color{magenta}, % style of comments
+  keywordstyle=[3]\color{brown}, % style of comments
+  sensitive=false, % keywords are not case-sensitive
+  morecomment=[l]{#}, % l is for line comment
+  morecomment=[s]{/*}{*/}, % s is for start and end delimiter
+  morestring=[b]", % defines that strings are enclosed in double quotes
+  escapeinside={*@}{@*}, % Define the escape characters
+  rulecolor=\color{black}, % Define the frame color
+}
+
+% Define Colors
+% \usepackage{color}
+\definecolor{eclipseBlue}{RGB}{42,0.0,255}
+\definecolor{eclipseGreen}{RGB}{63,127,95}
+\definecolor{eclipsePurple}{RGB}{127,0,85}
+ 
+% Set Language
+\lstset{
+  language={myLang},
+  basicstyle=\small\ttfamily, % Global Code Style
+  captionpos=b, % Position of the Caption (t for top, b for bottom)
+  extendedchars=true, % Allows 256 instead of 128 ASCII characters
+  tabsize=2, % number of spaces indented when discovering a tab 
+  columns=fixed, % make all characters equal width
+  keepspaces=true, % does not ignore spaces to fit width, convert tabs to spaces
+  showstringspaces=false, % lets spaces in strings appear as real spaces
+  breaklines=true, % wrap lines if they don't fit
+  frame=lines,
+  numbers=left, % show line numbers at the left
+  numberstyle=\tiny\ttfamily, % style of the line numbers
+  commentstyle=\color{eclipseGreen}, % style of comments
+  keywordstyle=\color{eclipsePurple}, % style of keywords
+  stringstyle=\color{eclipseBlue} % style of strings
+}
+
+\setlength{\tabcolsep}{10pt} % Default value: 6pt
+\renewcommand{\arraystretch}{1.5} % Default value: 1
+
+\usepackage{longtable}
+% % \usepackage[margin=2cm,landscape]{geometry}
+% \usepackage[english]{babel}
+
+\usepackage{array,ragged2e}
+\newcolumntype{P}[1]{>{\justifying\arraybackslash}p{#1}}
+
+
+\setlist{nosep}
+\setlength{\parindent}{1cm}
+\usepackage[font=small,labelfont=bf,labelsep=space]{caption}
+
+\captionsetup[longtable]{labelsep=space}
+\captionsetup[table]{labelsep=space}
+\captionsetup[figure]{labelsep=space}
+% \usepackage[font=small,labelfont=bf]{caption}
+\usepackage[numbers]{natbib}
+
+\usetikzlibrary{shapes.geometric, arrows}
+\definecolor{blu}{RGB}{135,206,250}
+\definecolor{ore}{RGB}{255,140,0}
+\tikzstyle{process} = [rectangle, rounded corners, minimum width=4cm, minimum height=1cm, text centered, text width=5cm, draw=black, fill=blu]
+\tikzstyle{process2} = [rectangle, rounded corners, minimum width=3cm, minimum height=1cm, text centered, text width=3cm, draw=black, fill=blu]
+\tikzstyle{decision} = [diamond, minimum width=2.2cm, minimum height=0.3cm, text centered, text width=1.1cm, draw=black, fill=orange!40]
+\tikzstyle{arrow} = [thick,->,>=stealth]
+
+\usepackage{gensymb}
+\usepackage{notoccite}
+\usepackage{float}
+\usepackage[colorlinks,
+  citecolor=black,
+  linkcolor=black,
+  urlcolor=black]{hyperref}
+  \urlstyle{rm}
+\usepackage{indentfirst}
+\usepackage{amsmath}
+% \usepackage{breakurl}
+\usepackage{listings}
+% \usepackage{natbib}
+
+%%%%%%%
+\title{\huge \bfseries SKRIPSI}
+\author{825230066 CELVIN}
+
+\renewcommand{\chaptername}{BAB }
+% \renewcommand{\figurename}{\textbf{Gambar}}
+\renewcommand{\figurename}{}
+% \renewcommand{\tablename}{Tabel}
+\renewcommand{\tablename}{}
+\renewcommand{\lstlistingname}{\textbf{Kode}}
+\renewcommand{\contentsname}{DAFTAR ISI}
+\renewcommand{\listtablename}{DAFTAR TABEL}
+\renewcommand{\listfigurename}{DAFTAR GAMBAR}
+\renewcommand{\lstlistlistingname}{DAFTAR KODE}
+\renewcommand{\bibname}{DAFTAR PUSTAKA}
+
+\renewcommand{\thechapter}{\Roman{chapter}}
+\renewcommand{\thesection}{\arabic{chapter}.\arabic{section}.}
+\renewcommand{\thesubsection}{\arabic{chapter}.\arabic{section}.\arabic{subsection}.}
+\renewcommand{\thesubsubsection}{\arabic{chapter}.\arabic{section}.\arabic{subsection}.\arabic{subsubsection}.}
+
+
+%ini test format juga ke dua
+\renewcommand{\thefigure}{Gambar \arabic{figure}}
+\renewcommand{\thetable}{Tabel \arabic{table}}
+%ini test format juga ke dua
+
+% \renewcommand{\thefigure}{\arabic{chapter}.\arabic{figure}}
+% \renewcommand{\thetable}{\arabic{chapter}.\arabic{table}}
+\renewcommand{\theequation}{\arabic{chapter}.\arabic{equation}}
+
+\AtBeginDocument{
+\renewcommand\thelstlisting{\arabic{chapter}.\arabic{lstlisting}}
+}
+
+
+
+\usepackage{graphicx}
+\usepackage[a4paper,top=40mm,bottom=30mm,left=40mm,right=30mm]{geometry}
+
+\usepackage{tocloft}
+\renewcommand{\cftsecleader}{\cftdotfill{\cftdotsep}}
+\renewcommand{\cftchapfont}{\bfseries}
+\renewcommand{\cftchappagefont}{\bfseries}
+\renewcommand{\cftchappresnum}{BAB }
+\renewcommand{\cftchapaftersnum}{.}
+\renewcommand{\cftchapnumwidth}{4em}
+\renewcommand{\cfttoctitlefont}{\hspace*{\fill}\Large\bfseries}
+\renewcommand{\cftaftertoctitle}{\hspace*{\fill}}
+\renewcommand{\cftlottitlefont}{\hspace*{\fill}\Large\bfseries}
+\renewcommand{\cftafterlottitle}{\hspace*{\fill}}
+\renewcommand{\cftloftitlefont}{\hspace*{\fill}\Large\bfseries}
+\renewcommand{\cftafterloftitle}{\hspace*{\fill}}
+
+\usepackage{sectsty}
+\usepackage{dirtree}
+
+\newcounter{appendixletter}
+\renewcommand{\theappendixletter}{\Roman{appendixletter}}
+
+\newcommand{\nextappendix}{\stepcounter{appendixletter}}
+\newcommand{\customappendixlabel}[1]{\label{#1}}
+
+
+\chapternumberfont{\Large} 
+\chaptertitlefont{\Large}
+\pagenumbering{roman}
+\sectionfont{\normalsize}
+\subsectionfont{\normalsize}
+\titleformat{\section}{\large\bfseries}{\thesection}{1em}{}
+\titlespacing\section{0pt}{12pt plus 4pt minus 2pt}{0pt plus 2pt minus 2pt}
+\titlespacing\subsection{0pt}{12pt plus 4pt minus 2pt}{0pt plus 2pt minus 2pt}
+\titlespacing\subsubsection{0pt}{12pt plus 4pt minus 2pt}{0pt plus 2pt minus 2pt}
+
+\titleformat{\chapter}[display]
+	{\normalfont\large\bfseries\centering}{\chaptertitlename \thechapter \centering}{-10pt}{\large}
+\titlespacing*{\chapter}{0pt}{-30pt}{20pt}
+
+\setcounter{secnumdepth}{4}
+\setcounter{tocdepth}{4}
+
+\usepackage{xcolor}
+% \definecolor{Gainsboro}{RGB}{220, 220, 220}
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{1,1,1}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+
+\lstset{style=mystyle}
+
+
+\setmainfont{Calibri}[
+    Path=./Font/,
+    Extension = .ttf,
+    UprightFont=*-regular,
+    BoldFont=*-bold,
+    ItalicFont=*-italic,
+    BoldItalicFont=*-bold-italic
+]
+
+\begin{document}
+% \newgeometry{a4paper,top=4cm,bottom=3cm,left=4cm,right=3cm}
+\newgeometry{a4paper,top=2.5cm,bottom=3.5cm,left=2cm,right=2cm}
+
+% \input{Header/sampul}
+\input{Header/cover-proposal}
+\newpage
+\input{Header/persetujuan-proposal-skripsi}
+\input{Header/persetujuan-skripsi}
+\input{Header/pengesahan}
+\input{Header/pernyataan}
+
+\input{Header/abstrak}
+% \input{Header/abstract}
+\input{Header/kata-pengantar}
+% \input{Header/abstract}
+\input{Header/daftar-isi}
+\input{Header/daftar-tabel}
+\input{Header/daftar-gambar}
+% \input{Header/daftar-kode}
+
+\input{Isi/bab1_pendahuluan}
+\input{Isi/bab2_dasar-teoritik-metodologi-perancangan.tex}
+\input{Isi/bab3_pembuatan-dan-implementasi}
+\input{Isi/bab4_hasil-dan-pembahasan}
+\input{Isi/bab5_kesimpulan-dan-saran}
+
+\bibliographystyle{IEEEtranN}
+% \bibliographystyle{unsrtnat}  % Choose your desired bibliography style
+
+%  \renewcommand{\thefigure}{2.\arabic{figure}}
+
+% \renewcommand{\thetable}{2.\arabic{table}}
+
+% \bibliographystyle{unsrt}
+\bibliography{references}
+\addcontentsline{toc}{chapter}{DAFTAR PUSTAKA}
+\input{Isi/lampiran}
+\input{Footer/daftar-bimbingan}
+
+\input{Footer/lampiran-nashkah-publikasi}
+\input{Footer/riwayat-hidup}
+% \input{Footer/manual-program}
+\end{document}

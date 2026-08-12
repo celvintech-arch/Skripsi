@@ -1,0 +1,890 @@
+\begin{longtable}{ |p{6cm}|p{8cm}|}
+\caption{\textit{Use Case Scenario} Registrasi Akun}\label{tab:use-case-scenario-registrasi-akun} 
+\\
+\hline
+\textbf{\textit{Use Case Name}}
+&Registrasi Akun 
+\\ \hline
+
+\textbf{\textit{Actor}}
+&\textit{Staff Infrastructure}, \textit{Manager Infrastructure} 
+\\ \hline
+
+\textbf{\textit{Brief Description}}
+&\textit{Actor} yang tidak memiliki akun untuk \textit{login} dapat melakukan registrasi akun
+\\ \hline
+
+\textbf{\textit{Entry Conditions}}
+&\textit{Actor} telah mengakses menu registrasi akun
+\\ \hline
+
+\textbf{\textit{Flow of event}}
+&1. \textit{Actor} membuka menu registasi akun
+\newline
+2. \textit{Actor} mengisi seluruh \textit{form input} regitrasi akun dan menekan tombol \textit{submit}
+\newline
+3. Sistem menampilkan \textit{modal} verifikasi \textit{email} dan mengirimkan kode OTP ke \textit{email} \textit{actor}
+\newline
+4. \textit{Actor} mengisi kode OTP yang didapatkan melalui \textit{email}
+\newline
+5. \textit{Actor} menunggu akun diaktifkan oleh \textit{Manager}
+\\ \hline
+
+\textbf{\textit{Alternative scenario}}
+&\textit{Actor} mengisi \textit{input email} pada \textit{form registrasi} dengan \textit{email} selain domain perusahaan dan sudah terdaftar maka : Sistem menampilkan pesan error
+\\ \hline
+
+\textbf{\textit{Exit Conditions}}
+&Sistem menampilkan menu \textit{login}
+\\ \hline
+\end{longtable}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{longtable}{ |p{6cm}|p{8cm}|}
+\caption{\textit{Use Case Scenario} Ganti Password}\label{tab:use-case-scenario-ganti-password} 
+\\
+\hline
+\textbf{\textit{Use Case Name}}
+&Ganti Password
+\\ \hline
+
+\textbf{\textit{Actor}}
+&\textit{Staff Infrastructure}, \textit{Manager Infrastructure}, \textit{Manager Human Resources}
+\\ \hline
+
+\textbf{\textit{Brief Description}}
+&\textit{Actor} yang ingin mengganti password akun
+\\ \hline
+
+\textbf{\textit{Entry Conditions}}
+&\textit{Actor} telah melakukan \textit{login}
+\\ \hline
+
+\textbf{\textit{Flow of event}}
+&1. \textit{Actor} membuka menu profil dan menekan tombol \textit{change password}
+\newline
+2. \textit{Actor} mengisi seluruh \textit{form input} pergantian password dan menekan tombol \textit{submit}
+\newline
+\\ \hline
+
+\textbf{\textit{Alternative scenario}}
+&\textit{Actor} yang salah mengisi password lama maka sistem akan mengembalikan pesan kesalahan
+\\ \hline
+
+\textbf{\textit{Exit Conditions}}
+&Sistem selesai memproses pergantian passowrd dan menampilkan pesan berhasil ganti password
+\\ \hline
+\end{longtable}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\FloatBarrier
+\begin{longtable}{ |p{6cm}|p{8cm}|}
+\caption{\textit{Use Case Scenario Login}}\label{tab:use-case-scenario-login} 
+\\
+\hline
+\textbf{\textit{Use Case Name}}
+&\textit{Login}
+\\ \hline
+
+\textbf{\textit{Actor}}
+&\textit{Staff Infrastructure}, \textit{Manager Infrastructure}, \textit{Manager Human Resources} 
+\\ \hline
+
+\textbf{\textit{Brief Description}}
+&\textit{Actor} yang ingin masuk ke dalam menu utama dan menggunakan seluruh fitur didalam aplikasi
+\\ \hline
+
+\textbf{\textit{Entry Conditions}}
+&\textit{Actor} yang telah melakukan regitrasi akun dan akun sudah berstatus aktif
+\\ \hline
+
+\textbf{\textit{Flow of event}}
+&1. \textit{Actor} membuka halaman \textit{login}
+\newline
+2. \textit{Actor} mengisi seluruh \textit{form input} login dan menekan tombol \textit{login}
+\newline
+3. Sistem melakukan pengecekkan terhadap \textit{credential} dari \textit{user}
+\newline
+4. Sistem regenerasi \textit{session} pada \textit{user}
+\\ \hline
+
+\textbf{\textit{Alternative scenario}}
+&1. \textit{Actor} yang salah mengisi \textit{form input email} atau \textit{password} maka: Sistem menampilkan pesan error
+\newline
+2. \textit{Actor} yang sudah \textit{login} sebelumnya dan sistem akan mengecek \textit{session} dari \textit{user}, kemudian mengarahkan \textit{user} ke halaman utama
+\\ \hline
+
+\textbf{\textit{Exit Conditions}}
+&Sistem menampilkan menu utama dengan fitur yang sesuai masing-masing \textit{position} dan \textit{department}
+\\ \hline
+\end{longtable}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\FloatBarrier
+\begin{longtable}{ |p{6cm}|p{8cm}|}
+\caption{\textit{Use Case Scenario Logout}}\label{tab:use-case-scenario-logout} 
+\\
+\hline
+\textbf{\textit{Use Case Name}}
+&\textit{Logout}
+\\ \hline
+
+\textbf{\textit{Actor}}
+&\textit{Staff Infrastructure}, \textit{Manager Infrastructure}, \textit{Manager Human Resources} 
+\\ \hline
+
+\textbf{\textit{Brief Description}}
+&\textit{Actor} yang telah melakukan \textit{login} dan ingin keluar dari sesi \textit{login}
+\\ \hline
+
+\textbf{\textit{Entry Conditions}}
+&\textit{Actor} yang sudah melakukan \textit{login}
+\\ \hline
+
+\textbf{\textit{Flow of event}}
+&1. \textit{Actor} menekan tombol yang bergambar \textit{profile user} pada \textit{navbar}
+\newline
+2. Sistem akan menampilkan beberapa pilihan, \textit{actor} menekan pilihan \textit{logout}
+\newline
+3. Sistem akan melakukan \textit{logout} dan menghapus \textit{session} dari \textit{user}
+\\ \hline
+
+\textbf{\textit{Alternative scenario}}
+&-
+\\ \hline
+
+\textbf{\textit{Exit Conditions}}
+&Sistem menampilkan menu \textit{login}
+\\ \hline
+\end{longtable}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\FloatBarrier
+\begin{longtable}{ |p{6cm}|p{8cm}|}
+\caption{\textit{Use Case Scenario Melakukan Clock In}}\label{tab:use-case-scenario-clock-in} 
+\\
+\hline
+\textbf{\textit{Use Case Name}}
+&\textit{Melakukan clock In}
+\\ \hline
+
+\textbf{\textit{Actor}}
+&\textit{Staff Infrastructure}
+\\ \hline
+
+\textbf{\textit{Brief Description}}
+&\textit{Actor} yang melakukan presensi masuk
+\\ \hline
+
+\textbf{\textit{Entry Conditions}}
+&\textit{Actor} yang sudah melakukan \textit{login} dan belum melakukan \textit{clock in} sebelumnya
+\\ \hline
+
+\textbf{\textit{Flow of event}}
+&1. \textit{Actor} menekan tombol \textit{presence} pada navbar
+\newline
+2. Sistem akan tampilan halaman \textit{presence}
+\newline
+3. \textit{Actor} menekan tombol \textit{clock in}
+\newline
+4. Sistem akan menampikan \textit{pop up modal} yang berisi tombol untuk pengambilan lokasi dan foto
+\newline
+5. \textit{Actor} menekan tombol \textit{get my location} untuk meng-\textit{input} lokasi \textit{user} secara otomatis melalui GPS dan \textit{Actor} menekan tombol \textit{take photo} untuk membuka kamera dan melakukan pengambilan foto
+\newline
+6. Mengisi \textit{form input} informasi presensi , kemudian menekan tombol \textit{clock in now}
+\newline
+7. Sistem akan menyimpan data presensi \textit{actor}
+\\ \hline
+
+\textbf{\textit{Alternative scenario}}
+&\textit{Actor} yang sudah melakukan \textit{clock in} saat terakhir kali maka : tombol \textit{clock in} akan ter-\textit{disabled}
+\\ \hline
+
+\textbf{\textit{Exit Conditions}}
+&Sistem selesai memproses data presensi masuk dan menampilkan \textit{pop up message} berhasil \textit{clock in}
+\\ \hline
+\end{longtable}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\FloatBarrier
+\begin{longtable}{ |p{6cm}|p{8cm}|}
+\caption{\textit{Use Case Scenario} Melakukan \textit{Clock Out}}\label{tab:use-case-scenario-clock-out} 
+\\
+\hline
+\textbf{\textit{Use Case Name}}
+&Melakukan \textit{clock Out}
+\\ \hline
+
+\textbf{\textit{Actor}}
+&\textit{Staff Infrastructure}
+\\ \hline
+
+\textbf{\textit{Brief Description}}
+&\textit{Actor} yang melakukan presensi keluar
+\\ \hline
+
+\textbf{\textit{Entry Conditions}}
+&\textit{Actor} yang sudah melakukan \textit{login} dan sudah melakukan \textit{clock in} sebelumnya
+\\ \hline
+
+\textbf{\textit{Flow of event}}
+&1. \textit{Actor} menekan tombol \textit{presence} pada navbar
+\newline
+2. Sistem akan tampilan halaman \textit{presence}
+\newline
+3. \textit{Actor} menekan tombol \textit{clock out}
+\newline
+4. Sistem akan menampikan \textit{pop up modal} yang berisi tombol untuk pengambilan lokasi dan foto
+\newline
+5. \textit{Actor} menekan tombol \textit{get my location} untuk meng-\textit{input} lokasi \textit{user} secara otomatis melalui GPS dan \textit{Actor} menekan tombol \textit{take photo} untuk membuka kamera dan melakukan pengambilan foto
+\newline
+6. Mengisi \textit{input form} informasi presensi, kemudian menekan tombol \textit{clock out now}
+\newline
+7. Sistem akan menyimpan data presensi \textit{actor}, dan sistem akan mengecek pada data presensi saat \textit{clock in} dan \textit{clock out} dan menyimpan data lembur jika presensi dilakukan diluar jam \textit{shift} kerja atau hari libur
+\newline
+8. Jika terdapat data lembur, sistem menyimpan data lembur
+\\ \hline
+
+\textbf{\textit{Alternative scenario}}
+&\textit{Actor} yang belum melakukan \textit{clock in} saat terakhir kali maka : tombol \textit{clock out} akan ter-\textit{disabled}
+\\ \hline
+
+\textbf{\textit{Exit Conditions}}
+&Sistem selesai memproses data presensi keluar dan data lembur, kemudian menampilkan \textit{pop up message} berhasil \textit{clock out}
+\\ \hline
+\end{longtable}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\FloatBarrier
+\begin{longtable}{ |p{6cm}|p{8cm}|}
+\caption{\textit{Use Case Scenario} Melakukan Pengajuan Lembur}\label{tab:use-case-scenario-melakukan-pengajuan-lembur} 
+\\
+\hline
+\textbf{\textit{Use Case Name}}
+&Melakukan pengajuan lembur
+\\ \hline
+
+\textbf{\textit{Actor}}
+&\textit{Staff Infrastructure}
+\\ \hline
+
+\textbf{\textit{Brief Description}}
+&\textit{Actor} yang melakukan pengajuan lembur
+\\ \hline
+
+\textbf{\textit{Entry Conditions}}
+&\textit{Actor} yang sudah melakukan \textit{login} dan ingin mengajukan lembur karena lupa presensi saat jam lembur
+\\ \hline
+
+\textbf{\textit{Flow of event}}
+&1. \textit{Actor} menekan tombol \textit{request} pada navbar
+\newline
+2. Sistem akan menampilkan halaman \textit{overtime correction request}
+\newline
+3. \textit{Actor} mengisi seluruh \textit{form input} pada halaman \textit{overtime correction request} dan menekan tombol submit
+\newline
+4. Sistem akan menyimpan data lembur yang telah diisi oleh \textit{actor}
+\\ \hline
+
+\textbf{\textit{Alternative scenario}}
+&\textit{Actor} yang tidak mengisi seluruh \textit{input form} maka : Sistem akan memberikan pesan error
+\\ \hline
+
+\textbf{\textit{Exit Conditions}}
+&Sistem selesai memproses data lembur dan menampilkan \textit{pop up message} berhasil dan mengembalikan tampilan ke halaman \textit{overtime correction request}
+\\ \hline
+\end{longtable}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\FloatBarrier
+\begin{longtable}{ |p{6cm}|p{8cm}|}
+\caption{\textit{Use Case Scenario} Melihat Jadwal \textit{Shift} Kerja}\label{tab:use-case-scenario-melihat-jadwal-shift-kerja} 
+\\
+\hline
+\textbf{\textit{Use Case Name}}
+&Melihat jadwal \textit{shift} kerja
+\\ \hline
+
+\textbf{\textit{Actor}}
+&\textit{Staff Infrastructure}
+\\ \hline
+
+\textbf{\textit{Brief Description}}
+&\textit{Actor} yang melihat jadwal \textit{shift} kerja
+\\ \hline
+
+\textbf{\textit{Entry Conditions}}
+&\textit{Actor} yang sudah melakukan \textit{login} dan ingin melihat jadwal \textit{shift} kerja
+\\ \hline
+
+\textbf{\textit{Flow of event}}
+&1. \textit{Actor} menekan tombol \textit{presence} pada \textit{navbar}
+\newline
+2. Sistem akan menampilkan halaman \textit{presence}
+\newline
+3. \textit{Actor} menekan tombol \textit{shift schedule}
+\newline
+4. Sistem akan menampilkan jadwal kerja \textit{actor}
+\\ \hline
+
+\textbf{\textit{Alternative scenario}}
+&\textit{Actor} yang tidak memiliki jadwal kerja maka tidak akan ada data yang ditampilkan
+\\ \hline
+
+\textbf{\textit{Exit Conditions}}
+&\textit{Actor} menutup \textit{modal} data \textit{shift} dan sistem menampilkan kembali halaman \textit{attendance}
+\\ \hline
+\end{longtable}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\FloatBarrier
+\begin{longtable}{ |p{6cm}|p{8cm}|}
+\caption{\textit{Use Case Scenario} Melakukan \textit{Reject} Pada Data Lembur}\label{tab:use-case-scenario-melakukan-approval} 
+\\
+\hline
+\textbf{\textit{Use Case Name}}
+&Melakukan \textit{reject} pada data lembur
+\\ \hline
+
+\textbf{\textit{Actor}}
+&\textit{Manager Infrastructure}
+\\ \hline
+
+\textbf{\textit{Brief Description}}
+&\textit{Actor} yang melakukan \textit{reject} pada data lembur
+\\ \hline
+
+\textbf{\textit{Entry Conditions}}
+&\textit{Actor} yang sudah melakukan \textit{login} dan ingin melakukan penolakkan atau \textit{reject} pada data lembur yang masuk
+\\ \hline
+
+\textbf{\textit{Flow of event}}
+&1. \textit{Actor} menekan tombol \textit{reject} pada \textit{navbar}
+\newline
+2. Sistem akan menampilkan \textit{list} data \textit{lembur} yang tidak pernah di-\textit{reject}
+\newline
+3. \textit{Actor} melakukan \textit{reject} pada data yang dipilih atau mencetang \textit{checkbox} pada data lembur dan menekan tombol \textit{reject selected}
+\newline
+5. \textit{Actor} melakukan konfirmasi perubahan
+\newline
+6. Sistem menyimpan perubahan data
+\\ \hline
+
+\textbf{\textit{Alternative scenario}}
+&-
+\\ \hline
+
+\textbf{\textit{Exit Conditions}}
+&Sistem selesai memproses seluruh perubahan data lembur dan kembali menampilkan halaman \textit{reject}
+\\ \hline
+\end{longtable}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\FloatBarrier
+\begin{longtable}{ |p{6cm}|p{8cm}|}
+\caption{\textit{Use Case Scenario} Melakukan \textit{Export} Data Lembur ke \textit{Excel}}\label{tab:use-case-scenario-melakukan-export-data-lembur} 
+\\
+\hline
+\textbf{\textit{Use Case Name}}
+&Melakukan \textit{Export} Data Lembur ke \textit{Excel}
+\\ \hline
+
+\textbf{\textit{Actor}}
+&\textit{Manager Human Resources, Manager Infrastructure}
+\\ \hline
+
+\textbf{\textit{Brief Description}}
+&\textit{Actor} yang melakukan \textit{export} data lembur menjadi format \textit{Excel}
+\\ \hline
+
+\textbf{\textit{Entry Conditions}}
+&\textit{Actor} yang sudah melakukan \textit{login} dan ingin melakukan \textit{export} data lembur menjadi format \textit{Excel}
+\\ \hline
+
+\textbf{\textit{Flow of event}}
+&1. \textit{Actor} menekan tombol \textit{overtime history} pada \textit{navbar}
+\newline
+2. Sistem akan menampilkan \textit{list} data riwayat lembur
+\newline
+3. \textit{Actor} melakukan \textit{filter} nama \textit{staff}, tanggal atau status
+\newline
+4. Sistem menampilkan data lembur yang telah di-\textit{filter}
+\newline
+5. \textit{Actor} menekan tombol \textit{Export}
+\newline
+6. Sistem akan memproses data lembur dan memberikan konfirmasi untuk men-\textit{download} \textit{file} dalam bentu \textit{Excel}
+\newline
+7. \textit{Actor} mengunduh \textit{file Excel}
+\newline
+\\ \hline
+
+\textbf{\textit{Alternative scenario}}
+&Jika tidak ada data lembur atau data yang di-\textit{filter} tidak ditemukan, maka sistem tidak akan memproses permintaan \textit{export}
+\\ \hline
+
+\textbf{\textit{Exit Conditions}}
+&\textit{Actor} menekan konfirmasi saat pengunduhan \textit{file} dan sistem akan mengembalikan tampilan ke \textit{overtime history}
+\\ \hline
+\end{longtable}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\FloatBarrier
+\begin{longtable}{ |p{6cm}|p{8cm}|}
+\caption{\textit{Use Case Scenario} Melakukan \textit{Export} Data Presensi ke \textit{Excel}}\label{tab:use-case-scenario-melakukan-export-data-presensi} 
+\\
+\hline
+\textbf{\textit{Use Case Name}}
+&Melakukan \textit{Export} Data Presensi ke \textit{Excel}
+\\ \hline
+
+\textbf{\textit{Actor}}
+&\textit{Manager Human Resources, Manager Infrastructure}
+\\ \hline
+
+\textbf{\textit{Brief Description}}
+&\textit{Actor} yang melakukan \textit{export} data presensi menjadi format \textit{Excel}
+\\ \hline
+
+\textbf{\textit{Entry Conditions}}
+&\textit{Actor} yang sudah melakukan \textit{login} dan ingin melakukan \textit{export} data presensi menjadi format \textit{Excel}
+\\ \hline
+
+\textbf{\textit{Flow of event}}
+&1. \textit{Actor} menekan tombol \textit{attendance history} pada \textit{navbar}
+\newline
+2. Sistem akan menampilkan \textit{list} data riwayat presensi
+\newline
+3. \textit{Actor} melakukan \textit{filter} nama \textit{staff}, tanggal atau status
+\newline
+4. Sistem menampilkan data presensi yang telah di-\textit{filter}
+\newline
+5. \textit{Actor} menekan tombol \textit{Export}
+\newline
+6. Sistem akan memproses data presensi dan memberikan konfirmasi untuk men-\textit{download} \textit{file} dalam bentu \textit{Excel}
+\newline
+7. \textit{Actor} mengunduh \textit{file Excel}
+\newline
+\\ \hline
+
+\textbf{\textit{Alternative scenario}}
+&Jika tidak ada data presensi atau data yang di-\textit{filter} tidak ditemukan, maka sistem tidak akan memproses permintaan \textit{export}
+\\ \hline
+
+\textbf{\textit{Exit Conditions}}
+&\textit{Actor} menekan konfirmasi saat pengunduhan \textit{file} dan sistem akan mengembalikan tampilan ke \textit{attendance history}
+\\ \hline
+\end{longtable}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\FloatBarrier
+\begin{longtable}{ |p{6cm}|p{8cm}|}
+\caption{\textit{Use Case Scenario} Melihat Riwayat Lembur}\label{tab:use-case-scenario-melihat-riwayat-lembur} 
+\\
+\hline
+\textbf{\textit{Use Case Name}}
+&Melihat riwayat lembur
+\\ \hline
+
+\textbf{\textit{Actor}}
+&\textit{Staff Infrastructure}, \textit{Manager Infrastructure}, \textit{Manager Human Resources}
+\\ \hline
+
+\textbf{\textit{Brief Description}}
+&\textit{Actor} yang melihat riwayat lembur
+\\ \hline
+
+\textbf{\textit{Entry Conditions}}
+&\textit{Actor} yang sudah melakukan \textit{login} dan ingin melihat riwayat lembur
+\\ \hline
+
+\textbf{\textit{Flow of event}}
+&1. \textit{Actor} menekan tombol \textit{overtime history} pada \textit{navbar}
+\newline
+2. Sistem akan menampilkan \textit{list} data riwayat lembur
+\newline
+3. \textit{Actor} melakukan \textit{filter} tanggal dan status pada data lembur untuk mencari spesifik data lembur
+\newline
+4. \textit{Actor} menekan tombol \textit{details} pada salah satu data lembur
+\newline
+5. Sistem menampilkan halaman \textit{details} dan informasi lengkap terkait data lembur yang dipilih
+\newline
+\\ \hline
+
+\textbf{\textit{Alternative scenario}}
+&Jika tidak ada data lembur atau data yang di-\textit{filter} tidak ditemukan, maka sistem tidak akan menampilkan data
+\\ \hline
+
+\textbf{\textit{Exit Conditions}}
+&\textit{Actor} menekan tombol kembali dan sistem akan menampilkan kembali halaman \textit{overtime history}
+\\ \hline
+\end{longtable}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\FloatBarrier
+\begin{longtable}{ |p{6cm}|p{8cm}|}
+\caption{\textit{Use Case Scenario} Melihat Riwayat Presensi}\label{tab:use-case-scenario-melihat-riwayat-presensi} 
+\\
+\hline
+\textbf{\textit{Use Case Name}}
+&Melihat riwayat presensi
+\\ \hline
+
+\textbf{\textit{Actor}}
+&\textit{Staff Infrastructure}, \textit{Manager Infrastructure}, \textit{Manager Human Resources}
+\\ \hline
+
+\textbf{\textit{Brief Description}}
+&\textit{Actor} yang melihat riwayat presensi
+\\ \hline
+
+\textbf{\textit{Entry Conditions}}
+&\textit{Actor} yang sudah melakukan \textit{login} dan ingin melihat riwayat presensi
+\\ \hline
+
+\textbf{\textit{Flow of event}}
+&1. \textit{Actor} menekan tombol \textit{attendance history} pada \textit{navbar}
+\newline
+2. Sistem akan menampilkan \textit{list} data riwayat presensi
+\newline
+3. \textit{Actor} melakukan \textit{filter} tanggal pada data presensi untuk mencari spesifik data presensi
+\newline
+4. \textit{Actor} menekan tombol \textit{details} pada salah satu data presensi
+\newline
+5. Sistem menampilkan halaman \textit{details} dan informasi lengkap terkait data presensi yang dipilih
+\newline
+\\ \hline
+
+\textbf{\textit{Alternative scenario}}
+&Jika tidak ada data presensi atau data yang di-\textit{filter} tidak ditemukan, maka sistem tidak akan menampilkan data
+\\ \hline
+
+\textbf{\textit{Exit Conditions}}
+&\textit{Actor} menekan tombol kembali dan sistem akan menampilkan kembali halaman \textit{attendance history}
+\\ \hline
+\end{longtable}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\FloatBarrier
+\begin{longtable}{ |p{6cm}|p{8cm}|}
+\caption{\textit{Use Case Scenario} Mengelola Jenis \textit{Shift}}\label{tab:use-case-scenario-mengelola-jenis-shift} 
+\\
+\hline
+\textbf{\textit{Use Case Name}}
+&Mengelola jenis \textit{shift}
+\\ \hline
+
+\textbf{\textit{Actor}}
+&\textit{Manager Human Resources}, \textit{Manager Infrastructure}
+\\ \hline
+
+\textbf{\textit{Brief Description}}
+&\textit{Actor} yang mengelola jenis \textit{shift}
+\\ \hline
+
+\textbf{\textit{Entry Conditions}}
+&\textit{Actor} yang sudah melakukan \textit{login} dan ingin mengelola jenis \textit{shift}
+\\ \hline
+
+\textbf{\textit{Flow of event}}
+&1. \textit{Actor} menekan tombol \textit{shift} pada \textit{navbar}
+\newline
+2. Sistem akan menampilkan halaman \textit{shift} beserta data jenis \textit{shift} kerja
+\newline
+3. \textit{Actor} mengelola (\textit{create, update, delete}) data jenis \textit{shift}
+    \newline
+4. Sistem menampilkan konfirmasi perubahan data
+\newline
+5. \textit{Actor} melakukan konfirmasi perubahan
+\newline
+6. Sistem menyimpan perubahan data
+\newline
+\\ \hline
+
+\textbf{\textit{Alternative scenario}}
+&\textit{Actor} yang tidak melakukan konfirmasi perubahan data maka sistem tidak akan menyimpan perubahan data
+\\ \hline
+
+\textbf{\textit{Exit Conditions}}
+&Sistem selesai memproses seluruh perubahan data jenis \textit{shift} dan kembali menampilkan halaman \textit{shift}
+\\ \hline
+\end{longtable}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\FloatBarrier
+\begin{longtable}{ |p{6cm}|p{8cm}|}
+\caption{\textit{Use Case Scenario} Mengelola Hari \textit{Shift}}\label{tab:use-case-scenario-mengelola-hari-shift} 
+\\
+\hline
+\textbf{\textit{Use Case Name}}
+&Mengelola hari \textit{shift}
+\\ \hline
+
+\textbf{\textit{Actor}}
+&\textit{Manager Human Resources}, \textit{Manager Infrastructure}
+\\ \hline
+
+\textbf{\textit{Brief Description}}
+&\textit{Actor} yang mengelola hari \textit{shift}
+\\ \hline
+
+\textbf{\textit{Entry Conditions}}
+&\textit{Actor} yang sudah melakukan \textit{login} dan ingin mengelola hari \textit{shift}
+\\ \hline
+
+\textbf{\textit{Flow of event}}
+&1. \textit{Actor} menekan \textit{edit} pada salah satu jenis \textit{shift} melalui halaman \textit{shift}
+\newline
+2. Sistem akan menampilkan \textit{modal} hari \textit{shift} beserta data hari \textit{shift} kerja
+\newline
+3. \textit{Actor} mengelola (\textit{create, update, delete}) data hari \textit{shift}
+    \newline
+4. Sistem menampilkan konfirmasi perubahan data
+\newline
+5. \textit{Actor} melakukan konfirmasi perubahan
+\newline
+6. Sistem menyimpan perubahan data
+\newline
+\\ \hline
+
+\textbf{\textit{Alternative scenario}}
+&\textit{Actor} yang tidak melakukan konfirmasi perubahan data maka sistem tidak akan menyimpan perubahan data
+\\ \hline
+
+\textbf{\textit{Exit Conditions}}
+&Sistem selesai memproses seluruh perubahan data hari \textit{shift} dan kembali menampilkan halaman \textit{shift}
+\\ \hline
+\end{longtable}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\FloatBarrier
+\begin{longtable}{ |p{6cm}|p{8cm}|}
+\caption{\textit{Use Case Scenario} Mengelola Penjadwalan \textit{Shift}}\label{tab:use-case-scenario-mengelola-penjadwalan-shift}
+\\
+\hline
+\textbf{\textit{Use Case Name}}
+&Mengelola penjadwalan \textit{shift}
+\\ \hline
+
+\textbf{\textit{Actor}}
+&\textit{Manager Human Resources}, \textit{Manager Infrastructure}
+\\ \hline
+
+\textbf{\textit{Brief Description}}
+&\textit{Actor} yang mengelola penjadwalan \textit{shift}
+\\ \hline
+
+\textbf{\textit{Entry Conditions}}
+&\textit{Actor} yang sudah melakukan \textit{login} dan ingin mengelola penjadwalan \textit{shift}
+\\ \hline
+
+\textbf{\textit{Flow of event}}
+&1. \textit{Actor} menekan tombol \textit{shift scheduling} pada \textit{navbar}
+\newline
+2. Sistem akan menampilkan halaman penjadwalan \textit{shift} beserta data penjadwalan \textit{shift} kerja
+\newline
+3. \textit{Actor} mengelola (\textit{create, update, delete, import}) data penjadwalan \textit{shift}
+    \newline
+4. Sistem menampilkan konfirmasi perubahan data
+\newline
+5. \textit{Actor} melakukan konfirmasi perubahan
+\newline
+6. Sistem menyimpan perubahan data
+\newline
+\\ \hline
+
+\textbf{\textit{Alternative scenario}}
+&\textit{Actor} yang tidak melakukan konfirmasi perubahan data maka sistem tidak akan menyimpan perubahan data
+\\ \hline
+
+\textbf{\textit{Exit Conditions}}
+&Sistem selesai memproses seluruh perubahan data penjadwalan \textit{shift} dan kembali menampilkan halaman penjadwalan \textit{shift}
+\\ \hline
+\end{longtable}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\FloatBarrier
+\begin{longtable}{ |p{6cm}|p{8cm}|}
+\caption{\textit{Use Case Scenario} Mengelola Akun \textit{User}}\label{tab:use-case-scenario-mengelola-akun-user} 
+\\
+\hline
+\textbf{\textit{Use Case Name}}
+&Mengelola akun \textit{user}
+\\ \hline
+
+\textbf{\textit{Actor}}
+&\textit{Manager Human Resources}, \textit{Manager Infrastructure}
+\\ \hline
+
+\textbf{\textit{Brief Description}}
+&\textit{Actor} yang mengelola akun \textit{user}
+\\ \hline
+
+\textbf{\textit{Entry Conditions}}
+&\textit{Actor} yang sudah melakukan \textit{login} dan ingin mengelola akun \textit{user}
+\\ \hline
+
+\textbf{\textit{Flow of event}}
+&1. \textit{Actor} menekan tombol \textit{user} pada \textit{navbar}
+\newline
+2. Sistem akan menampilkan halaman \textit{user} beserta data semua \textit{user}
+\newline
+3. \textit{Actor} mengelola \textit{update, delete} data akun \textit{user}
+\newline
+4. Sistem menampilkan konfirmasi perubahan data
+\newline
+5. \textit{Actor} melakukan konfirmasi perubahan
+\newline
+6. Sistem menyimpan perubahan data
+\\ \hline
+
+\textbf{\textit{Alternative scenario}}
+&\textit{Actor} yang tidak melakukan konfirmasi perubahan data maka sistem tidak akan menyimpan perubahan data
+\\ \hline
+
+\textbf{\textit{Exit Conditions}}
+&Sistem selesai memproses seluruh perubahan data \textit{user} dan kembali menampilkan halaman \textit{user}
+\\ \hline
+\end{longtable}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\FloatBarrier
+\begin{longtable}{ |p{6cm}|p{8cm}|}
+\caption{\textit{Use Case Scenario} Mengelola \textit{Department}}\label{tab:use-case-scenario-mengelola-department} 
+\\
+\hline
+\textbf{\textit{Use Case Name}}
+&Mengelola \textit{department}
+\\ \hline
+
+\textbf{\textit{Actor}}
+&\textit{Manager Human Resources}, \textit{Manager Infrastructure}
+\\ \hline
+
+\textbf{\textit{Brief Description}}
+&\textit{Actor} yang mengelola \textit{department}
+\\ \hline
+
+\textbf{\textit{Entry Conditions}}
+&\textit{Actor} yang sudah melakukan \textit{login} dan ingin mengelola \textit{department}
+\\ \hline
+
+\textbf{\textit{Flow of event}}
+&1. \textit{Actor} menekan tombol \textit{department} pada \textit{navbar}
+\newline
+2. Sistem akan menampilkan halaman \textit{department} beserta data semua \textit{department}
+\newline
+3. \textit{Actor} mengelola \textit{update, delete} data akun \textit{department}
+\newline
+4. Sistem menampilkan konfirmasi perubahan data
+\newline
+5. \textit{Actor} melakukan konfirmasi perubahan
+\newline
+6. Sistem menyimpan perubahan data
+\\ \hline
+
+\textbf{\textit{Alternative scenario}}
+&\textit{Actor} yang tidak melakukan konfirmasi perubahan data maka sistem tidak akan menyimpan perubahan data
+\\ \hline
+
+\textbf{\textit{Exit Conditions}}
+&Sistem selesai memproses seluruh perubahan data \textit{department} dan kembali menampilkan halaman \textit{department}
+\\ \hline
+\end{longtable}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\FloatBarrier
+\begin{longtable}{ |p{6cm}|p{8cm}|}
+\caption{\textit{Use Case Scenario} Mengelola Jenis Libur Perusahaan}\label{tab:use-case-scenario-mengelola-jenis-libur-perusahaan} 
+\\
+\hline
+\textbf{\textit{Use Case Name}}
+&Mengelola jenis libur perusahaan
+\\ \hline
+
+\textbf{\textit{Actor}}
+&\textit{Manager Human Resources}, \textit{Manager Infrastructure}
+\\ \hline
+
+\textbf{\textit{Brief Description}}
+&\textit{Actor} yang mengelola jenis libur perusahaan
+\\ \hline
+
+\textbf{\textit{Entry Conditions}}
+&\textit{Actor} yang sudah melakukan \textit{login} dan ingin mengelola jenis libur perusahaan
+\\ \hline
+
+\textbf{\textit{Flow of event}}
+&1. \textit{Actor} menekan tombol libur pada \textit{navbar}
+\newline
+2. Sistem akan menampilkan halaman libur beserta seluruh data jenis libur perusahaan
+\newline
+3. \textit{Actor} mengelola (\textit{create, update, delete}) data jenis libur perusahaan
+\newline
+4. Sistem menampilkan konfirmasi perubahan data
+\newline
+5. \textit{Actor} melakukan konfirmasi perubahan
+\newline
+6. Sistem menyimpan perubahan data
+\\ \hline
+
+\textbf{\textit{Alternative scenario}}
+&1. \textit{Actor} yang tidak melakukan konfirmasi perubahan data maka sistem tidak akan menyimpan perubahan data
+\newline
+2. Jika tidak ada data hari libur yang ditemukan, maka sistem tidak akan menampilkan hasil
+\\ \hline
+
+\textbf{\textit{Exit Conditions}}
+&Sistem selesai memproses seluruh perubahan data jenis libur perusahaan dan kembali menampilkan halaman jenis libur
+\\ \hline
+\end{longtable}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\FloatBarrier
+\begin{longtable}{ |p{6cm}|p{8cm}|}
+\caption{\textit{Use Case Scenario} Mengelola Data Hari Libur Perusahaan}\label{tab:use-case-scenario-mengelola-data-hari-libur-perusahaan} 
+\\
+\hline
+\textbf{\textit{Use Case Name}}
+&Mengelola data hari libur perusahaan
+\\ \hline
+
+\textbf{\textit{Actor}}
+&\textit{Manager Human Resources}, \textit{Manager Infrastructure}
+\\ \hline
+
+\textbf{\textit{Brief Description}}
+&\textit{Actor} yang mengelola data hari libur perusahaan
+\\ \hline
+
+\textbf{\textit{Entry Conditions}}
+&\textit{Actor} yang sudah melakukan \textit{login} dan ingin mengelola data hari libur perusahaan
+\\ \hline
+
+\textbf{\textit{Flow of event}}
+&1. \textit{Actor} menekan tombol edit pada jenis libur perusahaan
+\newline
+2. Sistem akan menampilkan halaman hari libur beserta seluruh data hari libur perusahaan
+\newline
+3. \textit{Actor} mengelola (\textit{create, update, delete}) data hari libur perusahaan atau \textit{import} data hari libur nasional melalui tombol yang terhubung dengan API
+\newline
+4. Sistem menampilkan konfirmasi perubahan data
+\newline
+5. \textit{Actor} melakukan konfirmasi perubahan
+\newline
+6. Sistem menyimpan perubahan data
+\\ \hline
+
+\textbf{\textit{Alternative scenario}}
+&1. \textit{Actor} yang tidak melakukan konfirmasi perubahan data maka sistem tidak akan menyimpan perubahan data
+\newline
+2. Jika tidak ada data hari libur yang ditemukan, maka sistem tidak akan menampilkan hasil
+\\ \hline
+
+\textbf{\textit{Exit Conditions}}
+&Sistem selesai memproses seluruh perubahan data hari libur perusahaan dan kembali menampilkan halaman hari libur
+\\ \hline
+\end{longtable}
+

@@ -1,0 +1,558 @@
+\begin{longtable}{ |p{3cm}|p{3cm}|p{4cm}|p{3cm}|p{2cm}|p{2cm}|p{2cm}|}
+\caption{\textit{Table Specification}}\label{tab:table-specification} 
+\\
+\hline
+\textbf{\textit{Entity}}
+&\textbf{\textit{Attributes}}
+&\textbf{\textit{Description}}
+&\textbf{\textit{Data Types}}
+&\textbf{\textit{Nullvalue}}
+&\textbf{\textit{Multivalue}}
+&\textbf{\textit{Composite}}
+\\ 
+\hline
+
+\multirow{9}{*}{\textit{User}}
+&userId
+&Primary key
+&INT
+&No
+&No
+&No
+\\
+\cline{2-7}
+&roleId
+&Foreign key \textit{entity} Role
+&INT
+&No
+&No
+&No
+\\ 
+\cline{2-7}
+&departmentId
+&Foreign key \textit{entity} Department
+&INT
+&No
+&No
+&No
+\\ 
+\cline{2-7}
+&holidayId
+&Foreign key \textit{entity} Holiday
+&INT
+&Yes
+&No
+&No
+\\ 
+\cline{2-7}
+&emailVerifiedAt
+&Waktu verifikasi \textit{email}
+&Datetime
+&yes
+&No
+&No
+\\ 
+\cline{2-7}
+&firstName
+&Nama depan user
+&VARCHAR(50)
+&No
+&No
+&No
+\\ 
+\cline{2-7}
+&lastName
+&Nama belakang user
+&VARCHAR(50)
+&No
+&No
+&No
+\\ 
+\cline{2-7}
+&email
+&Email user yang unik
+&VARCHAR(50)
+&No
+&No
+&No
+\\ 
+\cline{2-7}
+&password
+&Password user dalam bentuk hash.
+&VARCHAR(50)
+&No
+&No
+&No
+\\ 
+\hline
+
+\multirow{2}{*}{}
+&isActive
+&Status apakah user aktif atau tidak.
+&BOOLEAN
+&No
+&No
+&No
+\\ 
+\cline{2-7}
+&OTP
+&6 digit kode OTP untuk verifikasi \textit{email}
+&INT
+&Yes
+&No
+&No
+\\ 
+\hline
+
+\multirow{3}{*}{\textit{Session}}
+&sessionId
+&Primary key
+&INT
+&No
+&No
+&No
+\\
+\cline{2-7}
+&userId
+&Foreign key \textit{entity} User
+&INT
+&No
+&No
+&No
+\\ 
+\cline{2-7}
+&session
+&Pengenal unik yang mendefinisikan sesi pengguna saat login
+&String
+&No
+&No
+&No
+\\ 
+\hline
+
+\multirow{4}{*}{\textit{Attendance}}
+&attendanceId
+&Primary key
+&INT
+&No
+&No
+&No
+\\
+\cline{2-7}
+&userId
+&Foreign key \textit{entity} User
+&INT
+&No
+&No
+&No
+\\ 
+\cline{2-7}
+&activityTypeId
+&Foreign key \textit{entity} ActivityType
+&INT
+&No
+&No
+&No
+\\ 
+\cline{2-7}
+&activityCategoryId
+&Foreign key \textit{entity} ActivityCategory
+&INT
+&No
+&No
+&No
+\\ 
+\hline
+
+\multirow{8}{*}{}
+&clockInTime
+&Waktu user melakukan \textit{clock in}
+&DATETIME
+&No
+&No
+&No
+\\ 
+\cline{2-7}
+&clockOutTime
+&Waktu user melakukan \textit{clock out}
+&DATETIME
+&Yes
+&No
+&No
+\\ 
+\cline{2-7}
+&clockInPhoto 
+&\textit{Path} ke foto saat \textit{clock in}
+&VARCHAR(255)
+&No
+&No
+&No
+\\ 
+\cline{2-7}
+&clockOutPhoto
+&\textit{Path} ke foto saat \textit{clock out}
+&VARCHAR(255)
+&Yes
+&No
+&No
+\\ 
+\cline{2-7}
+&clockInLocation
+&Lokasi saat \textit{clock in}
+&VARCHAR(255)
+&No
+&No
+&No
+\\ 
+\cline{2-7}
+&clockOutLocation
+&Lokasi saat \textit{clock out}
+&VARCHAR(255)
+&Yes
+&No
+&No
+\\ 
+\cline{2-7}
+&customer
+&Nama customer saat presensi
+&String
+&Yes
+&No
+&No
+\\ 
+\cline{2-7}
+&isClockInAtOffice
+&Informasi terkait presensi masuk dilakukan diluar atau didalam radius kantor
+&Boolean
+&No
+&No
+&No
+\\ 
+\hline
+
+\multirow{1}{*}{}
+&isClockOutAtOffice
+&Informasi terkait presensi keluar dilakukan diluar atau didalam radius kantor
+&Boolean
+&No
+&No
+&No
+\\ 
+\hline
+
+\multirow{2}{*}{\textit{Department}}
+&departmentId
+&Primary key
+&INT
+&No
+&No
+&No
+\\
+\cline{2-7}
+&departmentName
+&Nama departemen atau divisi dari user
+&VARCHAR(50)
+&No
+&No
+&No
+\\ 
+\hline
+
+\multirow{2}{*}{\textit{Role}}
+&roleId
+&Primary key
+&INT
+&No
+&No
+&No
+\\
+\cline{2-7}
+&roleName
+&Nama role atau jabatan dari user
+&VARCHAR(50)
+&No
+&No
+&No
+\\ 
+\hline
+
+\multirow{2}{*}{\textit{Shift}}
+&shiftId
+&Primary key
+&INT
+&No
+&No
+&No
+\\
+\cline{2-7}
+&shiftName
+&Nama shift kerja
+&VARCHAR(50)
+&No
+&No
+&No
+\\ 
+\hline
+
+\multirow{3}{*}{\textit{ShiftDay}}
+&shiftDayId
+&Primary key
+&INT
+&No
+&No
+&No
+\\
+\cline{2-7}
+&shiftId
+&Foreign key \textit{entity} Shift
+&INT
+&No
+&No
+&No
+\\
+\cline{2-7}
+&dayName
+&Nama hari dari setiap \textit{shift} kerja
+&VARCHAR(20)
+&No
+&No
+&No
+\\
+\hline
+
+\multirow{2}{*}{}
+&startHour
+&Waktu mulai \textit{shift} kerja
+&TIME
+&No
+&No
+&No
+\\
+\cline{2-7}
+&endHour
+&Waktu selesai \textit{shift} kerja
+&TIME
+&No
+&No
+&No
+\\ 
+\hline
+
+\multirow{2}{*}{\textit{Holiday}}
+&Holiday
+&Primary key
+&INT
+&No
+&No
+&No
+\\
+\cline{2-7}
+&holidayName
+&Nama jenis libur
+&VARCHAR(50)
+&No
+&No
+&No
+\\ 
+\hline
+
+\multirow{4}{*}{\textit{HolidayDay}}
+&holidayDayId
+&Primary key
+&INT
+&No
+&No
+&No
+\\
+\cline{2-7}
+&holidayId
+&Foreign key \textit{entity} Holiday
+&INT
+&No
+&No
+&No
+\\
+\cline{2-7}
+&date
+&Tanggal hari libur perusahaan
+&DATE
+&No
+&No
+&No
+\\
+\cline{2-7}
+&holidayName
+&Nama hari libur perusahaan
+&VARCHAR(50)
+&No
+&No
+&No
+\\ 
+\hline
+
+\multirow{3}{*}{\textit{Overtime}}
+&overtimeId
+&Primary key
+&INT
+&No
+&No
+&No
+\\
+\cline{2-7}
+&attendanceId
+&Foreign key \textit{entity} Attendance
+&INT
+&Yes
+&No
+&No
+\\ 
+\cline{2-7}
+&userId
+&Foreign key \textit{entity} User
+&INT
+&Yes
+&No
+&No
+\\ 
+\hline
+
+\multirow{7}{*}{}
+&overtimeStart 
+&Waktu mulai lembur
+&DATETIME
+&No
+&No
+&No
+\\ 
+\cline{2-7}
+&overtimeEnd 
+&Waktu berakhir lembur
+&DATETIME
+&No
+&No
+&No
+\\ 
+\cline{2-7}
+&overtimeTotal
+&Jumlah lembur dalam menit
+&FLOAT
+&No
+&No
+&No
+\\ 
+\cline{2-7}
+&notes
+&Catatan tambahan mengenai lembur
+&VARCHAR(255)
+&Yes
+&No
+&No
+\\ 
+\cline{2-7}
+&rejectDate 
+&Tanggal penolakan lembur
+&DATETIME
+&Yes
+&No
+&No
+\\ 
+
+\cline{2-7}
+&customer 
+&Nama pelanggan terkait lembur
+&VARCHAR(100)
+&Yes
+&No
+&No
+\\ 
+\cline{2-7}
+&projectName 
+&Nama \textit{project} yang dikerjakan saat lembur
+&VARCHAR(100)
+&Yes
+&No
+&No
+\\ 
+\hline
+
+\multirow{2}{*}{\textit{ActivityType}}
+&activityTypeId
+&Primary key
+&INT
+&No
+&No
+&No
+\\
+\cline{2-7}
+&activityTypeName
+&Nama tipe aktivitas saat presensi 
+&VARCHAR(50)
+&No
+&No
+&No
+\\ 
+\hline
+
+\multirow{2}{*}{\textit{ActivityCategory}}
+&activityCategoryId
+&Primary key
+&INT
+&No
+&No
+&No
+\\
+\cline{2-7}
+&activityCategoryName
+&Nama kategori aktivitas saat presensi
+&VARCHAR(50)
+&No
+&No
+&No
+\\ 
+\hline
+
+\multirow{5}{*}{\textit{ShiftScheduling}}
+&shiftSchedulingId
+&Primary key
+&INT
+&No
+&No
+&No
+\\
+\cline{2-7}
+&userId
+&Foreign key \textit{entity} User
+&INT
+&No
+&No
+&No
+\\
+\cline{2-7}
+&shiftId
+&Foreign key \textit{entity} Shift
+&INT
+&No
+&No
+&No
+\\
+\cline{2-7}
+&startDate
+&Tanggal mulai jadwal shift
+&DATETIME
+&No
+&No
+&No
+\\
+\cline{2-7}
+&endDate
+&Tanggal selesai jadwal shift
+&DATETIME
+&No
+&No
+&No
+\\ 
+\hline
+
+
+
+\end{longtable}

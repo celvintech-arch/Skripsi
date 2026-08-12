@@ -1,0 +1,213 @@
+Basis data didefinisikan sebagai kumpulan informasi yang terorganisir dan saling terkait. Tujuan utama basis data adalah untuk mengelola sejumlah besar data yang disimpan dan menyediakan informasi darinya~\cite{database2022jagdish}. Desain basis data adalah proses menghasilkan model data yang terperinci dari sebuah basis data~\cite{database2019date}. Model data \textit{entity-relationship} (E-R) adalah model data yang banyak digunakan untuk desain basis data. Model ini menyediakan representasi grafis yang nyaman untuk melihat data, hubungan, dan batasan~\cite{database2019abraham}. Menurut Conolly dan Begg~\cite{conolly2015database}, terdapat tiga fase dalam desain basis data yaitu \textit{conceptual database design, logical database design,} dan \textit{physical database design}.
+
+
+\subsection{\textit{Conceptual Database Design}}
+\textit{Conceptual data design} merupakan tahap untuk membangun representasi konseptual dari basis data, yang meliputi identifikasi entitas, hubungan, dan atribut penting~\cite{conolly2015database}. Perancangan \textit{conceptual data modeling} akan dilakukan dengan mengindentifikasi \textit{entity} berdasarkan hasil wawancara dengan \textit{Manager Human Resouces} di PT Password Solusi Sistem. Pada \textbf{\ref{tab:indentifikasi-entity}} menunjukkan hasil identifikasi \textit{entity} berdasarkan kebutuhan MyPassword. Pada \textbf{\ref{tab:indentifikasi-hubungan-antar-entity}} menunjukkan hubungan antar \textit{entity}. \textit{Conceptual data modeling} dalam bentuk diagram dapat dilihat pada \hyperref[sec:conceptual-database-design]{\textbf{Lampiran~VIII}}.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\FloatBarrier
+\begin{longtable}{ |p{3cm}|p{6cm}|p{6cm}|}
+\caption{Identifikasi \textit{Entity}}\label{tab:indentifikasi-entity} 
+\\
+\hline
+\textbf{\textit{Entity}}
+&\textbf{Deskripsi}
+&\textbf{Kejadian / Kemunculan}
+\\ 
+\hline
+
+\textit{User}
+&Informasi tentang \textit{user} pada aplikasi presensi \textit{online}.
+&Data \textit{user} akan dibuat ketika \textit{Staff} atau \textit{Manager Infrastructure} melakukan registrasi.
+\\ 
+\hline
+
+\textit{Shift}
+&Informasi tentang jenis \textit{shift} kerja.
+&Data \textit{Shift} ditambahkan oleh \textit{Manager Human Resources} dan \textit{Manager Infrastructure}.
+\\ 
+\hline
+
+\textit{ShiftDay}
+&Informasi tentang hari dan waktu spesifik dari setiap jenis \textit{shift} yang akan digunakan untuk perhitungan lembur.
+&Data \textit{ShiftDay} ditambahkan oleh \textit{Manager Human Resources} dan \textit{Manager Infrastructure}.
+\\ 
+\hline
+
+\textit{Holiday}
+&Informasi tentang jenis libur perusahaan.
+&Data \textit{Holiday} ditambahkan oleh \textit{Manager Human Resources} dan \textit{Manager Infrastructure}.
+\\ 
+\hline
+
+\textit{HolidayDay}
+&Informasi tentang hari dan waktu spesifik dari setiap jenis \textit{holiday} yang akan digunakan untuk perhitungan lembur.
+&Data \textit{HolidayDay} ditambahkan oleh \textit{Manager Human Resources} dan \textit{Manager Infrastructure}.
+\\ 
+\hline
+
+\textit{Department}
+&Informasi tentang divisi dari setiap \textit{user}.
+&Data \textit{Department} ditambahkan oleh \textit{Manager Human Resources} dan \textit{Manager Infrastructure}.
+\\ 
+\hline
+
+\textit{Role}
+&Informasi tentang jabatan dari setiap \textit{user}.
+&Data \textit{Role} ditambahkan oleh \textit{Manager Human Resources} dan \textit{Manager Infrastructure}.
+\\ 
+\hline
+
+\textit{Attendance}
+&Informasi tentang presensi setiap \textit{user} yang akan digunakan untuk perhitungan lembur.
+&Data \textit{Attendance} akan ditambahkan ketika \textit{staff Infrastructure} melakukan presensi.
+\\ 
+\hline
+
+\textit{Overtime}
+&Informasi tentang lembur dari setiap \textit{staff Infrastructure}.
+&Data \textit{Overtime} akan ditambahkan secara otomatis jika \textit{staff Infrastructure} melakukan presensi diluar jam \textit{shift} ataupun pada hari libur. Data \textit{Overtime} juga dapat ditambahkan secara manual oleh \textit{staff Infrastructure}.
+\\ 
+\hline
+
+\textit{Session}
+&Informasi tentang \textit{Session} setiap \textit{user}.
+&Data \textit{Session} akan diregenerasi secara otomatis ketika \textit{user} melakukan \textit{login}.
+\\
+\hline
+
+\textit{ActivityType}
+&Informasi tentang jenis kerja yang dilakukan oleh \textit{staff} seperti WFO, WFH atau \textit{remote}.
+&Data \textit{ActivityType} ditambahkan secara \textit{default} dengan nilai yang telah ditentukan.
+\\
+\hline
+
+\textit{ActivityCategory}
+&Informasi tentang kategori aktivitas pekerjaan yang dilakukan oleh \textit{staff Infrastructure} seperti instalasi dan sebagainya.
+&Data \textit{ActivityCategory} ditambahkan secara \textit{default} dengan nilai yang telah ditentukan.
+\\
+\hline
+
+\textit{ShiftScheduling}
+&Informasi tentang penjadwalan \textit{shift} yang akan digunakan oleh setiap \textit{staff} berdasarkan jangka waktu yang diatur.
+&Data \textit{ShiftScheduling} ditambahkan oleh \textit{Manager Human Resources} dan \textit{Manager Infrastructure}.
+\\
+\hline
+
+\end{longtable}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\FloatBarrier
+\begin{longtable}{ |p{2cm}|p{3cm}|p{3cm}|p{3cm}|p{3cm}|}
+\caption{Identifikasi Hubungan Antar \textit{Entity}}\label{tab:indentifikasi-hubungan-antar-entity} 
+\\
+\hline
+\textbf{\textit{Entity}}
+&\textbf{\textit{Multiplicity}}
+&\textbf{\textit{Relationship}}
+&\textbf{\textit{Multiplicity}}
+&\textbf{\textit{Entity}}
+\\ 
+\hline
+
+\multirow{2}{*}{\textit{Shift}}
+&1..1
+&\textit{AssignedOn}
+&1..*
+&\textit{ShiftDay}
+\\ 
+\cline{2-5}
+&1..1
+&\textit{ShiftAssignments}
+&0..*
+&\textit{ShiftScheduling}
+\\ 
+\hline
+
+\multirow{3}{*}{\textit{Attendance}}
+&0..1
+&\textit{Includes}
+&0..1
+&\textit{Overtime}
+\\
+\cline{2-5}
+&1..*
+&\textit{CategorizedBy}
+&1..1
+&\textit{ActivityType}
+\\ 
+\cline{2-5}
+&1..*
+&\textit{ClassifiedAs}
+&1..1
+&\textit{ActivityCategory}
+\\ 
+\hline
+
+\multirow{8}{*}{\textit{User}}
+&1..*
+&\textit{WorksIn}
+&1..1
+&\textit{Department}
+\\
+\cline{2-5}
+&1..*
+&\textit{AssignedAs}
+&1..1
+&\textit{Role}
+\\ 
+\cline{2-5}
+&1..1
+&\textit{Records}
+&0..*
+&\textit{Attendance}
+\\ 
+\cline{2-5}
+&0..1
+&\textit{Requests}
+&0..*
+&\textit{Overtime}
+\\ 
+\cline{2-5}
+&1..*
+&\textit{ScheduledFor}
+&0..1
+&\textit{Shift}
+\\ 
+\cline{2-5}
+&1..1
+&\textit{Attends}
+&1..1
+&\textit{Session}
+\\ 
+\cline{2-5}
+&1..*
+&\textit{EntitledTo}
+&0..1
+&\textit{Holiday}
+\\ 
+\cline{2-5}
+&1..1
+&\textit{HasSchedules}
+&0..*
+&\textit{ShiftScheduling}
+\\ 
+\hline
+
+\textit{Holiday}
+&1..1
+&\textit{AppliesOn}
+&1..*
+&\textit{HolidayDay}
+\\ 
+\hline
+
+
+\end{longtable}
+
+\subsection{\textit{Logical Database Design}}
+\textit{Logical data modeling} yaitu proses menerjemahkan representasi konseptual ke dalam struktur logis basis data, yang mencakup perancangan relasi~\cite{conolly2015database}. Pada bagian \textit{logical data modeling} akan menjelaskan atribut dari setiap entitas. Diagram rancangan \textit{logical data modeling} dapat dilihat pada \hyperref[sec:logical-database-design]{\textbf{Lampiran~IX}}.
+
+\subsection{\textit{Table Specification}}
+Pada \textit{table specification} akan dijelaskan tentang tipe data dari setiap entitas, deskripsi daris setiap atribut, dan menjelaskan setiap atribut apakah memiliki status \textit{nullable, composite}, atau \textit{multivalue}. \textit{Table specification} dari \textit{database} aplikasi presensi \textit{online} pada PT Password Solusi Sistem dapat dilihat pada \hyperref[sec:table-specification]{\textbf{Lampiran~X}}.
+

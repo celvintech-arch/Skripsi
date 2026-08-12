@@ -1,0 +1,18 @@
+Metodologi yang digunakan dalam pengembangan aplikasi pengarsipan data otomatis dan portal \textit{on-demand retrieval} ini mengacu pada tahapan \textit{System Development Life Cycle} (SDLC) yang terstruktur, meliputi langkah-langkah sebagai berikut:
+
+\begin{enumerate}
+    \item \textbf{Tahap Analisis Kebutuhan (\textit{Requirements Analysis}):}
+    \\ Melakukan analisis terhadap struktur basis data produksi Pusdatin UNTAR, identifikasi data historis mahasiswa, penetapan kriteria pengarsipan dinamis, serta formulasi spesifikasi titik akhir HTTP API JSON (\textit{agent.ashx}).
+
+    \item \textbf{Tahap Perancangan Sistem (\textit{System Design}):}
+    \\ Merancang arsitektur terdistribusi \textit{Client-Worker}, alur alokasi \textit{task queue}, struktur tabel basis data arsip, mekanisme komunikasi API JSON, serta tata letak antarmuka (\textit{User Interface}) portal \textit{web} ASP.NET.
+
+    \item \textbf{Tahap Konstruksi dan Implementasi (\textit{Implementation}):}
+    \\ Membangun portal \textit{web} menggunakan ASP.NET (C\# / Web Forms), mengembangkan modul HTTP Handler (\textit{agent.ashx}), serta menyusun skrip eksekusi PowerShell dan penjadwalan tugas pada SQL Server Agent di mesin \textit{worker} eksternal.
+
+    \item \textbf{Tahap Pengujian (\textit{Testing}):}
+    \\ Melaksanakan pengujian fungsionalitas dan integrasi secara komprehensif pada lingkungan pengembangan (\textit{development/staging environment}) untuk memastikan integritas pemindahan data dan keandalan pencarian \textit{on-demand retrieval}.
+
+    \item \textbf{Tahap Evaluasi dan Dokumentasi (\textit{Evaluation \& Documentation}):}
+    \\ Menganalisis hasil pengujian sistem, menyusun dokumentasi teknis penggunaan aplikasi, serta mendokumentasikan seluruh proses ke dalam Laporan Skripsi.
+\end{enumerate}
