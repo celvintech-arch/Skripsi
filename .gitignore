@@ -1,34 +1,35 @@
-# LaTeX generated files
-*.aux
-*.bbl
-*.blg
-*.fdb_latexmk
-*.fls
+# Konfigurasi dan rahasia lokal
+agent.config.json
+agent.config.development.json
+agent.config.production.json
+*.secrets.json
+.env
+.env.*
+!.env.example
+
+# Data, hasil backup, dan log
+*.bak
+*.mdf
+*.ldf
 *.log
-*.lof
-*.lot
-*.out
-*.synctex.gz
-*.toc
-*.xdv
+Exports/
+TestResults/
 
-# Gambar / Images (hilangkan agar zip lebih kecil)
-Gambar/
-*.png
-*.jpg
-*.jpeg
-*.PNG
-*.JPG
+# Sertifikat dan kunci
+*.pfx
+*.p12
+*.key
+*.cer
 
-# PDF files
-*.pdf
-
-# Font
-Font/
-
-# VS Code
+# Artefak editor/build
+.vs/
 .vscode/
+bin/
+obj/
+output/
+*.user
+*.suo
 
-# Windows
+# Sistem operasi
 Thumbs.db
-desktop.ini
+.DS_Store

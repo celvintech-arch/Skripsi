@@ -1,0 +1,9 @@
+{
+  "ApiBaseUrl": "https://example.edu/backup_data/api",
+  "AllowHttp": false,
+  "LocalSqlConnection": "Data Source=localhost;Initial Catalog=dec_dummy_backup;Integrated Security=SSPI;Connect Timeout=15;",
+  "ApiKey": "GANTI_DENGAN_TOKEN_ACAK_MINIMAL_32_KARAKTER",
+  "BackupBatchSize": 500,
+  "RestoreBatchSize": 500,
+  "ExportDirectory": "C:\\BackupAgent\\Exports"
+}

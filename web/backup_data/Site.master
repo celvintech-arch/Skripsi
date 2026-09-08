@@ -1,0 +1,131 @@
+<%@ Master Language="VB" %>
+<%@ Register TagPrefix="uc" TagName="Footer" Src="/surat_tugas/ascx/footer.ascx" %>
+
+<!DOCTYPE html>
+<html>
+<head runat="server">
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>
+        <asp:ContentPlaceHolder ID="TitleContent" runat="server">
+        </asp:ContentPlaceHolder>
+    </title>
+    <meta content="width=device-width, initial-scale=1" name="viewport">
+    
+    <!-- Bootstrap 3.3.6 -->
+    <link rel="stylesheet" href="/admin_lte/assets/css/bootstrap.min.css">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="/admin_lte/assets/css/font-awesome.css">
+    <!-- Ionicons -->
+    <link rel="stylesheet" href="/admin_lte/assets/css/ionicons.css">
+    <!-- Theme style -->
+    <link rel="stylesheet" href="/admin_lte/assets/css/AdminLTE.min.css">
+    <!-- AdminLTE Skins -->
+    <link rel="stylesheet" href="/admin_lte/assets/css/skins/_all-skins.css">
+    <!-- SweetAlert2 -->
+    <link rel="stylesheet" href="/admin_lte310/plugins/sweetalert2/sweetalert2.min.css">
+    <!-- Style Khusus Backup Data -->
+    <link rel="stylesheet" href="style.css?v=20260908b">
+    <!-- LINTAR Loading Screen -->
+    <link rel="stylesheet" href="/css/lintar-loader.css">
+
+    <!-- jQuery 2.2.3 -->
+    <script src="/admin_lte/assets/js/plugins/jQuery/jquery-2.2.3.min.js"></script>
+    <!-- Bootstrap 3.3.6 -->
+    <script src="/admin_lte/assets/js/bootstrap.min.js"></script>
+    <!-- SlimScroll -->
+    <script src="/admin_lte/assets/js/plugins/slimScroll/jquery.slimscroll.min.js"></script>
+    <!-- FastClick -->
+    <script src="/admin_lte/assets/js/plugins/fastclick/fastclick.js"></script>
+    <!-- AdminLTE App -->
+    <script src="/admin_lte/assets/js/AdminLTE/app.min.js"></script>
+    <!-- SweetAlert2 JS -->
+    <script src="/admin_lte310/plugins/sweetalert2/sweetalert2.all.min.js"></script>
+    <script>
+        window.backupNotice = function (message, icon) {
+            if (!window.Swal || typeof window.Swal.fire !== "function") {
+                window.alert(message);
+                return false;
+            }
+            window.Swal.fire({
+                title: "Periksa kembali",
+                text: message,
+                icon: icon || "warning",
+                confirmButtonText: "Mengerti",
+                confirmButtonColor: "#A01626"
+            });
+            return false;
+        };
+
+        window.backupConfirm = function (button, message, options) {
+            options = options || {};
+            if (!button) { return false; }
+            if (button.getAttribute("data-backup-confirmed") === "1") {
+                button.removeAttribute("data-backup-confirmed");
+                return true;
+            }
+            if (!window.Swal || typeof window.Swal.fire !== "function") {
+                return window.confirm(message);
+            }
+            window.Swal.fire({
+                title: options.title || "Konfirmasi tindakan",
+                text: message,
+                icon: options.icon || "question",
+                showCancelButton: true,
+                confirmButtonText: options.confirmText || "Ya, lanjutkan",
+                cancelButtonText: "Batal",
+                confirmButtonColor: options.confirmColor || "#A01626",
+                cancelButtonColor: "#64748b",
+                reverseButtons: true,
+                focusCancel: true,
+                allowOutsideClick: false
+            }).then(function (result) {
+                if (result.isConfirmed || result.value) {
+                    button.setAttribute("data-backup-confirmed", "1");
+                    button.click();
+                }
+            });
+            return false;
+        };
+    </script>
+</head>
+
+<body class="hold-transition skin-red layout-top-nav">
+    <div id="lintar-loader">
+        <p class="lintar-loader__text">Memuat data...</p>
+        <div class="lintar-loader__bar"></div>
+    </div>
+    <form id="form1" runat="server" enctype="multipart/form-data">
+        <asp:ScriptManager ID="ScriptManager1" runat="server"></asp:ScriptManager>
+        <div class="wrapper">          
+            <header class="main-header">
+                <nav class="navbar navbar-static-top">
+                    <div class="navbar-header">
+                        <a href="/utama.aspx" class="navbar-brand"><b>LINTAR</b></a>
+                        <a href="javascript:void(0)" class="navbar-brand backup-u-024">|</a>
+                        <a href="index.aspx" class="navbar-brand"><b>BACKUP DATA</b></a>
+                        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Buka menu navigasi"><i class="fa fa-bars" aria-hidden="true"></i></button>
+                    </div>
+                    <div class="collapse navbar-collapse" id="navbar-collapse">
+                        <div class="navbar-custom-menu">
+                            <ul class="nav navbar-nav"><li><a class="backup-u-051"><i class="fa fa-user-circle"></i> <%= Server.HtmlEncode(If(Session("userid_lintar") IsNot Nothing AndAlso Not String.IsNullOrWhiteSpace(Session("userid_lintar").ToString()), Session("userid_lintar").ToString(), If(Session("idlintar") IsNot Nothing, Session("idlintar").ToString(), "Pengguna"))) %></a></li></ul>
+                        </div>
+                    </div>
+                </nav>
+            </header>
+
+            <div class="content-wrapper">
+                <div class="container-fluid">
+                    <asp:ContentPlaceHolder ID="MainContent" runat="server">
+                    </asp:ContentPlaceHolder>
+                </div>
+            </div>
+
+            <footer class="main-footer">
+                <uc:Footer ID="Footer1" runat="server" />
+            </footer>
+        </div>
+    </form>
+    <script src="/js/lintar-loader.js"></script>
+</body>
+</html>
