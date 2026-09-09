@@ -198,18 +198,27 @@ function New-BackupDataTable($cn,$tx,[string]$target,$columns,$rows) {
  return ,$table
 }
 function Get-BackupKeyColumns([string]$target,$columns) {
- $keys=@($columns|Where-Object{$_.key -eq $true}|Sort-Object keyOrder)
- if($keys.Count -gt 0){return ,$keys}
+ $columnList=@($columns)
+ if($columnList.Count -eq 0){throw ('Schema tabel '+$target+' tidak ditemukan. Backup dibatalkan.')}
+ $keys=@($columnList|Where-Object{$_.key -eq $true}|Sort-Object keyOrder)
+ if($keys.Count -gt 0){return @($keys)}
+ $normalizedTarget=$target.Trim().ToLowerInvariant()
+ if(-not $normalizedTarget.EndsWith('_backup')){$normalizedTarget+='_backup'}
  $fallback=@{
   'tbio01_backup'=@('nim1')
   'treg_backup'=@('th_akdk','nim1')
   'tkrs06_backup'=@('th_akdk','nim1','kode_mk','kd_kls')
   't_absensi14_backup'=@('th_akdk','kd_mk','kd_kls','jns_kul','tgl_temu','nim1','temuke')
  }
- $names=@($fallback[$target])
- $keys=@($names|ForEach-Object{$name=$_;$columns|Where-Object{[string]$_.name -eq $name}|Select-Object -First 1})
- if($keys.Count -ne $names.Count){throw ('Kunci natural tabel '+$target+' tidak lengkap pada schema sumber. Backup dibatalkan.')}
- return ,$keys
+ if(-not $fallback.ContainsKey($normalizedTarget)){throw ('Definisi kunci natural tabel '+$target+' tidak tersedia. Backup dibatalkan.')}
+ $keys=@()
+ $missing=@()
+ foreach($name in @($fallback[$normalizedTarget])){
+  $match=$columnList|Where-Object{[string]::Equals([string]$_.name,$name,[StringComparison]::OrdinalIgnoreCase)}|Select-Object -First 1
+  if($null -eq $match){$missing+=$name}else{$keys+=$match}
+ }
+ if($missing.Count -gt 0){throw ('Kunci natural tabel '+$target+' tidak lengkap pada schema sumber. Kolom yang tidak ditemukan: '+($missing -join ', ')+'. Backup dibatalkan.')}
+ return @($keys)
 }
 function Get-SelectedTableNames([string]$csv) {
  $order=@('tbio01','treg','tkrs06','t_absensi14')
@@ -223,7 +232,7 @@ function Get-SelectedTableNames([string]$csv) {
  }
  if($selected.Count -eq 0){throw 'Minimal satu tabel harus dipilih.'}
  if($selected.Count -gt 0){[void]$selected.Add('tbio01')}
- return ,@($order|Where-Object{$selected.Contains($_)})
+ return @($order|Where-Object{$selected.Contains($_)})
 }
 function Save-BackupBatch($batch,$schema) {
  $cn=[System.Data.SqlClient.SqlConnection]::new((Get-LocalConnectionString));$cn.Open();$tx=$cn.BeginTransaction()

@@ -1,6 +1,6 @@
 ﻿# Pengujian Otomatis Backup Data
 
-Suite ini memeriksa source, konfigurasi, API, halaman web, penyederhanaan UI, ekspor PDF Laporan Ringkasan, Database Backup lokal, ukuran batch, pemisahan pesan, keamanan data sumber, dan pemulihan. Pengujian tidak membuat proses backup/pemulihan dan tidak mengubah data mahasiswa.
+Suite ini memeriksa source, konfigurasi, API, halaman web, penyederhanaan UI, ekspor PDF Laporan, Database Backup lokal, ukuran batch, pemisahan pesan, keamanan data sumber, dan pemulihan. Pengujian tidak membuat proses backup/pemulihan dan tidak mengubah data mahasiswa.
 
 ## Menjalankan pengujian lengkap
 
@@ -23,4 +23,4 @@ Tes heartbeat hanya memperbarui status kesehatan agent seperti heartbeat normal.
 
 ## Hasil terakhir
 
-Pengujian setelah penyederhanaan UI dengan `-SkipApi -SkipLocalDatabase` menghasilkan **28 PASS, 0 FAIL, dan 5 SKIP**. Pemeriksaan tambahan mencakup pembagian menu Staf, istilah Laporan Ringkasan dan Riwayat Proses, panel backup otomatis yang dapat dilipat, bantuan setiap mode, SweetAlert, guard server Staf/Manager, sifat read-only laporan, serta generator PDF tanpa akses database. Lima pengujian dilewati karena memerlukan API bertoken atau koneksi database dan baru dijalankan setelah ada persetujuan operasi data.
+Pengujian statis mencakup pembagian menu Staf, istilah Laporan dan Riwayat Proses, penghapusan Backup per NIM, panel backup otomatis yang dapat dilipat, bantuan setiap mode, SweetAlert, guard server Staf/Manager, sifat read-only laporan, serta generator PDF tanpa akses database. Pengujian yang memerlukan API bertoken atau koneksi database hanya dijalankan setelah ada persetujuan operasi data.

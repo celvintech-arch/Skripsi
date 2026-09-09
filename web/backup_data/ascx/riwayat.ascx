@@ -36,8 +36,13 @@ Private Sub LoadHistory()
    row("ProgressLabel")=String.Format("{0:N0}",processed) & "/" & If(total>=0,String.Format("{0:N0}",total),"-")
    row("DetailLabel")=CleanProgressDetail(detail,operation,status,processed)
   Next
-  gvBackupHistory.DataSource=data:gvBackupHistory.DataBind()
-  If gvBackupHistory.PageIndex=0 Then litHistoryRefresh.Text="<script>(function(){window.backupHistoryAction=function(button,message){if(button.getAttribute('data-backup-confirmed')==='1'){button.removeAttribute('data-backup-confirmed');if(window.backupHistoryPollTimer)window.clearTimeout(window.backupHistoryPollTimer);button.setAttribute('data-submitting','1');button.classList.add('backup-action-submitting');return true;}if(button.getAttribute('data-submitting')==='1')return false;return window.backupConfirm(button,message,{title:'Batalkan proses?',confirmText:'Ya, batalkan'});};window.backupHistoryPollTimer=window.setTimeout(function(){window.location.replace('index.aspx?tab=riwayat&poll=' + Date.now());},10000);})();</" & "script>"
+  Dim activeData=data.Clone(),completedData=data.Clone()
+  For Each row As DataRow In data.Rows
+   If IsActiveTransferStatus(row("Status").ToString()) Then activeData.ImportRow(row) Else completedData.ImportRow(row)
+  Next
+  gvActiveProcesses.DataSource=activeData:gvActiveProcesses.DataBind()
+  gvProcessHistory.DataSource=completedData:gvProcessHistory.DataBind()
+  If activeData.Rows.Count>0 Then litHistoryRefresh.Text="<script>(function(){window.backupHistoryAction=function(button,message){if(button.getAttribute('data-backup-confirmed')==='1'){button.removeAttribute('data-backup-confirmed');if(window.backupHistoryPollTimer)window.clearTimeout(window.backupHistoryPollTimer);button.setAttribute('data-submitting','1');button.classList.add('backup-action-submitting');return true;}if(button.getAttribute('data-submitting')==='1')return false;return window.backupConfirm(button,message,{title:'Batalkan proses?',confirmText:'Ya, batalkan'});};window.backupHistoryPollTimer=window.setTimeout(function(){window.location.replace('index.aspx?tab=riwayat&poll=' + Date.now());},10000);})();</" & "script>"
  Catch ex As Exception
   litHistoryMessage.Text="<div class='alert alert-danger'><strong>Gagal memuat riwayat.</strong> " & Server.HtmlEncode(ex.Message) & "</div>"
  Finally
@@ -115,13 +120,17 @@ Protected Function CanCancel(value As Object,operationValue As Object) As Boolea
  Return status="WAITING" OrElse status="CLAIMED" OrElse status="TRANSFERRING"
 End Function
 
+Private Function IsActiveTransferStatus(value As String) As Boolean
+ Dim status=If(value Is Nothing,"",value.Trim().ToUpperInvariant())
+ Return status="WAITING" OrElse status="CLAIMED" OrElse status="TRANSFERRING"
+End Function
 
-Protected Sub gvBackupHistory_PageIndexChanging(sender As Object,e As GridViewPageEventArgs)
- gvBackupHistory.PageIndex=e.NewPageIndex
+Protected Sub gvProcessHistory_PageIndexChanging(sender As Object,e As GridViewPageEventArgs)
+ gvProcessHistory.PageIndex=e.NewPageIndex
  LoadHistory()
 End Sub
 
-Protected Sub gvBackupHistory_RowCommand(sender As Object,e As GridViewCommandEventArgs)
+Protected Sub gvActiveProcesses_RowCommand(sender As Object,e As GridViewCommandEventArgs)
  If e.CommandName<>"CancelJob" Then Return
  Dim jobId As Guid
  If Not Guid.TryParse(Convert.ToString(e.CommandArgument),jobId) Then Return
@@ -234,16 +243,15 @@ End Function
  </div>
  <asp:Literal ID="litHistoryMessage" runat="server" />
  <div class="panel history-card">
-  <div class="panel-heading"><i class="fa fa-tasks"></i> Daftar Proses Backup, Pemulihan, dan Ekspor</div>
+  <div class="panel-heading"><i class="fa fa-spinner fa-spin"></i> Proses Sedang Berjalan</div>
   <div class="table-responsive">
-   <asp:GridView ID="gvBackupHistory" runat="server" AutoGenerateColumns="false" AllowPaging="true" PageSize="10" PagerSettings-Mode="NumericFirstLast" PagerSettings-FirstPageText="Awal" PagerSettings-LastPageText="Akhir" PagerStyle-CssClass="customPager" PagerStyle-HorizontalAlign="Center" CssClass="table table-striped table-hover history-table" EmptyDataText="Belum ada riwayat proses." GridLines="None" OnRowCommand="gvBackupHistory_RowCommand" OnPageIndexChanging="gvBackupHistory_PageIndexChanging">
+   <asp:GridView ID="gvActiveProcesses" runat="server" AutoGenerateColumns="false" CssClass="table table-striped table-hover history-table" EmptyDataText="Tidak ada proses yang sedang berjalan." GridLines="None" OnRowCommand="gvActiveProcesses_RowCommand">
     <Columns>
      <asp:BoundField DataField="CreatedAt" HeaderText="Dibuat" DataFormatString="{0:dd MMM yyyy HH:mm}" ItemStyle-Width="115px" HeaderStyle-Width="115px" />
      <asp:BoundField DataField="OperationLabel" HeaderText="Operasi" ItemStyle-Width="270px" HeaderStyle-Width="270px" />
      <asp:BoundField DataField="TableLabel" HeaderText="Tabel" ItemStyle-Width="210px" HeaderStyle-Width="210px" />
      <asp:BoundField DataField="StatusLabel" HeaderText="Status" ItemStyle-CssClass="history-status" ItemStyle-Width="105px" HeaderStyle-Width="105px" />
      <asp:BoundField DataField="ProgressLabel" HeaderText="Diproses" ItemStyle-HorizontalAlign="Right" ItemStyle-Width="95px" HeaderStyle-Width="95px" />
-     <asp:BoundField DataField="CompletedAt" HeaderText="Selesai" DataFormatString="{0:dd MMM yyyy HH:mm}" NullDisplayText="-" ItemStyle-Width="115px" HeaderStyle-Width="115px" />
      <asp:BoundField DataField="DetailLabel" HeaderText="Keterangan" NullDisplayText="-" ItemStyle-CssClass="history-note" />
      <asp:TemplateField HeaderText="Aksi" ItemStyle-Width="115px" HeaderStyle-Width="115px" ItemStyle-CssClass="history-action-cell" ItemStyle-HorizontalAlign="Center" HeaderStyle-HorizontalAlign="Center">
       <ItemTemplate>
@@ -252,6 +260,22 @@ End Function
        </div>
       </ItemTemplate>
      </asp:TemplateField>
+    </Columns>
+   </asp:GridView>
+  </div>
+ </div>
+ <div class="panel history-card">
+  <div class="panel-heading"><i class="fa fa-history"></i> Riwayat Proses Selesai</div>
+  <div class="table-responsive">
+   <asp:GridView ID="gvProcessHistory" runat="server" AutoGenerateColumns="false" AllowPaging="true" PageSize="10" PagerSettings-Mode="NumericFirstLast" PagerSettings-FirstPageText="Awal" PagerSettings-LastPageText="Akhir" PagerStyle-CssClass="customPager" PagerStyle-HorizontalAlign="Center" CssClass="table table-striped table-hover history-table" EmptyDataText="Belum ada riwayat proses selesai." GridLines="None" OnPageIndexChanging="gvProcessHistory_PageIndexChanging">
+    <Columns>
+     <asp:BoundField DataField="CreatedAt" HeaderText="Dibuat" DataFormatString="{0:dd MMM yyyy HH:mm}" ItemStyle-Width="115px" HeaderStyle-Width="115px" />
+     <asp:BoundField DataField="OperationLabel" HeaderText="Operasi" ItemStyle-Width="270px" HeaderStyle-Width="270px" />
+     <asp:BoundField DataField="TableLabel" HeaderText="Tabel" ItemStyle-Width="210px" HeaderStyle-Width="210px" />
+     <asp:BoundField DataField="StatusLabel" HeaderText="Status" ItemStyle-CssClass="history-status" ItemStyle-Width="105px" HeaderStyle-Width="105px" />
+     <asp:BoundField DataField="ProgressLabel" HeaderText="Diproses" ItemStyle-HorizontalAlign="Right" ItemStyle-Width="95px" HeaderStyle-Width="95px" />
+     <asp:BoundField DataField="CompletedAt" HeaderText="Selesai" DataFormatString="{0:dd MMM yyyy HH:mm}" NullDisplayText="-" ItemStyle-Width="115px" HeaderStyle-Width="115px" />
+     <asp:BoundField DataField="DetailLabel" HeaderText="Keterangan" NullDisplayText="-" ItemStyle-CssClass="history-note" />
     </Columns>
    </asp:GridView>
   </div>

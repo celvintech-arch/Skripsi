@@ -10,19 +10,16 @@ Protected Sub Page_Load(sender As Object,e As EventArgs)
  Response.Cache.SetNoStore()
  Response.Cache.SetExpires(DateTime.UtcNow.AddYears(-1))
  Dim requested=If(Request.QueryString("section"),"").Trim().ToLowerInvariant()
- If requested="tahun" OrElse requested="nim" Then CurrentBackupSection=requested
+ If requested="tahun" Then CurrentBackupSection=requested
  If Not IsPostBack Then
   PopulateSourceDatabases()
   If CurrentBackupSection="otomatis" Then
    PopulateYears(ddlTahunJadwal,"- Pilih Tahun -")
    PopulateTAByYear(ddlBatasThAkdk,"- Pilih Detail Tahun Akademik -","")
    LoadConfig()
-  ElseIf CurrentBackupSection="tahun" Then
+  Else
    PopulateBackupPeriods(ddlBackupStartTa,"- Pilih TA awal -")
    PopulateBackupPeriods(ddlBackupEndTa,"- Pilih TA -")
-  Else
-   PopulateBackupNimYears()
-   ShowEmptyBackupNimState()
   End If
  End If
 End Sub
@@ -32,9 +29,6 @@ Private Sub PopulateSourceDatabases()
  ddlSourceDatabase.Items.Clear()
  ddlSourceDatabase.Items.Add(New ListItem(databaseName,databaseName))
  ddlSourceDatabase.Enabled=False
- ddlSourceDatabaseNim.Items.Clear()
- ddlSourceDatabaseNim.Items.Add(New ListItem(databaseName,databaseName))
- ddlSourceDatabaseNim.Enabled=False
  ddlSourceDatabaseSchedule.Items.Clear()
  ddlSourceDatabaseSchedule.Items.Add(New ListItem(databaseName,databaseName))
  ddlSourceDatabaseSchedule.Enabled=False
@@ -105,87 +99,6 @@ Private Sub PopulateTAByYear(list As DropDownList,prompt As String,tahun As Stri
    Finally:tutupsr():End Try
   End Using
 End Sub
-Private Sub PopulateBackupNimYears()
- ddlBackupNimYear.Items.Clear():ddlBackupNimYear.Items.Add(New ListItem("- Pilih Tahun Akademik -",""))
- Dim sql="SELECT DISTINCT LEFT(LTRIM(RTRIM(r.th_akdk)),4) Tahun FROM dbo.treg r JOIN dbo.tbio01 b ON b.nim1=r.nim1 WHERE LTRIM(RTRIM(r.th_akdk)) LIKE '[0-9][0-9][0-9][0-9][0-9]' ORDER BY Tahun DESC"
- Try
-  Using cmd As New SqlCommand(sql,cnsr)
-   cnsr.Open():Using rd=cmd.ExecuteReader():While rd.Read():Dim year=rd("Tahun").ToString().Trim():ddlBackupNimYear.Items.Add(New ListItem(year,year)):End While:End Using
-  End Using
- Catch ex As Exception
-  ShowAlert(litAlertBackupNim,"error","Data mahasiswa tidak dapat dibaca",ex.Message)
- Finally:tutupsr():End Try
-End Sub
-Private Sub ShowEmptyBackupNimState()
- gvBackupNimStudents.PageIndex=0
- gvBackupNimStudents.EmptyDataText="Pilih Tahun Akademik terlebih dahulu."
- gvBackupNimStudents.DataSource=New DataTable()
- gvBackupNimStudents.DataBind()
- lblBackupNimSearchInfo.Text=""
-End Sub
-Private Sub LoadBackupNimStudents()
- Dim keyword=txtSearchBackupStudent.Text.Trim(),year=ddlBackupNimYear.SelectedValue
- If String.IsNullOrWhiteSpace(year) Then ShowEmptyBackupNimState():Exit Sub
- Dim data As New DataTable()
- gvBackupNimStudents.EmptyDataText="Mahasiswa tidak ditemukan."
- Dim sql="SELECT TOP(100) RTRIM(b.nim1) Nim1,LTRIM(RTRIM(b.nama)) Nama,MAX(LTRIM(RTRIM(r.th_akdk))) ThAkdk FROM dbo.treg r JOIN dbo.tbio01 b ON b.nim1=r.nim1 WHERE (@year='' OR LEFT(LTRIM(RTRIM(r.th_akdk)),4)=@year) AND (@keyword='' OR b.nim1 LIKE @keyword+'%' OR b.nama LIKE '%'+@keyword+'%') GROUP BY b.nim1,b.nama ORDER BY MAX(LTRIM(RTRIM(r.th_akdk))) DESC,b.nim1"
- Try
-  Using cmd As New SqlCommand(sql,cnsr)
-   cmd.Parameters.Add("@year",SqlDbType.Char,4).Value=year
-   cmd.Parameters.Add("@keyword",SqlDbType.VarChar,100).Value=keyword
-   Using ad As New SqlDataAdapter(cmd):ad.Fill(data):End Using
-  End Using
-  gvBackupNimStudents.DataSource=data:gvBackupNimStudents.DataBind()
-  lblBackupNimSearchInfo.Text=""
- Catch ex As Exception
-  gvBackupNimStudents.DataSource=Nothing:gvBackupNimStudents.DataBind():lblBackupNimSearchInfo.Text="Data mahasiswa tidak dapat dibaca: " & Server.HtmlEncode(ex.Message)
- Finally:tutupsr():End Try
-End Sub
-Protected Sub btnSearchBackupStudent_Click(sender As Object,e As EventArgs)
- gvBackupNimStudents.PageIndex=0
- If String.IsNullOrWhiteSpace(ddlBackupNimYear.SelectedValue) Then
-  ShowEmptyBackupNimState()
-  ShowAlert(litAlertBackupNim,"warning","Tahun Akademik belum dipilih","Pilih Tahun Akademik terlebih dahulu sebelum mencari mahasiswa.")
- Else
-  LoadBackupNimStudents()
- End If
- ScriptManager.RegisterStartupScript(Me,Me.GetType(),"KeepBackupNimSearchTab","$(""a[href='#subtab-backup-nim']"").tab('show');",True)
-End Sub
-Protected Sub ddlBackupNimYear_SelectedIndexChanged(sender As Object,e As EventArgs)
- gvBackupNimStudents.PageIndex=0
- If String.IsNullOrWhiteSpace(ddlBackupNimYear.SelectedValue) Then ShowEmptyBackupNimState() Else LoadBackupNimStudents()
- ScriptManager.RegisterStartupScript(Me,Me.GetType(),"KeepBackupNimYearTab","$(""a[href='#subtab-backup-nim']"").tab('show');",True)
-End Sub
-Protected Sub gvBackupNimStudents_PageIndexChanging(sender As Object,e As GridViewPageEventArgs)
- gvBackupNimStudents.PageIndex=e.NewPageIndex
- LoadBackupNimStudents()
-End Sub
-Protected Sub gvBackupNimStudents_RowCommand(sender As Object,e As GridViewCommandEventArgs)
- If e.CommandName<>"BackupStudent" Then Return
- CreateBackupNimJob(Convert.ToString(e.CommandArgument).Trim())
- LoadBackupNimStudents()
- ScriptManager.RegisterStartupScript(Me,Me.GetType(),"KeepBackupNimGridTab","$(""a[href='#subtab-backup-nim']"").tab('show');",True)
-End Sub
-
-Private Sub CreateBackupNimJob(nim As String)
- Try
-  ValidateSelectedSourceDatabase(ddlSourceDatabaseNim.SelectedValue)
-  If nim.Length<>9 OrElse System.Text.RegularExpressions.Regex.IsMatch(nim,"[^0-9A-Za-z]") Then Throw New ApplicationException("NIM harus tepat 9 karakter alfanumerik.")
-  Using cmd As New SqlCommand("dbo.sp_CreateBackupNimTransferJob",cnsr)
-   cmd.CommandType=CommandType.StoredProcedure
-   cmd.Parameters.Add("@StudentNim",SqlDbType.Char,9).Value=nim
-   cmd.Parameters.Add("@RequestedBy",SqlDbType.VarChar,50).Value=BackupRequestedBy()
-   cmd.Parameters.Add("@SelectedTables",SqlDbType.VarChar,100).Value=SelectedTables(cblBackupNimTables,True)
-   cnsr.Open()
-   Using rd=cmd.ExecuteReader()
-    If Not rd.Read() Then Throw New ApplicationException("Pembuatan antrean tidak menghasilkan status.")
-    ShowAlert(litAlertBackupNim,"success","Permintaan diterima","NIM " & nim & " masuk antrean backup.")
-   End Using
-  End Using
- Catch ex As Exception
-  ShowAlert(litAlertBackupNim,"error","Backup per NIM gagal",ex.Message)
- Finally:tutupsr():End Try
-End Sub
 Protected Sub ddlTahunJadwal_SelectedIndexChanged(sender As Object,e As EventArgs)
  PopulateTAByYear(ddlBatasThAkdk,"- Pilih detail Tahun Akademik -",ddlTahunJadwal.SelectedValue)
  ScriptManager.RegisterStartupScript(Me, Me.GetType(), "KeepScheduleTabAfterYear", "$(""a[href='#subtab-otomatis']"").tab('show');", True)
@@ -243,7 +156,7 @@ Protected Sub btnJalankanBackup_Click(sender As Object,e As EventArgs)
   If mode<>"SINGLE" AndAlso mode<>"RANGE" Then Throw New ApplicationException("Cakupan backup tidak valid.")
   If endTa="" Then Throw New ApplicationException("Pilih Tahun Akademik.")
   If mode="RANGE" AndAlso startTa="" Then Throw New ApplicationException("Pilih TA awal rentang.")
-   If mode="RANGE" AndAlso String.CompareOrdinal(startTa,endTa)>0 Then Throw New ApplicationException("TA akhir tidak boleh lebih awal dari TA awal.")
+  If mode="RANGE" AndAlso String.CompareOrdinal(startTa,endTa)>=0 Then Throw New ApplicationException("TA akhir harus lebih besar dari TA awal.")
   Dim selectedTableCsv=SelectedTables(cblBackupTables,True)
   Using cmd As New SqlCommand("dbo.sp_CreateBackupTransferJob",cnsr)
    cmd.CommandType=CommandType.StoredProcedure
@@ -297,23 +210,23 @@ End Sub
         var $end = $("#<%= ddlBackupEndTa.ClientID %>");
         var start = $start.val() || "", end = $end.val() || "";
         var range = mode === "RANGE";
-        $("#backupStartTaGroup").toggle(range);
+        $("#backupStartTaGroup").toggleClass("backup-u-029", !range);
         $("#backupEndTaLabel").text(range ? "TA akhir:" : "Tahun Akademik:");
         $end.prop("disabled", range && !start);
-        $end.find("option").each(function(){var ta=this.value;var invalid=!!(range&&start&&ta&&ta<start);$(this).prop("disabled",invalid).prop("hidden",invalid);});
-        if(range && start && end && end < start){$end.val("");end="";}
+        $end.find("option").each(function(){var ta=this.value;var invalid=!!(range&&start&&ta&&ta<=start);$(this).prop("disabled",invalid).prop("hidden",invalid);});
+        if(range && start && end && end <= start){$end.val("");end="";}
         var ready = !!end && (!range || !!start), total = 0;
         if(ready){$end.find("option").each(function(){var ta=this.value;if(ta&&backupScopeIncluded(mode,start,end,ta)){total+=parseInt($(this).attr("data-count")||"0",10)||0;}});}
         $("#backupSummaryTotal").text(backupNumber(total));
         $("#backupSummaryPeriod").text(!ready?"-":(mode==="RANGE"?start+" sampai "+end:end));
-        $("#backupScopeSummary").toggle(ready);
+        $("#backupScopeSummary").toggleClass("backup-u-029", !ready);
     }
     function resetBackupScope(){$("#<%= ddlBackupStartTa.ClientID %>").val("");$("#<%= ddlBackupEndTa.ClientID %>").val("");toggleBackupScope();}
     function confirmBackupPeriods(button){
         var mode=$("#<%= ddlBackupScope.ClientID %>").val(),start=$("#<%= ddlBackupStartTa.ClientID %>").val(),end=$("#<%= ddlBackupEndTa.ClientID %>").val();
         if(mode==="RANGE"&&!start){return backupNotice("Pilih TA awal terlebih dahulu.");}
         if(!end){return backupNotice(mode==="RANGE"?"Pilih TA akhir.":"Pilih Tahun Akademik.");}
-        if(mode==="RANGE"&&end<start){return backupNotice("TA akhir tidak boleh lebih awal dari TA awal.");}
+        if(mode==="RANGE"&&end<=start){return backupNotice("TA akhir harus lebih besar dari TA awal.");}
         return backupConfirm(button,"Backup data mahasiswa terpilih ke Database Backup sekarang? Data pada database aktif tidak akan dihapus.",{title:"Konfirmasi backup",confirmText:"Ya, backup sekarang"});
     }
 
@@ -380,7 +293,7 @@ End Sub
         <h1>Backup Data</h1>
     </div>
 
-    <!-- SUB-TAB NAVIGASI MODUL 3: BACKUP OTOMATIS & BACKUP MANUAL -->
+    <!-- NAVIGASI BACKUP OTOMATIS DAN BACKUP TAHUN AKADEMIK -->
     <ul class="nav nav-tabs backup-u-064">
         <li class="<%= If(CurrentBackupSection="otomatis","active","") %>" id="tabSubOtomatis">
             <a href="index.aspx?tab=backup&amp;section=otomatis">
@@ -390,11 +303,6 @@ End Sub
         <li class="<%= If(CurrentBackupSection="tahun","active","") %>" id="tabSubManual">
             <a href="index.aspx?tab=backup&amp;section=tahun">
                 <i class="fa fa-calendar me-1"></i> Backup Tahun Akademik
-            </a>
-        </li>
-        <li class="<%= If(CurrentBackupSection="nim","active","") %>" id="tabSubBackupNim">
-            <a href="index.aspx?tab=backup&amp;section=nim">
-                <i class="fa fa-user me-1"></i> Backup per NIM
             </a>
         </li>
     </ul>
@@ -568,45 +476,5 @@ End Sub
             </div>
         </div>
 
-        <!-- SUB-TAB 3: BACKUP PER NIM -->
-        <div class="tab-pane <%= If(CurrentBackupSection="nim","active","") %>" id="subtab-backup-nim">
-            <div class="panel panel-default backup-u-012">
-                <div class="panel-heading backup-u-005">
-                    <i class="fa fa-user text-danger backup-u-067"></i> Backup Mahasiswa per NIM
-                </div>
-                <div class="panel-body backup-u-072">
-                    <asp:Literal ID="litAlertBackupNim" runat="server" />
-                    <p class="backup-mode-help"><i class="fa fa-info-circle"></i>Gunakan menu ini untuk mencari dan membackup satu mahasiswa tertentu berdasarkan NIM atau nama.</p>
-                    <div class="row backup-u-062">
-                        <div class="backup-source-database" aria-hidden="true"><asp:DropDownList ID="ddlSourceDatabaseNim" runat="server" CssClass="form-control" /></div>
-                        <div class="col-md-4 col-sm-4"><label for="<%= ddlBackupNimYear.ClientID %>">Filter tahun data</label><asp:DropDownList ID="ddlBackupNimYear" runat="server" CssClass="form-control" AutoPostBack="true" OnSelectedIndexChanged="ddlBackupNimYear_SelectedIndexChanged" /></div>
-                        <div class="col-md-6 col-sm-5"><label for="<%= txtSearchBackupStudent.ClientID %>">Cari mahasiswa</label><asp:TextBox ID="txtSearchBackupStudent" runat="server" CssClass="form-control" MaxLength="100" placeholder="Masukkan NIM atau nama mahasiswa" /></div>
-                        <div class="col-md-2 col-sm-3 backup-u-075"><asp:Button ID="btnSearchBackupStudent" runat="server" Text="Cari" CssClass="btn btn-default btn-block" OnClick="btnSearchBackupStudent_Click" /></div>
-                    </div>
-                    <div class="well backup-u-010">
-                        <label>Tabel yang dibackup:</label>
-                        <asp:CheckBoxList ID="cblBackupNimTables" runat="server" RepeatDirection="Horizontal" RepeatLayout="Flow" CssClass="backup-table-options">
-                            <asp:ListItem Value="tbio01" Text=" Biodata (tbio01) · wajib" Selected="True" Enabled="False" />
-                            <asp:ListItem Value="treg" Text=" Registrasi (treg)" Selected="True" />
-                            <asp:ListItem Value="tkrs06" Text=" KRS (tkrs06)" Selected="True" />
-                            <asp:ListItem Value="t_absensi14" Text=" Absensi (t_absensi14)" Selected="True" />
-                        </asp:CheckBoxList>
-                        <p class="help-block"><i class="fa fa-lock" aria-hidden="true"></i>Biodata wajib disertakan; pilih minimal satu tabel akademik lainnya.</p>
-                    </div>
-                    <div class="table-responsive backup-u-065">
-                        <asp:GridView ID="gvBackupNimStudents" runat="server" AutoGenerateColumns="false" CssClass="table table-bordered table-hover" EmptyDataText="Mahasiswa tidak ditemukan." AllowPaging="true" PageSize="10" PagerSettings-Mode="NumericFirstLast" PagerSettings-FirstPageText="Awal" PagerSettings-LastPageText="Akhir" PagerStyle-CssClass="customPager" PagerStyle-HorizontalAlign="Center" OnPageIndexChanging="gvBackupNimStudents_PageIndexChanging" OnRowCommand="gvBackupNimStudents_RowCommand">
-                            <Columns>
-                                <asp:BoundField DataField="Nim1" HeaderText="NIM" />
-                                <asp:BoundField DataField="Nama" HeaderText="Nama Mahasiswa" />
-                                <asp:BoundField DataField="ThAkdk" HeaderText="TA Terakhir" />
-                                <asp:TemplateField HeaderText="Aksi" ItemStyle-HorizontalAlign="Center"><ItemTemplate><asp:Button ID="btnBackupStudent" runat="server" Text="Backup" CssClass="btn btn-xs btn-danger" CommandName="BackupStudent" CommandArgument='<%# Eval("Nim1") %>' OnClientClick="return backupConfirm(this,'Backup seluruh data mahasiswa ini? Data pada database aktif tidak akan dihapus.',{title:'Konfirmasi backup',confirmText:'Ya, backup'});" /></ItemTemplate></asp:TemplateField>
-                            </Columns>
-                        </asp:GridView>
-                    </div>
-                    <asp:Label ID="lblBackupNimSearchInfo" runat="server" CssClass="text-muted" />
-
-                </div>
-            </div>
-        </div>
     </div>
 </div>

@@ -120,7 +120,7 @@ End Function
  <div class="panel panel-default backup-u-013">
   <div class="panel-heading backup-u-043"><span><i class="fa fa-list"></i> Daftar Pengguna</span><asp:Label ID="lblOperatorCount" runat="server" CssClass="text-muted" /></div>
   <div class="table-responsive">
-   <asp:GridView ID="gvOperators" runat="server" AutoGenerateColumns="false" CssClass="table table-bordered table-hover backup-u-058" GridLines="None" EmptyDataText="Belum ada operator terdaftar." OnRowCommand="gvOperators_RowCommand">
+   <asp:GridView ID="gvOperators" runat="server" AutoGenerateColumns="false" CssClass="table table-bordered table-hover backup-u-058 operator-table" GridLines="None" EmptyDataText="Belum ada operator terdaftar." OnRowCommand="gvOperators_RowCommand">
     <Columns>
      <asp:BoundField DataField="UserId" HeaderText="ID Lintar" />
      <asp:TemplateField HeaderText="Peran"><ItemTemplate><span class="label label-info"><%# RoleText(Eval("AccessRole")) %></span></ItemTemplate></asp:TemplateField>

@@ -122,15 +122,14 @@ Invoke-Test 'Script SQL hanya memiliki satu definisi aktif per procedure' 'Sourc
  Assert-True ($missing.Count -eq 0) ('Procedure runtime tidak memiliki script aktif: '+($missing -join ', '))
  "$($sqlFiles.Count) file SQL, $($definitions.Count) procedure unik, tanpa duplikasi."
 }
-Invoke-Test 'Daftar per NIM wajib difilter Tahun Akademik' 'UI' {
+Invoke-Test 'Backup per NIM dihapus dan Pemulihan per NIM tetap difilter' 'UI' {
  $backup=Get-Content -LiteralPath(Join-Path $ApplicationRoot 'ascx\backup.ascx')-Raw
  $restore=Get-Content -LiteralPath(Join-Path $ApplicationRoot 'ascx\pemulihan.ascx')-Raw
- Assert-True ($backup.Contains('New ListItem("- Pilih Tahun Akademik -","")')) 'Dropdown backup per NIM belum memiliki pilihan awal wajib.'
- Assert-True ($backup.Contains('If String.IsNullOrWhiteSpace(year) Then ShowEmptyBackupNimState():Exit Sub')) 'Query backup per NIM belum dilindungi filter TA.'
+ Assert-True ($backup -notmatch '(?i)backup\s+(?:mahasiswa\s+)?per\s+NIM|section=nim|sp_CreateBackupNimTransferJob|gvBackupNimStudents') 'Fitur Backup per NIM masih tersedia pada halaman Backup.'
  Assert-True ($restore.Contains('New ListItem("- Pilih Tahun Akademik -","")')) 'Dropdown pemulihan per NIM belum memiliki pilihan awal wajib.'
  Assert-True ($restore -notmatch 'CreateLookup\("SEARCH","",""\)') 'Pemulihan masih membuat lookup seluruh mahasiswa saat halaman dibuka.'
  Assert-True ($restore.Contains('ShowEmptyRestoreNimState()')) 'State awal pemulihan per NIM belum tersedia.'
- 'Backup dan pemulihan per NIM tidak memuat mahasiswa sebelum TA dipilih.'
+ 'Backup per NIM tidak diekspos dan Pemulihan per NIM tidak memuat mahasiswa sebelum TA dipilih.'
 }
 Invoke-Test 'Web tidak mengakses database backup secara langsung' 'Architecture' {
  $files=@()
@@ -182,8 +181,8 @@ Invoke-Test 'Istilah tampilan menggunakan Database Backup' 'UI' {
  $forbidden=@($files|Select-String -Pattern '(?i)Menunggu\s+laptop|Laptop\s+backup'|Where-Object{$_.Line -notmatch 'Regex\.Replace'})
  Assert-True ($forbidden.Count -eq 0) 'Masih ada istilah laptop pada teks yang ditampilkan.'
  $main=Get-Content -LiteralPath(Join-Path $ApplicationRoot 'ascx\backup.ascx')-Raw
- Assert-True ($main.Contains('Backup Data Mahasiswa')) 'Judul halaman utama belum menggunakan istilah backup.'
- Assert-True ($main.Contains('Database sumber:')) 'Pilihan database sumber belum tersedia.'
+ Assert-True ($main.Contains('<h1>Backup Data</h1>')) 'Judul halaman utama belum menggunakan istilah backup.'
+ Assert-True ($main -notmatch '(?i)<label[^>]*>\s*Database sumber') 'Pilihan database sumber masih ditampilkan kepada pengguna.'
  'Teks status dan halaman utama menggunakan Database Backup.'
 }
 Invoke-Test 'Backup tidak menghapus data sumber' 'Data safety' {
@@ -206,7 +205,7 @@ Invoke-Test 'Backup mencakup semua status mahasiswa' 'Data selection' {
  Assert-True ($page -notmatch '(?i)ActiveStudents|InactiveStudents|data-active|data-inactive|StatusRegistrasi') 'Tampilan backup masih membagi atau memfilter mahasiswa berdasarkan status.'
  Assert-True ($sql -notmatch '(?i)ROW_NUMBER\(\)\s+OVER\s*\(PARTITION BY\s+r?\.?nim1') 'Backup Tahun Akademik masih memilih hanya registrasi terakhir mahasiswa.'
  Assert-True ($sql -match '(?i)SELECT\s+DISTINCT\s+@job\s*,\s*b\.nim1[\s\S]*JOIN\s+dbo\.treg\s+r[\s\S]*r\.th_akdk') 'Kandidat backup belum dipilih dari baris Tahun Akademik yang benar-benar tersedia.'
- 'Backup Tahun Akademik dan NIM menerima seluruh mahasiswa tanpa membedakan status.'
+ 'Backup Tahun Akademik menerima seluruh mahasiswa tanpa membedakan status.'
 }
 Invoke-Test 'Sumber backup menggunakan tabel langsung dec_dummy' 'Architecture' {
  $api=Get-Content -LiteralPath(Join-Path $ApplicationRoot 'api\agent.aspx')-Raw
@@ -226,14 +225,14 @@ Invoke-Test 'Pilihan tabel diteruskan dari UI sampai agent' 'Feature' {
  $api=Get-Content -LiteralPath(Join-Path $ApplicationRoot 'api\agent.aspx')-Raw
  $agent=Get-Content -LiteralPath(Join-Path $ToolingRoot 'agent\BackupAgent.ps1')-Raw
  $schema=Get-Content -LiteralPath(Join-Path $ToolingRoot 'scripts\modular\00_core\02_transfer_and_inventory_tables.sql')-Raw
- foreach($control in @('cblScheduleTables','cblBackupTables','cblBackupNimTables')){Assert-True ($backup.Contains($control)) "Kontrol $control belum tersedia."}
+ foreach($control in @('cblScheduleTables','cblBackupTables')){Assert-True ($backup.Contains($control)) "Kontrol $control belum tersedia."}
  foreach($control in @('cblRestoreNimTables','cblRestorePeriodTables')){Assert-True ($restore.Contains($control)) "Kontrol $control belum tersedia."}
  foreach($table in @('tbio01','treg','tkrs06','t_absensi14')){Assert-True ($backup.Contains('Value="'+$table+'"')) "Pilihan backup $table belum tersedia.";Assert-True ($restore.Contains('Value="'+$table+'"')) "Pilihan restore $table belum tersedia."}
  Assert-True ($schema -match '(?i)SelectedTables\s+VARCHAR\(100\)') 'Kolom pilihan tabel job belum tersedia.'
  Assert-True ($api.Contains('GetSelectedJobTables')) 'API belum memvalidasi pilihan tabel dari job.'
  Assert-True ($agent.Contains('Get-SelectedTableNames')) 'Agent belum membatasi pemrosesan ke tabel terpilih.'
  Assert-True ($history.Contains('TableLabel')) 'Riwayat belum menampilkan pilihan tabel.'
- 'Pemilihan tabel tersedia pada seluruh mode dan diteruskan melalui job, API, serta agent.'
+ 'Pemilihan tabel tersedia pada backup otomatis, backup Tahun Akademik, dan seluruh mode pemulihan; pilihan diteruskan melalui job, API, serta agent.'
 }
 Invoke-Test 'Restore melewati konflik tanpa menimpa data aktif' 'Data safety' {
  $api=Get-Content -LiteralPath(Join-Path $ApplicationRoot 'api\agent.aspx')-Raw
@@ -253,10 +252,10 @@ Invoke-Test 'Role Staf dan Manager diterapkan pada server' 'Authorization' {
  $security=Get-Content -LiteralPath (Join-Path $ToolingRoot 'scripts\modular\01_security\01_operator_access.sql') -Raw
  Assert-True ($auth.Contains('STAFF_BACKUP') -and $auth.Contains('MANAGER_BACKUP')) 'Role Staf dan Manager belum dikenali adapter otorisasi.'
  Assert-True ($index -match 'IsManagerView\s+AndAlso\s+CurrentTab\s+<>\s+"dashboard"') 'Pembatasan tab Manager belum dilakukan pada server.'
- Assert-True ($index.Contains('ascx/summary_report.ascx')) 'Laporan Ringkasan belum dimuat oleh router server.'
+ Assert-True ($index.Contains('ascx/summary_report.ascx')) 'Laporan belum dimuat oleh router server.'
  Assert-True ($operator.Contains('Value="STAFF_BACKUP"') -and $operator.Contains('Value="MANAGER_BACKUP"')) 'Pengelolaan pengguna belum menyediakan kedua role.'
  Assert-True ($security.Contains('sp_GetBackupOperatorRole') -and $security.Contains("'STAFF_BACKUP','MANAGER_BACKUP'")) 'Stored procedure role belum sesuai.'
- 'Manager dibatasi ke Dashboard/Laporan Ringkasan dan Staf tetap memiliki akses operasional.'
+ 'Manager dibatasi ke Dashboard/Laporan dan Staf tetap memiliki akses operasional.'
 }
 Invoke-Test 'Deployment Package menyertakan source website yang sama' 'Deployment' {
  $packagedWeb=Join-Path $ToolingRoot 'web\backup_data'
@@ -278,21 +277,21 @@ Invoke-Test 'Kontrol operasional mewajibkan role Staf' 'Authorization' {
  Assert-True ($dashboard.Contains('RequireBackupReportAccess()')) 'Dashboard belum memiliki guard akses laporan.'
  'Semua kontrol yang mengubah proses dilindungi guard Staf pada server.'
 }
-Invoke-Test 'Laporan Ringkasan tersedia dan bersifat read-only' 'Feature' {
+Invoke-Test 'Laporan tersedia dan bersifat read-only' 'Feature' {
  $path=Join-Path $ApplicationRoot 'ascx\summary_report.ascx'
- Assert-True (Test-Path -LiteralPath $path) 'File Laporan Ringkasan belum tersedia.'
+ Assert-True (Test-Path -LiteralPath $path) 'File Laporan belum tersedia.'
  $report=Get-Content -LiteralPath $path -Raw
- Assert-True ($report.Contains('RequireBackupReportAccess()')) 'Laporan Ringkasan belum memeriksa akses laporan.'
+ Assert-True ($report.Contains('RequireBackupReportAccess()')) 'Laporan belum memeriksa akses laporan.'
  Assert-True ($report.Contains('@StartDate') -and $report.Contains('@EndExclusive')) 'Filter tanggal belum memakai parameter SQL.'
  Assert-True ($report.Contains('BackupTransferJob') -and $report.Contains('BackupAgentPeriodInventory')) 'Sumber laporan belum menggunakan tabel kontrol dan inventaris.'
- Assert-True ($report -notmatch '(?im)^\s*(INSERT|UPDATE|DELETE|MERGE|TRUNCATE|EXEC(?:UTE)?)\s') 'Laporan Ringkasan memuat perintah perubahan data.'
- 'Laporan Ringkasan membaca tabel kontrol/inventaris dengan filter berparameter tanpa perintah perubahan data.'
+ Assert-True ($report -notmatch '(?im)^\s*(INSERT|UPDATE|DELETE|MERGE|TRUNCATE|EXEC(?:UTE)?)\s') 'Laporan memuat perintah perubahan data.'
+ 'Laporan membaca tabel kontrol/inventaris dengan filter berparameter tanpa perintah perubahan data.'
 }
-Invoke-Test 'Laporan Ringkasan dapat diekspor ke PDF secara aman' 'Feature' {
+Invoke-Test 'Laporan dapat diekspor ke PDF secara aman' 'Feature' {
  $report=Get-Content -LiteralPath (Join-Path $ApplicationRoot 'ascx\summary_report.ascx') -Raw
  $writer=Get-Content -LiteralPath (Join-Path $ApplicationRoot 'ascx\pdf_report_writer.ascx') -Raw
  Assert-True ($report.Contains('btnExportPdf_Click')) 'Handler ekspor PDF belum tersedia.'
- Assert-True ($report.Contains('BackupSummaryPdfWriter.Create')) 'Laporan Ringkasan belum menggunakan generator PDF.'
+ Assert-True ($report.Contains('BackupSummaryPdfWriter.Create')) 'Laporan belum menggunakan generator PDF.'
  Assert-True ($report.Contains('Response.ContentType="application/pdf"')) 'Respons ekspor belum menggunakan content type PDF.'
  Assert-True ($report.Contains('Content-Disposition') -and $report.Contains('LINTAR_Laporan_Ringkasan_')) 'Nama lampiran PDF belum diterapkan.'
  Assert-True ($report.Contains('RequireBackupReportAccess()')) 'Ekspor PDF belum dilindungi akses laporan.'
@@ -329,12 +328,12 @@ Invoke-Test 'Antarmuka operasional disederhanakan dan konsisten' 'UI' {
  $report=Get-Content -LiteralPath (Join-Path $ApplicationRoot 'ascx\summary_report.ascx') -Raw
  $operationalPages=@($backup,$restore,$history,(Get-Content -LiteralPath (Join-Path $ApplicationRoot 'ascx\operator.ascx') -Raw),(Get-Content -LiteralPath (Join-Path $ApplicationRoot 'ascx\ekspor.ascx') -Raw)) -join "`n"
  foreach($group in @('Operasional','Pemantauan','Administrasi')){Assert-True ($index.Contains('> '+$group+' <')) "Kelompok menu $group belum tersedia."}
- Assert-True ($index.Contains('Laporan Ringkasan') -and $index.Contains('Riwayat Proses')) 'Istilah menu belum disederhanakan.'
+ Assert-True ($index.Contains('> Laporan</a>') -and $index.Contains('Riwayat Proses')) 'Istilah menu belum disederhanakan.'
  Assert-True ($master.Contains('window.backupConfirm') -and $master.Contains('window.Swal.fire')) 'Konfirmasi SweetAlert global belum tersedia.'
  Assert-True ($operationalPages -notmatch '(?i)return\s+(?:window\.)?confirm\s*\(') 'Masih ada konfirmasi browser langsung pada halaman operasional.'
  Assert-True ($backup.Contains('id="pnlAutomaticSettings" class="panel-collapse collapse"')) 'Pengaturan backup otomatis belum dapat dibuka/tutup.'
- Assert-True (([regex]::Matches($backup,'backup-mode-help')).Count -ge 3 -and ([regex]::Matches($restore,'backup-mode-help')).Count -ge 2) 'Petunjuk singkat setiap mode belum lengkap.'
- Assert-True ($report.Contains('summary-filter-grid') -and $report.Contains('Laporan Ringkasan Backup Data')) 'Filter dan istilah laporan belum disederhanakan.'
+ Assert-True (([regex]::Matches($backup,'backup-mode-help')).Count -ge 2 -and ([regex]::Matches($restore,'backup-mode-help')).Count -ge 2) 'Petunjuk singkat setiap mode belum lengkap.'
+ Assert-True ($report.Contains('summary-filter-grid') -and $report.Contains('<h1>Laporan</h1>')) 'Filter dan istilah laporan belum disederhanakan.'
  'Menu dikelompokkan, istilah diseragamkan, panel otomatis dapat dilipat, bantuan tersedia, dan konfirmasi memakai SweetAlert.'
 }
 

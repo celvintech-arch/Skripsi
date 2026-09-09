@@ -65,15 +65,15 @@ Batalkan cutover apabila terjadi compiler error, token salah diterima, koneksi t
 
 Runtime hasil optimasi telah dipasang pada jalur development `backup_data`. Pengujian statis pascadeploy tanggal 4 September 2026 menghasilkan **21 PASS, 0 FAIL, dan 5 SKIP**. Job `LINTAR Backup Agent` tetap nonaktif dan menggunakan konfigurasi development. Pengujian operasi data dan aktivasi production belum dilakukan. Tidak ada SQL, backup, pemulihan, ekspor, atau perubahan data yang dijalankan pada tahap optimasi ini.
 
-## 7. Cutover peran dan Laporan Ringkasan
+## 7. Cutover peran dan Laporan
 
 Source fitur, migrasi peran, dan cutover website telah selesai. Pengujian akun nyata dan UAT tetap diperlukan.
 
-- [x] Tetapkan peran `STAFF_BACKUP` dengan akses penuh dan `MANAGER_BACKUP` dengan akses Dashboard serta Laporan Ringkasan saja.
+- [x] Tetapkan peran `STAFF_BACKUP` dengan akses penuh dan `MANAGER_BACKUP` dengan akses Dashboard serta Laporan saja.
 - [x] Pertahankan role lama sebagai Staf untuk kompatibilitas tanpa memperbarui data akun secara otomatis.
 - [x] Terapkan pemeriksaan role pada server untuk menu, URL langsung, dan postback.
 - [ ] Pastikan Manager tidak dapat membuat, membatalkan, memulihkan, mengekspor, atau mengubah konfigurasi.
-- [x] Tambahkan filter dan metrik dasar Laporan Ringkasan.
+- [x] Tambahkan filter dan metrik dasar Laporan.
 - [x] Pastikan Laporan bersifat baca-saja dan tidak membuka koneksi web langsung ke `dec_dummy_backup`.
 - [x] Tambahkan ekspor PDF yang mengikuti filter aktif dan dibuat langsung di memori server.
 - [x] Validasi struktur PDF serta render halaman awal, tengah, dan akhir menggunakan data uji.
@@ -84,10 +84,11 @@ Source fitur, migrasi peran, dan cutover website telah selesai. Pengujian akun n
 ## 8. Penyederhanaan antarmuka
 
 - [x] Kelompokkan menu Staf menjadi Operasional, Pemantauan, dan Administrasi.
-- [x] Ubah nama tampilan menjadi Laporan Ringkasan dan Riwayat Proses.
+- [x] Ubah nama tampilan menjadi Laporan dan Riwayat Proses.
 - [x] Jadikan pengaturan Backup Otomatis sebagai panel yang dapat dibuka dan ditutup.
 - [x] Tambahkan petunjuk singkat pada mode backup dan pemulihan.
-- [x] Susun filter Laporan Ringkasan secara responsif untuk layar kecil.
+- [x] Susun filter Laporan secara responsif untuk layar kecil.
+- [x] Hapus fitur Backup per NIM dari portal; Pemulihan per NIM tetap tersedia.
 - [x] Gunakan SweetAlert untuk konfirmasi tindakan, dengan fallback aman jika pustaka tidak tersedia.
 - [x] Kompilasi ASP.NET Web Forms berhasil dan pengujian statis menghasilkan **28 PASS, 0 FAIL, dan 5 SKIP**.
 - [ ] Validasi kemudahan penggunaan melalui UAT dan SUS bersama Staf serta Manager.

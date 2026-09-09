@@ -240,7 +240,7 @@ Private Function GetSelectedRestorePeriods() As System.Collections.Generic.List(
  If mode<>"SINGLE" AndAlso mode<>"RANGE" Then Throw New ApplicationException("Cakupan pemulihan tidak valid.")
  If endTa="" Then Throw New ApplicationException("Pilih Tahun Akademik.")
  If mode="RANGE" AndAlso startTa="" Then Throw New ApplicationException("Pilih TA awal rentang.")
- If mode="RANGE" AndAlso String.CompareOrdinal(startTa,endTa)>0 Then Throw New ApplicationException("TA akhir tidak boleh lebih awal dari TA awal.")
+ If mode="RANGE" AndAlso String.CompareOrdinal(startTa,endTa)>=0 Then Throw New ApplicationException("TA akhir harus lebih besar dari TA awal.")
  For Each item As ListItem In ddlRestoreEndTa.Items
   Dim ta=item.Value
   If ta<>"" AndAlso ((mode="SINGLE" AndAlso ta=endTa) OrElse (mode="RANGE" AndAlso String.CompareOrdinal(ta,startTa)>=0 AndAlso String.CompareOrdinal(ta,endTa)<=0)) Then periods.Add(ta)
@@ -334,23 +334,23 @@ function restoreScopeIncluded(mode,start,end,ta){return(mode==="SINGLE"&&ta===en
 function applyRestoreScope(){
  var mode=$("#<%= ddlRestoreScope.ClientID %>").val(),$start=$("#<%= ddlRestoreStartTa.ClientID %>"),$end=$("#<%= ddlRestoreEndTa.ClientID %>");
  var start=$start.val()||"",end=$end.val()||"",range=mode==="RANGE";
- $("#restoreStartTaGroup").toggle(range);
+ $("#restoreStartTaGroup").toggleClass("backup-u-029", !range);
  $("#restoreEndTaLabel").text(range?"TA akhir:":"Tahun Akademik:");
  $end.prop("disabled",range&&!start);
- $end.find("option").each(function(){var ta=this.value;var invalid=!!(range&&start&&ta&&ta<start);$(this).prop("disabled",invalid).prop("hidden",invalid);});
- if(range&&start&&end&&end<start){$end.val("");end="";}
+ $end.find("option").each(function(){var ta=this.value;var invalid=!!(range&&start&&ta&&ta<=start);$(this).prop("disabled",invalid).prop("hidden",invalid);});
+ if(range&&start&&end&&end<=start){$end.val("");end="";}
   var ready=!!end&&(!range||!!start),eligible=0;
   if(ready){$end.find("option").each(function(){var ta=this.value;if(ta&&restoreScopeIncluded(mode,start,end,ta)){eligible+=parseInt($(this).attr("data-eligible")||"0",10)||0;}});}
  $("#restoreSummaryEligible").text(restoreNumber(eligible));
  $("#restoreSummaryPeriod").text(!ready?"-":(mode==="RANGE"?start+" sampai "+end:end));
- $("#restoreScopeSummary").toggle(ready);
+ $("#restoreScopeSummary").toggleClass("backup-u-029", !ready);
 }
 function resetRestoreScope(){$("#<%= ddlRestoreStartTa.ClientID %>").val("");$("#<%= ddlRestoreEndTa.ClientID %>").val("");applyRestoreScope();}
 function confirmRestorePeriods(button){
  var mode=$("#<%= ddlRestoreScope.ClientID %>").val(),start=$("#<%= ddlRestoreStartTa.ClientID %>").val(),end=$("#<%= ddlRestoreEndTa.ClientID %>").val();
  if(mode==="RANGE"&&!start){return backupNotice("Pilih TA awal terlebih dahulu.");}
  if(!end){return backupNotice(mode==="RANGE"?"Pilih TA akhir.":"Pilih Tahun Akademik.");}
- if(mode==="RANGE"&&end<start){return backupNotice("TA akhir tidak boleh lebih awal dari TA awal.");}
+ if(mode==="RANGE"&&end<=start){return backupNotice("TA akhir harus lebih besar dari TA awal.");}
  return backupConfirm(button,"Pulihkan data sesuai cakupan Tahun Akademik yang dipilih? Salinan pada database backup tetap disimpan dan konflik pada database aktif akan dilewati.",{title:"Konfirmasi pemulihan",confirmText:"Ya, pulihkan"});
 }
 $(document).ready(applyRestoreScope);
@@ -384,7 +384,7 @@ $(document).ready(applyRestoreScope);
      <div class="well backup-u-010">
       <label>Tabel yang dipulihkan:</label>
       <asp:CheckBoxList ID="cblRestoreNimTables" runat="server" RepeatDirection="Horizontal" RepeatLayout="Flow" CssClass="backup-table-options">
-       <asp:ListItem Value="tbio01" Text=" Biodata (tbio01)" Selected="True" />
+       <asp:ListItem Value="tbio01" Text=" Biodata (tbio01) · wajib" Selected="True" Enabled="False" />
        <asp:ListItem Value="treg" Text=" Registrasi (treg)" Selected="True" />
        <asp:ListItem Value="tkrs06" Text=" KRS (tkrs06)" Selected="True" />
        <asp:ListItem Value="t_absensi14" Text=" Absensi (t_absensi14)" Selected="True" />
@@ -419,7 +419,7 @@ $(document).ready(applyRestoreScope);
       <div class="well backup-u-010">
        <label>Tabel yang dipulihkan:</label>
        <asp:CheckBoxList ID="cblRestorePeriodTables" runat="server" RepeatDirection="Horizontal" RepeatLayout="Flow" CssClass="backup-table-options">
-        <asp:ListItem Value="tbio01" Text=" Biodata (tbio01)" Selected="True" />
+        <asp:ListItem Value="tbio01" Text=" Biodata (tbio01) · wajib" Selected="True" Enabled="False" />
         <asp:ListItem Value="treg" Text=" Registrasi (treg)" Selected="True" />
         <asp:ListItem Value="tkrs06" Text=" KRS (tkrs06)" Selected="True" />
         <asp:ListItem Value="t_absensi14" Text=" Absensi (t_absensi14)" Selected="True" />

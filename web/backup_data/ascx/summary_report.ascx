@@ -234,8 +234,18 @@ End Function
 
 Private Function ScopeText(row As DataRow) As String
  If Not row.IsNull("StudentNim") AndAlso Not String.IsNullOrWhiteSpace(row("StudentNim").ToString()) Then Return "NIM " & row("StudentNim").ToString().Trim()
- If Not row.IsNull("RestoreThAkdkList") AndAlso Not String.IsNullOrWhiteSpace(row("RestoreThAkdkList").ToString()) Then Return "TA " & row("RestoreThAkdkList").ToString().Trim()
- If Not row.IsNull("CutoffThAkdk") AndAlso Not String.IsNullOrWhiteSpace(row("CutoffThAkdk").ToString()) Then Return "s.d. TA " & row("CutoffThAkdk").ToString().Trim()
+ If Not row.IsNull("RestoreThAkdkList") AndAlso Not String.IsNullOrWhiteSpace(row("RestoreThAkdkList").ToString()) Then
+  Dim scope=row("RestoreThAkdkList").ToString().Trim()
+  If scope.StartsWith("SINGLE:",StringComparison.OrdinalIgnoreCase) Then Return scope.Substring(7).Trim()
+  If scope.StartsWith("RANGE:",StringComparison.OrdinalIgnoreCase) Then Return scope.Substring(6).Trim().Replace("-"," sampai ")
+  If scope.StartsWith("UP_TO:",StringComparison.OrdinalIgnoreCase) Then Return scope.Substring(6).Trim() & " dan sebelumnya"
+  Dim periods As New System.Collections.Generic.List(Of String)()
+  For Each value As String In scope.Split(","c)
+   If Not String.IsNullOrWhiteSpace(value) Then periods.Add(value.Trim())
+  Next
+  If periods.Count>0 Then Return String.Join(", ",periods.ToArray())
+ End If
+ If Not row.IsNull("CutoffThAkdk") AndAlso Not String.IsNullOrWhiteSpace(row("CutoffThAkdk").ToString()) Then Return row("CutoffThAkdk").ToString().Trim()
  Return "Database Backup"
 End Function
 
