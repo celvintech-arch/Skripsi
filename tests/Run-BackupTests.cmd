@@ -1,9 +1,10 @@
 @echo off
 setlocal
 set "TEST_DIR=%~dp0"
-set "REPORT_DIR=C:\BackupAgent\TestResults"
+set "REPO_ROOT=%TEST_DIR%.."
+set "REPORT_DIR=%REPO_ROOT%\TestResults"
 if not exist "%REPORT_DIR%" mkdir "%REPORT_DIR%"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%TEST_DIR%Run-BackupTests.ps1" -ApplicationRoot "C:\inetpub\wwwroot\backup_data" -ConfigPath "C:\BackupAgent\agent.config.development.json" -ReportPath "%REPORT_DIR%\latest.json"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%TEST_DIR%Run-BackupTests.ps1" -ApplicationRoot "%REPO_ROOT%\web\backup_data" -ToolingRoot "%REPO_ROOT%" -ConfigPath "%REPO_ROOT%\agent\agent.config.development.example.json" -SkipApi -SkipLocalDatabase -ReportPath "%REPORT_DIR%\latest.json"
 set "TEST_EXIT=%ERRORLEVEL%"
 echo.
 if "%TEST_EXIT%"=="0" (

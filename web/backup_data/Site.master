@@ -25,7 +25,7 @@
     <!-- SweetAlert2 -->
     <link rel="stylesheet" href="/admin_lte310/plugins/sweetalert2/sweetalert2.min.css">
     <!-- Style Khusus Backup Data -->
-    <link rel="stylesheet" href="style.css?v=20260908b">
+    <link rel="stylesheet" href="style.css?v=20260910f">
     <!-- LINTAR Loading Screen -->
     <link rel="stylesheet" href="/css/lintar-loader.css">
 

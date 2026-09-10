@@ -90,5 +90,11 @@ Source fitur, migrasi peran, dan cutover website telah selesai. Pengujian akun n
 - [x] Susun filter Laporan secara responsif untuk layar kecil.
 - [x] Hapus fitur Backup per NIM dari portal; Pemulihan per NIM tetap tersedia.
 - [x] Gunakan SweetAlert untuk konfirmasi tindakan, dengan fallback aman jika pustaka tidak tersedia.
-- [x] Kompilasi ASP.NET Web Forms berhasil dan pengujian statis menghasilkan **28 PASS, 0 FAIL, dan 5 SKIP**.
+- [x] Pengujian statis aman menghasilkan **33 PASS, 0 FAIL, dan 5 SKIP** tanpa akses API atau database.
+- [x] Dashboard menampilkan status layanan, agent utama, heartbeat, jadwal otomatis, proses terakhir, dan proses aktif.
+- [x] Backup dan Pemulihan memeriksa kesiapan Database Backup serta menyediakan tautan ke Riwayat Proses.
+- [x] Riwayat hanya menampilkan proses selesai dengan filter satu baris; proses aktif dipusatkan di Dashboard.
+- [x] Laporan menampilkan metrik ringkas dan PDF tetap mengikuti filter aktif.
+- [x] Ekspor menampilkan nama file, ukuran, dan status verifikasi; SHA-256 tetap dicatat pada hasil agent tanpa ditampilkan pada halaman.
+- [x] Cegah pengguna aktif menonaktifkan dirinya atau mengubah dirinya menjadi Manager.
 - [ ] Validasi kemudahan penggunaan melalui UAT dan SUS bersama Staf serta Manager.

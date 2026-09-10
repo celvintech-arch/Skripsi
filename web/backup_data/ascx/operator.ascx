@@ -38,6 +38,7 @@ Protected Sub btnAddOperator_Click(sender As Object,e As EventArgs)
   If Not ValidUserId(userId) Then Throw New ApplicationException("ID Lintar harus 3-50 karakter dan hanya boleh berisi huruf, angka, titik, garis bawah, atau tanda minus.")
   Dim accessRole=ddlOperatorRole.SelectedValue.Trim().ToUpperInvariant()
   If Not ValidRole(accessRole) Then Throw New ApplicationException("Peran pengguna tidak valid.")
+  If accessRole="MANAGER_BACKUP" AndAlso String.Equals(userId,CurrentOperatorId(),StringComparison.OrdinalIgnoreCase) Then Throw New ApplicationException("Staf yang sedang login tidak dapat mengubah dirinya sendiri menjadi Manager.")
   SetOperatorAccess(userId,accessRole,True)
   txtOperatorId.Text=""
   ShowOperatorAlert("success","Pengguna tersimpan","ID " & userId & " terdaftar sebagai " & RoleText(accessRole) & ".")
@@ -99,6 +100,10 @@ End Function
 Protected Function RoleText(value As Object) As String
  Return If(NormalizedRole(value)="MANAGER_BACKUP","Manager","Staf")
 End Function
+
+Protected Function IsCurrentOperator(value As Object) As Boolean
+ Return value IsNot Nothing AndAlso String.Equals(value.ToString().Trim(),CurrentOperatorId(),StringComparison.OrdinalIgnoreCase)
+End Function
 </script>
 
 <div class="backup-page backup-page-administration">
@@ -107,6 +112,10 @@ End Function
   <h1>Kelola Pengguna</h1>
  </div>
  <asp:Literal ID="litOperatorAlert" runat="server" />
+ <div class="access-summary" role="note">
+  <div><i class="fa fa-shield"></i><strong>Staf</strong><span>Akses penuh ke Dashboard, Backup, Pemulihan, Riwayat, Laporan, Ekspor, dan Kelola Pengguna.</span></div>
+  <div><i class="fa fa-eye"></i><strong>Manager</strong><span>Akses read-only hanya ke Dashboard dan Laporan.</span></div>
+ </div>
  <div class="panel panel-default backup-u-014">
   <div class="panel-heading backup-u-042"><i class="fa fa-user-plus"></i> Daftarkan Pengguna</div>
   <div class="panel-body">
@@ -126,7 +135,7 @@ End Function
      <asp:TemplateField HeaderText="Peran"><ItemTemplate><span class="label label-info"><%# RoleText(Eval("AccessRole")) %></span></ItemTemplate></asp:TemplateField>
      <asp:TemplateField HeaderText="Status" ItemStyle-HorizontalAlign="Center"><ItemTemplate><span class='<%# StatusClass(Eval("IsEnabled")) %>'><%# StatusText(Eval("IsEnabled")) %></span></ItemTemplate></asp:TemplateField>
      <asp:BoundField DataField="UpdatedAt" HeaderText="Terakhir Diubah" DataFormatString="{0:dd MMM yyyy HH:mm}" />
-      <asp:TemplateField HeaderText="Aksi" ItemStyle-HorizontalAlign="Center"><ItemTemplate><div class="operator-actions"><asp:LinkButton ID="btnSetStaff" runat="server" CssClass="btn btn-default btn-sm operator-role-button" CommandName="SetOperatorRole" CommandArgument='<%# Eval("UserId").ToString() & "|STAFF_BACKUP|" & If(Convert.ToBoolean(Eval("IsEnabled")),"1","0") %>' ToolTip="Ubah menjadi Staf" OnClientClick="return backupConfirm(this,'Ubah peran pengguna menjadi Staf?',{title:'Konfirmasi perubahan peran'});"><i class="fa fa-user" aria-hidden="true"></i><span>Staf</span></asp:LinkButton><asp:LinkButton ID="btnSetManager" runat="server" CssClass="btn btn-default btn-sm operator-role-button" CommandName="SetOperatorRole" CommandArgument='<%# Eval("UserId").ToString() & "|MANAGER_BACKUP|" & If(Convert.ToBoolean(Eval("IsEnabled")),"1","0") %>' ToolTip="Ubah menjadi Manager" OnClientClick="return backupConfirm(this,'Ubah peran pengguna menjadi Manager?',{title:'Konfirmasi perubahan peran'});"><i class="fa fa-briefcase" aria-hidden="true"></i><span>Manager</span></asp:LinkButton><asp:LinkButton ID="btnToggleOperator" runat="server" CssClass='<%# If(Convert.ToBoolean(Eval("IsEnabled")),"btn btn-danger btn-sm operator-status-button","btn btn-success btn-sm operator-status-button") %>' CommandName="ToggleOperator" CommandArgument='<%# Eval("UserId").ToString() & "|" & NormalizedRole(Eval("AccessRole")) & "|" & If(Convert.ToBoolean(Eval("IsEnabled")),"0","1") %>' ToolTip='<%# If(Convert.ToBoolean(Eval("IsEnabled")),"Nonaktifkan pengguna","Aktifkan pengguna") %>' OnClientClick="return backupConfirm(this,'Ubah status akses pengguna ini?',{title:'Konfirmasi status akses'});"><i class='<%# If(Convert.ToBoolean(Eval("IsEnabled")),"fa fa-trash-o","fa fa-refresh") %>' aria-hidden="true"></i><span class="sr-only"><%# If(Convert.ToBoolean(Eval("IsEnabled")),"Nonaktifkan","Aktifkan") %></span></asp:LinkButton></div></ItemTemplate></asp:TemplateField>
+      <asp:TemplateField HeaderText="Aksi" ItemStyle-HorizontalAlign="Center"><ItemTemplate><div class="operator-actions"><asp:LinkButton ID="btnSetStaff" runat="server" CssClass="btn btn-default btn-sm operator-role-button" CommandName="SetOperatorRole" CommandArgument='<%# Eval("UserId").ToString() & "|STAFF_BACKUP|" & If(Convert.ToBoolean(Eval("IsEnabled")),"1","0") %>' ToolTip="Ubah menjadi Staf" OnClientClick="return backupConfirm(this,'Ubah peran pengguna menjadi Staf?',{title:'Konfirmasi perubahan peran'});"><i class="fa fa-user" aria-hidden="true"></i><span>Staf</span></asp:LinkButton><asp:LinkButton ID="btnSetManager" runat="server" CssClass="btn btn-default btn-sm operator-role-button" CommandName="SetOperatorRole" CommandArgument='<%# Eval("UserId").ToString() & "|MANAGER_BACKUP|" & If(Convert.ToBoolean(Eval("IsEnabled")),"1","0") %>' Visible='<%# Not IsCurrentOperator(Eval("UserId")) %>' ToolTip="Ubah menjadi Manager" OnClientClick="return backupConfirm(this,'Ubah peran pengguna menjadi Manager?',{title:'Konfirmasi perubahan peran'});"><i class="fa fa-briefcase" aria-hidden="true"></i><span>Manager</span></asp:LinkButton><asp:LinkButton ID="btnToggleOperator" runat="server" CssClass='<%# If(Convert.ToBoolean(Eval("IsEnabled")),"btn btn-danger btn-sm operator-status-button","btn btn-success btn-sm operator-status-button") %>' CommandName="ToggleOperator" CommandArgument='<%# Eval("UserId").ToString() & "|" & NormalizedRole(Eval("AccessRole")) & "|" & If(Convert.ToBoolean(Eval("IsEnabled")),"0","1") %>' Enabled='<%# Not IsCurrentOperator(Eval("UserId")) %>' ToolTip='<%# If(IsCurrentOperator(Eval("UserId")),"Akun yang sedang digunakan tidak dapat dinonaktifkan",If(Convert.ToBoolean(Eval("IsEnabled")),"Nonaktifkan pengguna","Aktifkan pengguna")) %>' OnClientClick="return backupConfirm(this,'Ubah status akses pengguna ini?',{title:'Konfirmasi status akses'});"><i class='<%# If(Convert.ToBoolean(Eval("IsEnabled")),"fa fa-trash-o","fa fa-refresh") %>' aria-hidden="true"></i><span class="sr-only"><%# If(Convert.ToBoolean(Eval("IsEnabled")),"Nonaktifkan","Aktifkan") %></span></asp:LinkButton></div></ItemTemplate></asp:TemplateField>
     </Columns>
    </asp:GridView>
   </div>

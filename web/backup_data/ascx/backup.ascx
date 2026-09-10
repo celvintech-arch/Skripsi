@@ -4,6 +4,8 @@
 
 <script runat="server">
 Protected CurrentBackupSection As String="otomatis"
+Protected BackupServiceReady As Boolean=False
+Private CurrentBackupService As BackupServiceState
 Protected Sub Page_Load(sender As Object,e As EventArgs)
  RequireBackupStaff()
  Response.Cache.SetCacheability(HttpCacheability.NoCache)
@@ -11,6 +13,7 @@ Protected Sub Page_Load(sender As Object,e As EventArgs)
  Response.Cache.SetExpires(DateTime.UtcNow.AddYears(-1))
  Dim requested=If(Request.QueryString("section"),"").Trim().ToLowerInvariant()
  If requested="tahun" Then CurrentBackupSection=requested
+ LoadBackupServiceStatus()
  If Not IsPostBack Then
   PopulateSourceDatabases()
   If CurrentBackupSection="otomatis" Then
@@ -22,6 +25,17 @@ Protected Sub Page_Load(sender As Object,e As EventArgs)
    PopulateBackupPeriods(ddlBackupEndTa,"- Pilih TA -")
   End If
  End If
+End Sub
+Private Sub LoadBackupServiceStatus()
+ Try
+  CurrentBackupService=ReadBackupServiceState()
+  BackupServiceReady=CurrentBackupService.IsReady
+  litBackupServiceStatus.Text=BackupServiceAlertHtml(CurrentBackupService,"Permintaan backup")
+ Catch ex As Exception
+  CurrentBackupService=New BackupServiceState()
+  litBackupServiceStatus.Text="<div class='alert alert-danger backup-service-alert'><i class='fa fa-exclamation-triangle'></i><div><strong>Status Database Backup tidak dapat diperiksa</strong><span>" & Server.HtmlEncode(ex.Message) & "</span></div></div>"
+ End Try
+ btnJalankanBackup.Enabled=BackupServiceReady
 End Sub
 Private Sub PopulateSourceDatabases()
  Dim builder As New SqlConnectionStringBuilder(cnsr.ConnectionString)
@@ -151,6 +165,7 @@ Protected Sub btnDisableSchedule_Click(sender As Object,e As EventArgs)
 End Sub
 Protected Sub btnJalankanBackup_Click(sender As Object,e As EventArgs)
  Try
+  EnsureBackupServiceReady(CurrentBackupService,"Backup")
   ValidateSelectedSourceDatabase(ddlSourceDatabase.SelectedValue)
   Dim mode=ddlBackupScope.SelectedValue,startTa=ddlBackupStartTa.SelectedValue,endTa=ddlBackupEndTa.SelectedValue
   If mode<>"SINGLE" AndAlso mode<>"RANGE" Then Throw New ApplicationException("Cakupan backup tidak valid.")
@@ -182,7 +197,7 @@ End Sub
 Private Sub ShowAlert(lit As Literal,kind As String,title As String,msg As String)
  Dim alertType As String = If(kind = "error", "danger", kind)
  If kind = "success" AndAlso Object.ReferenceEquals(lit, litAlertBackup) Then
-  lit.Text = "<div class='alert alert-success backup-u-001'><div class='backup-u-036'><i class='fa fa-check-circle'></i> " & Server.HtmlEncode(title) & "</div><div class='backup-u-023'>" & Server.HtmlEncode(msg) & "</div></div>"
+  lit.Text = "<div class='alert alert-success backup-u-001'><div class='backup-u-036'><i class='fa fa-check-circle'></i> " & Server.HtmlEncode(title) & "</div><div class='backup-u-023'>" & Server.HtmlEncode(msg) & " <a class='alert-link backup-history-link' href='index.aspx?tab=riwayat'>Lihat Riwayat Proses <i class='fa fa-arrow-right'></i></a></div></div>"
  Else
   lit.Text = "<div class='alert alert-" & alertType & "'><strong>" & Server.HtmlEncode(title) & "</strong> " & Server.HtmlEncode(msg) & "</div>"
  End If
@@ -292,6 +307,7 @@ End Sub
         <span class="backup-page-eyebrow">Operasional</span>
         <h1>Backup Data</h1>
     </div>
+    <asp:Literal ID="litBackupServiceStatus" runat="server" />
 
     <!-- NAVIGASI BACKUP OTOMATIS DAN BACKUP TAHUN AKADEMIK -->
     <ul class="nav nav-tabs backup-u-064">

@@ -1,14 +1,17 @@
 ﻿[CmdletBinding()]
 param(
- [string]$ApplicationRoot='C:\inetpub\wwwroot\backup_data',
- [string]$ToolingRoot=(Split-Path -Parent $PSScriptRoot),
- [string]$ConfigPath='C:\BackupAgent\agent.config.development.json',
+ [string]$ApplicationRoot='',
+ [string]$ToolingRoot='',
+ [string]$ConfigPath='',
  [switch]$SkipApi,
  [switch]$SkipLocalDatabase,
  [switch]$TestBothProtocols,
  [string]$ReportPath
 )
 $ErrorActionPreference='Stop'
+if([string]::IsNullOrWhiteSpace($ToolingRoot)){$ToolingRoot=Split-Path -Parent $PSScriptRoot}
+if([string]::IsNullOrWhiteSpace($ApplicationRoot)){$ApplicationRoot=Join-Path $ToolingRoot 'web\backup_data'}
+if([string]::IsNullOrWhiteSpace($ConfigPath)){$ConfigPath=Join-Path $ToolingRoot 'agent\agent.config.development.example.json'}
 $results=New-Object System.Collections.Generic.List[object]
 $script:Config=$null
 $script:LocalDatabaseReady=$false
@@ -58,7 +61,7 @@ function Get-SafeConfig {
 
 Invoke-Test 'File inti tersedia' 'Source' {
  $runtimeRequired=@('index.aspx','index.ascx','api\agent.aspx','ascx\backup.ascx','ascx\pemulihan.ascx','ascx\riwayat.ascx','ascx\statistik.ascx','ascx\summary_report.ascx','ascx\pdf_report_writer.ascx')
- $toolingRequired=@('agent\BackupAgent.ps1','scripts\modular\03_restore\01_create_restore_job.sql','deployment\install_role_summary_report.sql')
+ $toolingRequired=@('agent\BackupAgent.ps1','database\modular\03_restore\01_create_restore_job.sql','database\install_role_summary_report.sql')
  $missing=@($runtimeRequired|Where-Object{-not(Test-Path -LiteralPath(Join-Path $ApplicationRoot $_))})
  $missing+=@($toolingRequired|Where-Object{-not(Test-Path -LiteralPath(Join-Path $ToolingRoot $_))})
  Assert-True ($missing.Count -eq 0) ('File hilang: '+($missing -join ', '))
@@ -76,13 +79,15 @@ Invoke-Test 'Agent tidak memanggil fungsi PowerShell yang hilang' 'Source' {
  "$($definitions.Count) fungsi agent dan seluruh pemanggilannya dapat diidentifikasi."
 }
 Invoke-Test 'IIS memiliki izin baca konfigurasi backup otomatis' 'Security' {
- $permissionSource=Get-Content -LiteralPath (Join-Path $ToolingRoot 'scripts\modular\08_permissions\01_iis_permissions.sql') -Raw
+ $permissionSource=Get-Content -LiteralPath (Join-Path $ToolingRoot 'database\modular\08_permissions\01_iis_permissions.sql') -Raw
  Assert-True ($permissionSource -match '(?i)GRANT\s+SELECT\s+ON\s+dbo\.BackupJobConfiguration\s+TO\s+\[IIS APPPOOL\\DefaultAppPool\]') 'Izin SELECT BackupJobConfiguration untuk IIS belum tersedia.'
  'Akses langsung API dan portal ke BackupJobConfiguration memiliki izin SELECT minimum.'
 }
 Invoke-Test 'Tidak ada istilah atau kontrak backup lama' 'Source' {
  $runtimeFiles=@(Get-ChildItem -LiteralPath $ApplicationRoot -Recurse -File)
- $files=$runtimeFiles+@(Get-ChildItem -LiteralPath $ToolingRoot -Recurse -File)
+ $excludedRoots=@((Join-Path $ToolingRoot '.git'),(Join-Path $ToolingRoot 'sources'),(Join-Path $ToolingRoot 'TestResults'))
+ $toolingFiles=@(Get-ChildItem -LiteralPath $ToolingRoot -Recurse -File|Where-Object{$path=$_.FullName;-not @($excludedRoots|Where-Object{$path.StartsWith($_,[StringComparison]::OrdinalIgnoreCase)}).Count})
+ $files=$runtimeFiles+$toolingFiles
  $files=@($files|Where-Object {$_.Extension -in @('.aspx','.ascx','.ashx','.css','.js','.json','.md','.ps1','.cmd','.sql')})
  $idTerms=@(
   -join([char[]](97,114,115,105,112)),
@@ -91,18 +96,16 @@ Invoke-Test 'Tidak ada istilah atau kontrak backup lama' 'Source' {
   -join([char[]](112,101,110,103,97,114,115,105,112,97,110))
  )
  $forbiddenPattern='(?i)'+(($idTerms|ForEach-Object{[regex]::Escape($_)})-join '|')
- $contentMatches=@($files|Select-String -Pattern $forbiddenPattern)
+ $contentMatches=@($files|Select-String -Pattern $forbiddenPattern|Where-Object{$_.Line -notmatch 'fa-file-archive-o'})
  $pathMatches=@($runtimeFiles|Where-Object {$_.FullName.Substring($ApplicationRoot.TrimEnd('\\').Length).TrimStart('\\') -match $forbiddenPattern})
  Assert-True ($contentMatches.Count -eq 0) "Masih ada $($contentMatches.Count) istilah lama pada isi file."
  Assert-True ($pathMatches.Count -eq 0) "Masih ada nama file atau folder lama: $(($pathMatches.FullName)-join ', ')"
  'Isi dan path source bersih dari terminologi lama.'
 }
 Invoke-Test 'Script SQL hanya memiliki satu definisi aktif per procedure' 'Source' {
- $scriptsRoot=Join-Path $ToolingRoot 'scripts'
+ $scriptsRoot=Join-Path $ToolingRoot 'database\modular'
  $sqlFiles=@(Get-ChildItem -LiteralPath $scriptsRoot -Recurse -File -Filter *.sql)
  Assert-True ($sqlFiles.Count -gt 0) 'Script SQL aktif tidak ditemukan.'
- $outsideModular=@($sqlFiles|Where-Object{-not $_.FullName.StartsWith((Join-Path $scriptsRoot 'modular'),[StringComparison]::OrdinalIgnoreCase)})
- Assert-True ($outsideModular.Count -eq 0) ('SQL di luar sumber modular: '+(($outsideModular|ForEach-Object{$_.Name})-join ', '))
  $definitions=@()
  foreach($file in $sqlFiles){
   $content=Get-Content -LiteralPath $file.FullName -Raw
@@ -169,12 +172,13 @@ Invoke-Test 'Pesan job dipisahkan berdasarkan fungsi' 'Data model' {
  foreach($column in @('ProgressMessage','ResultMessage','ErrorMessage')){Assert-True ($api.Contains($column)) "API belum menggunakan $column.";Assert-True ($history.Contains($column)) "Riwayat belum menggunakan $column."}
  'Tiga kolom pesan digunakan API dan Riwayat.'
 }
-Invoke-Test 'Riwayat hanya menyediakan pembatalan job aktif' 'Data safety' {
+Invoke-Test 'Riwayat hanya menampilkan proses yang telah selesai' 'Data safety' {
  $page=Get-Content -LiteralPath(Join-Path $ApplicationRoot 'ascx\riwayat.ascx')-Raw
  $commands=@([regex]::Matches($page,'CommandName="(?<name>[A-Za-z0-9_]+)"')|ForEach-Object{$_.Groups['name'].Value}|Sort-Object -Unique)
- Assert-True ($commands.Count -eq 1 -and $commands[0] -eq 'CancelJob') 'Riwayat memiliki tindakan selain pembatalan job aktif.'
- Assert-True ($page -notmatch 'fa-undo') 'Riwayat masih menampilkan tombol pemulihan khusus dari job backup.'
- 'Pemulihan hanya tersedia melalui fitur pemulihan NIM atau Tahun Akademik.'
+ Assert-True ($commands.Count -eq 0) 'Riwayat proses selesai masih memiliki tombol tindakan.'
+ Assert-True ($page -notmatch '(?i)UPDATE\s+dbo\.BackupTransferJob') 'Halaman riwayat masih dapat mengubah status proses.'
+ Assert-True ($page.Contains('Not IsActiveTransferStatus')) 'Riwayat belum mengecualikan proses aktif yang ditampilkan pada Dashboard.'
+ 'Riwayat bersifat baca-saja dan hanya menampilkan proses yang sudah selesai.'
 }
 Invoke-Test 'Istilah tampilan menggunakan Database Backup' 'UI' {
  $files=Get-ChildItem -LiteralPath(Join-Path $ApplicationRoot 'ascx')-File -Filter *.ascx
@@ -186,10 +190,10 @@ Invoke-Test 'Istilah tampilan menggunakan Database Backup' 'UI' {
  'Teks status dan halaman utama menggunakan Database Backup.'
 }
 Invoke-Test 'Backup tidak menghapus data sumber' 'Data safety' {
- $sql=Get-Content -LiteralPath(Join-Path $ToolingRoot 'scripts\modular\02_backup\02_agent_backup_batches.sql')-Raw
+ $sql=Get-Content -LiteralPath(Join-Path $ToolingRoot 'database\modular\02_backup\02_agent_backup_batches.sql')-Raw
  $agent=Get-Content -LiteralPath(Join-Path $ToolingRoot 'agent\BackupAgent.ps1')-Raw
  Assert-True ($sql -notmatch '(?im)DELETE\s+(?:\w+\s+)?FROM\s+dbo\.(?:tbio01|treg|tkrs06|t_absensi14)') 'Stored procedure konfirmasi masih menghapus data sumber.'
- $runtime=(@(Get-Content -LiteralPath(Join-Path $ApplicationRoot 'api\agent.aspx')-Raw),@(Get-Content -LiteralPath(Join-Path $ToolingRoot 'scripts\modular\02_backup\01_create_backup_jobs.sql')-Raw),@($sql)) -join "`n"
+ $runtime=(@(Get-Content -LiteralPath(Join-Path $ApplicationRoot 'api\agent.aspx')-Raw),@(Get-Content -LiteralPath(Join-Path $ToolingRoot 'database\modular\02_backup\01_create_backup_jobs.sql')-Raw),@($sql)) -join "`n"
  Assert-True ($runtime -notmatch '(?im)(?:UPDATE|DELETE\s+(?:\w+\s+)?FROM|TRUNCATE\s+TABLE)\s+dbo\.(?:tbio01|treg|tkrs06|t_absensi14)\b') 'Alur backup masih dapat mengubah atau menghapus tabel sumber.'
  Assert-True ($agent -notmatch '(?i)DELETE\s+FROM\s+dbo\.\W*\+?\(?Quote-Id\s+\$target') 'Agent masih menghapus salinan lama sebelum menulis backup.'
  Assert-True ($agent.Contains('WHEN MATCHED THEN UPDATE SET')) 'Agent belum memperbarui salinan lama dengan upsert.'
@@ -197,7 +201,7 @@ Invoke-Test 'Backup tidak menghapus data sumber' 'Data safety' {
  'Tidak ada penghapusan sumber; agent menggunakan insert/update dan mempertahankan baris backup lama.'
 }
 Invoke-Test 'Backup mencakup semua status mahasiswa' 'Data selection' {
- $sql=Get-Content -LiteralPath(Join-Path $ToolingRoot 'scripts\modular\02_backup\01_create_backup_jobs.sql')-Raw
+ $sql=Get-Content -LiteralPath(Join-Path $ToolingRoot 'database\modular\02_backup\01_create_backup_jobs.sql')-Raw
  $page=Get-Content -LiteralPath(Join-Path $ApplicationRoot 'ascx\backup.ascx')-Raw
  Assert-True ($sql -notmatch '(?i)WHERE\s+ISNULL\(L\.sts_reg.*NOT\s+IN') 'Stored procedure backup masih membatasi status registrasi.'
  Assert-True ($sql -notmatch '(?i)@latestStatus\s+IN') 'Backup per NIM masih menolak mahasiswa aktif.'
@@ -209,7 +213,7 @@ Invoke-Test 'Backup mencakup semua status mahasiswa' 'Data selection' {
 }
 Invoke-Test 'Sumber backup menggunakan tabel langsung dec_dummy' 'Architecture' {
  $api=Get-Content -LiteralPath(Join-Path $ApplicationRoot 'api\agent.aspx')-Raw
- $validation=Get-Content -LiteralPath(Join-Path $ToolingRoot 'scripts\modular\00_core\04_validate_source_tables.sql')-Raw
+ $validation=Get-Content -LiteralPath(Join-Path $ToolingRoot 'database\modular\00_core\04_validate_source_tables.sql')-Raw
  foreach($table in @('tbio01','treg','tkrs06','t_absensi14')){
   Assert-True ($api -match "'${table}'") "API belum memetakan dbo.$table."
   Assert-True ($validation -match "N'${table}'") "Validasi belum memeriksa dbo.$table."
@@ -224,7 +228,7 @@ Invoke-Test 'Pilihan tabel diteruskan dari UI sampai agent' 'Feature' {
  $history=Get-Content -LiteralPath(Join-Path $ApplicationRoot 'ascx\riwayat.ascx')-Raw
  $api=Get-Content -LiteralPath(Join-Path $ApplicationRoot 'api\agent.aspx')-Raw
  $agent=Get-Content -LiteralPath(Join-Path $ToolingRoot 'agent\BackupAgent.ps1')-Raw
- $schema=Get-Content -LiteralPath(Join-Path $ToolingRoot 'scripts\modular\00_core\02_transfer_and_inventory_tables.sql')-Raw
+ $schema=Get-Content -LiteralPath(Join-Path $ToolingRoot 'database\modular\00_core\02_transfer_and_inventory_tables.sql')-Raw
  foreach($control in @('cblScheduleTables','cblBackupTables')){Assert-True ($backup.Contains($control)) "Kontrol $control belum tersedia."}
  foreach($control in @('cblRestoreNimTables','cblRestorePeriodTables')){Assert-True ($restore.Contains($control)) "Kontrol $control belum tersedia."}
  foreach($table in @('tbio01','treg','tkrs06','t_absensi14')){Assert-True ($backup.Contains('Value="'+$table+'"')) "Pilihan backup $table belum tersedia.";Assert-True ($restore.Contains('Value="'+$table+'"')) "Pilihan restore $table belum tersedia."}
@@ -249,7 +253,7 @@ Invoke-Test 'Role Staf dan Manager diterapkan pada server' 'Authorization' {
  $auth=Get-Content -LiteralPath (Join-Path $ApplicationRoot 'ascx\con_backup.ascx') -Raw
  $index=Get-Content -LiteralPath (Join-Path $ApplicationRoot 'index.ascx') -Raw
  $operator=Get-Content -LiteralPath (Join-Path $ApplicationRoot 'ascx\operator.ascx') -Raw
- $security=Get-Content -LiteralPath (Join-Path $ToolingRoot 'scripts\modular\01_security\01_operator_access.sql') -Raw
+ $security=Get-Content -LiteralPath (Join-Path $ToolingRoot 'database\modular\01_security\01_operator_access.sql') -Raw
  Assert-True ($auth.Contains('STAFF_BACKUP') -and $auth.Contains('MANAGER_BACKUP')) 'Role Staf dan Manager belum dikenali adapter otorisasi.'
  Assert-True ($index -match 'IsManagerView\s+AndAlso\s+CurrentTab\s+<>\s+"dashboard"') 'Pembatasan tab Manager belum dilakukan pada server.'
  Assert-True ($index.Contains('ascx/summary_report.ascx')) 'Laporan belum dimuat oleh router server.'
@@ -257,16 +261,11 @@ Invoke-Test 'Role Staf dan Manager diterapkan pada server' 'Authorization' {
  Assert-True ($security.Contains('sp_GetBackupOperatorRole') -and $security.Contains("'STAFF_BACKUP','MANAGER_BACKUP'")) 'Stored procedure role belum sesuai.'
  'Manager dibatasi ke Dashboard/Laporan dan Staf tetap memiliki akses operasional.'
 }
-Invoke-Test 'Deployment Package menyertakan source website yang sama' 'Deployment' {
- $packagedWeb=Join-Path $ToolingRoot 'web\backup_data'
- Assert-True (Test-Path -LiteralPath $packagedWeb) 'Folder source website belum tersedia dalam Deployment Package.'
- foreach($relative in @('index.aspx','index.ascx','style.css','web.config','ascx\con_backup.ascx','ascx\statistik.ascx','ascx\summary_report.ascx')){
-  $runtimeFile=Join-Path $ApplicationRoot $relative
-  $packageFile=Join-Path $packagedWeb $relative
-  Assert-True (Test-Path -LiteralPath $packageFile) "File paket website hilang: $relative"
-  Assert-True ((Get-FileHash -LiteralPath $runtimeFile -Algorithm SHA256).Hash -eq (Get-FileHash -LiteralPath $packageFile -Algorithm SHA256).Hash) "File paket website tidak sama: $relative"
- }
- 'Source website runtime dan paket deployment identik untuk file utama.'
+Invoke-Test 'Struktur repository menggunakan lokasi source terbaru' 'Repository' {
+ Assert-True ($ApplicationRoot.StartsWith((Join-Path $ToolingRoot 'web'),[StringComparison]::OrdinalIgnoreCase)) 'Source website tidak berada pada folder web repository.'
+ Assert-True (Test-Path -LiteralPath (Join-Path $ToolingRoot 'database\install_backup_data_all.sql')) 'Installer gabungan database tidak ditemukan.'
+ Assert-True (Test-Path -LiteralPath (Join-Path $ToolingRoot 'database\modular')) 'Folder database/modular tidak ditemukan.'
+ 'Website, installer, dan SQL modular menggunakan struktur repository terbaru.'
 }
 Invoke-Test 'Kontrol operasional mewajibkan role Staf' 'Authorization' {
  foreach($name in @('backup.ascx','pemulihan.ascx','riwayat.ascx','operator.ascx','ekspor.ascx')){
@@ -277,6 +276,30 @@ Invoke-Test 'Kontrol operasional mewajibkan role Staf' 'Authorization' {
  Assert-True ($dashboard.Contains('RequireBackupReportAccess()')) 'Dashboard belum memiliki guard akses laporan.'
  'Semua kontrol yang mengubah proses dilindungi guard Staf pada server.'
 }
+Invoke-Test 'Dashboard memuat pusat pemantauan operasional' 'UI' {
+ $dashboard=Get-Content -LiteralPath (Join-Path $ApplicationRoot 'ascx\statistik.ascx') -Raw
+ foreach($token in @('litServiceStatus','litAgentName','litLastHeartbeat','litAgentMessage','litAutomaticStatus','litAutomaticFrequency','litAutomaticScope','litNextSchedule','litLastBackup','litLastRestore','litLastExport','gvActiveDashboard')){Assert-True ($dashboard.Contains($token)) "Komponen Dashboard belum tersedia: $token"}
+ Assert-True ($dashboard.Contains('ReadBackupServiceState()')) 'Dashboard belum menggunakan status layanan terpusat.'
+ 'Dashboard menampilkan status layanan, agent, jadwal, aktivitas terakhir, dan proses aktif.'
+}
+Invoke-Test 'Backup dan pemulihan memeriksa kesiapan layanan' 'Data safety' {
+ $connection=Get-Content -LiteralPath (Join-Path $ApplicationRoot 'ascx\con_backup.ascx') -Raw
+ $backup=Get-Content -LiteralPath (Join-Path $ApplicationRoot 'ascx\backup.ascx') -Raw
+ $restore=Get-Content -LiteralPath (Join-Path $ApplicationRoot 'ascx\pemulihan.ascx') -Raw
+ Assert-True ($connection.Contains('ReadBackupServiceState') -and $connection.Contains('EnsureBackupServiceReady')) 'Status kesiapan bersama belum tersedia.'
+ Assert-True ($connection.Contains('If state IsNot Nothing AndAlso state.IsReady Then Return ""')) 'Pesan status siap masih ditampilkan pada halaman operasional.'
+ Assert-True ($backup.Contains('EnsureBackupServiceReady(CurrentBackupService,"Backup")') -and $backup.Contains('Lihat Riwayat Proses')) 'Backup belum diblokir ketika layanan tidak siap atau belum memberi tautan riwayat.'
+ Assert-True ($restore.Contains('EnsureBackupServiceReady(CurrentBackupService,"Pemulihan")') -and $restore.Contains('Lihat Riwayat Proses')) 'Pemulihan belum diblokir ketika layanan tidak siap atau belum memberi tautan riwayat.'
+ Assert-True ($restore -match '(?i)data aktif yang sudah ada (?:akan )?dilewati dan tidak ditimpa') 'Penjelasan penanganan konflik data aktif belum jelas.'
+ 'Backup dan pemulihan memakai status yang sama, menolak layanan tidak siap, dan mengarahkan ke Riwayat Proses.'
+}
+Invoke-Test 'Riwayat memiliki filter proses selesai dalam satu baris' 'UI' {
+ $history=Get-Content -LiteralPath (Join-Path $ApplicationRoot 'ascx\riwayat.ascx') -Raw
+ foreach($token in @('ddlHistoryOperation','ddlHistoryStatus','BACKUP','RESTORE','EXPORT','SUCCESS','FAILED','CANCELLED')){Assert-True ($history.Contains($token)) "Filter riwayat belum lengkap: $token"}
+ Assert-True ($history -notmatch 'gvActiveProcesses|Proses Sedang Berjalan|CancelJob') 'Riwayat masih memuat proses aktif atau tindakan pembatalan.'
+ Assert-True ($history.Contains('history-filter-field') -and $history.Contains('history-filter-action')) 'Struktur filter satu baris belum tersedia.'
+ 'Filter operasi/status selesai tersedia dalam satu baris dan proses aktif hanya ditampilkan pada Dashboard.'
+}
 Invoke-Test 'Laporan tersedia dan bersifat read-only' 'Feature' {
  $path=Join-Path $ApplicationRoot 'ascx\summary_report.ascx'
  Assert-True (Test-Path -LiteralPath $path) 'File Laporan belum tersedia.'
@@ -285,7 +308,24 @@ Invoke-Test 'Laporan tersedia dan bersifat read-only' 'Feature' {
  Assert-True ($report.Contains('@StartDate') -and $report.Contains('@EndExclusive')) 'Filter tanggal belum memakai parameter SQL.'
  Assert-True ($report.Contains('BackupTransferJob') -and $report.Contains('BackupAgentPeriodInventory')) 'Sumber laporan belum menggunakan tabel kontrol dan inventaris.'
  Assert-True ($report -notmatch '(?im)^\s*(INSERT|UPDATE|DELETE|MERGE|TRUNCATE|EXEC(?:UTE)?)\s') 'Laporan memuat perintah perubahan data.'
+ Assert-True ($report -notmatch 'litSuccessRate|Tingkat Keberhasilan') 'Metrik tingkat keberhasilan yang sudah dihapus masih tersedia.'
  'Laporan membaca tabel kontrol/inventaris dengan filter berparameter tanpa perintah perubahan data.'
+}
+Invoke-Test 'Ekspor menampilkan metadata hasil' 'UI' {
+ $export=Get-Content -LiteralPath (Join-Path $ApplicationRoot 'ascx\ekspor.ascx') -Raw
+ $api=Get-Content -LiteralPath (Join-Path $ApplicationRoot 'api\agent.aspx') -Raw
+ foreach($token in @('litLastExportStatus','FileNameLabel','SizeLabel','VerificationLabel','RESTORE VERIFYONLY')){Assert-True ($export.Contains($token)) "Informasi ekspor belum lengkap: $token"}
+ Assert-True ($export -notmatch 'ChecksumLabel|Checksum SHA-256') 'Checksum SHA-256 masih ditampilkan pada halaman Ekspor.'
+ Assert-True ($api.Contains('SHA-256:')) 'Checksum SHA-256 tidak lagi disimpan pada hasil proses agent.'
+ Assert-True ($export -notmatch '(?i)Ekspor membuat file') 'Paragraf penjelasan ekspor yang sudah dihapus masih ditampilkan.'
+ 'Status, nama file, ukuran, dan verifikasi ditampilkan; SHA-256 tetap dicatat pada hasil agent tanpa ditampilkan pada halaman.'
+}
+Invoke-Test 'Kelola Pengguna melindungi akun yang sedang login' 'Authorization' {
+ $operator=Get-Content -LiteralPath (Join-Path $ApplicationRoot 'ascx\operator.ascx') -Raw
+ Assert-True ($operator.Contains('IsCurrentOperator') -and $operator.Contains('Akun yang sedang digunakan tidak dapat dinonaktifkan sendiri')) 'Perlindungan nonaktifkan akun sendiri belum tersedia.'
+ Assert-True (([regex]::Matches($operator,'sedang login tidak dapat mengubah dirinya sendiri menjadi Manager')).Count -ge 2) 'Perubahan diri menjadi Manager belum dilindungi pada seluruh jalur.'
+ Assert-True ($operator.Contains('Staf</strong>') -and $operator.Contains('Manager</strong>') -and $operator.Contains('Akses read-only hanya ke Dashboard dan Laporan')) 'Ringkasan hak akses belum tersedia.'
+ 'Hak akses dijelaskan dan akun aktif tidak dapat menonaktifkan atau menurunkan haknya sendiri.'
 }
 Invoke-Test 'Laporan dapat diekspor ke PDF secara aman' 'Feature' {
  $report=Get-Content -LiteralPath (Join-Path $ApplicationRoot 'ascx\summary_report.ascx') -Raw
@@ -300,8 +340,8 @@ Invoke-Test 'Laporan dapat diekspor ke PDF secara aman' 'Feature' {
  'Ekspor PDF memakai filter laporan, guard role, lampiran terunduh, dan generator tanpa akses database.'
 }
 Invoke-Test 'Migration role kompatibel dengan akun lama' 'Data model' {
- $core=Get-Content -LiteralPath (Join-Path $ToolingRoot 'scripts\modular\00_core\01_agent_and_operator_tables.sql') -Raw
- $permissions=Get-Content -LiteralPath (Join-Path $ToolingRoot 'scripts\modular\08_permissions\01_iis_permissions.sql') -Raw
+ $core=Get-Content -LiteralPath (Join-Path $ToolingRoot 'database\modular\00_core\01_agent_and_operator_tables.sql') -Raw
+ $permissions=Get-Content -LiteralPath (Join-Path $ToolingRoot 'database\modular\08_permissions\01_iis_permissions.sql') -Raw
  Assert-True ($core.Contains("'STAFF_BACKUP','MANAGER_BACKUP','ADMIN_BACKUP','ADMIN','SUPERADMIN'")) 'Constraint role belum mempertahankan kompatibilitas akun lama.'
  Assert-True ($permissions.Contains('GRANT EXECUTE ON dbo.sp_GetBackupOperatorRole')) 'IIS belum diberi izin minimum membaca role melalui procedure.'
  'Role lama tetap dipetakan sebagai Staf dan role baru tersedia tanpa menghapus akun.'

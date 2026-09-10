@@ -2,11 +2,11 @@
 
 Suite ini memeriksa source, konfigurasi, API, halaman web, penyederhanaan UI, ekspor PDF Laporan, Database Backup lokal, ukuran batch, pemisahan pesan, keamanan data sumber, dan pemulihan. Pengujian tidak membuat proses backup/pemulihan dan tidak mengubah data mahasiswa.
 
-## Menjalankan pengujian lengkap
+## Menjalankan pemeriksaan statis yang aman dari repository
 
-Jalankan pada komputer Database Backup:
+Jalankan dari root repository. Perintah ini tidak membuka API atau database:
 
-    powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\BackupAgent\DeploymentPackage\tests\Run-BackupTests.ps1 -ApplicationRoot C:\inetpub\wwwroot\backup_data -ToolingRoot C:\BackupAgent\DeploymentPackage -ConfigPath C:\BackupAgent\agent.config.development.json -ReportPath C:\BackupAgent\TestResults\latest.json
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\Run-BackupTests.ps1 -SkipApi -SkipLocalDatabase -ReportPath .\TestResults\latest.json
 
 Exit code 0 berarti seluruh tes wajib berhasil. Exit code 1 berarti ada tes gagal.
 
@@ -17,10 +17,10 @@ Exit code 0 berarti seluruh tes wajib berhasil. Exit code 1 berarti ada tes gaga
 - -TestBothProtocols: ikut memeriksa HTTP dan HTTPS.
 - -ReportPath: menyimpan hasil JSON tanpa menyimpan API key atau password.
 
-Tes heartbeat hanya memperbarui status kesehatan agent seperti heartbeat normal. Tidak ada job yang diklaim dan tidak ada tabel mahasiswa yang ditulis.
+Tanpa opsi `-SkipApi`, tes heartbeat memperbarui status kesehatan agent seperti heartbeat normal. Gunakan mode tersebut hanya pada lingkungan yang memang diizinkan. Tidak ada job yang diklaim dan tidak ada tabel mahasiswa yang ditulis.
 
 - memastikan seluruh SQL berada pada sumber modular dan setiap stored procedure hanya memiliki satu definisi.
 
 ## Hasil terakhir
 
-Pengujian statis mencakup pembagian menu Staf, istilah Laporan dan Riwayat Proses, penghapusan Backup per NIM, panel backup otomatis yang dapat dilipat, bantuan setiap mode, SweetAlert, guard server Staf/Manager, sifat read-only laporan, serta generator PDF tanpa akses database. Pengujian yang memerlukan API bertoken atau koneksi database hanya dijalankan setelah ada persetujuan operasi data.
+Pengujian statis mencakup pusat pemantauan Dashboard, kesiapan Database Backup, filter Riwayat Proses, metadata ekspor, perlindungan akun yang sedang login, metrik ringkas Laporan, penghapusan Backup per NIM, guard server Staf/Manager, sifat read-only laporan, serta generator PDF tanpa akses database. Path pengujian mengikuti struktur repository `web/backup_data`, `database/modular`, dan `database/install_*`.

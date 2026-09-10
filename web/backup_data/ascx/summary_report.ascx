@@ -210,6 +210,11 @@ Private Function NumberValue(value As Object) As String
  Return Convert.ToInt64(value).ToString("N0")
 End Function
 
+Private Function NumericLong(value As Object) As Long
+ If value Is Nothing OrElse IsDBNull(value) Then Return 0
+ Return Convert.ToInt64(value)
+End Function
+
 Private Function OperationText(value As String) As String
  Select Case value.Trim().ToUpperInvariant()
   Case "BACKUP":Return "Backup"
@@ -285,26 +290,30 @@ End Function
   <div class="panel-heading"><i class="fa fa-filter"></i> Filter Laporan</div>
   <div class="panel-body">
    <div class="summary-filter-grid">
-    <div class="summary-filter-field"><label for="<%= txtStartDate.ClientID %>">Tanggal awal</label><asp:TextBox ID="txtStartDate" runat="server" CssClass="form-control" TextMode="Date" /></div>
-    <div class="summary-filter-field"><label for="<%= txtEndDate.ClientID %>">Tanggal akhir</label><asp:TextBox ID="txtEndDate" runat="server" CssClass="form-control" TextMode="Date" /></div>
-    <div class="summary-filter-field"><label for="<%= ddlOperation.ClientID %>">Operasi</label><asp:DropDownList ID="ddlOperation" runat="server" CssClass="form-control"><asp:ListItem Value="">Semua</asp:ListItem><asp:ListItem Value="BACKUP">Backup</asp:ListItem><asp:ListItem Value="RESTORE">Pemulihan</asp:ListItem><asp:ListItem Value="EXPORT">Ekspor</asp:ListItem></asp:DropDownList></div>
-    <div class="summary-filter-field"><label for="<%= ddlStatus.ClientID %>">Status</label><asp:DropDownList ID="ddlStatus" runat="server" CssClass="form-control"><asp:ListItem Value="">Semua</asp:ListItem><asp:ListItem Value="WAITING">Menunggu</asp:ListItem><asp:ListItem Value="CLAIMED">Disiapkan</asp:ListItem><asp:ListItem Value="TRANSFERRING">Berjalan</asp:ListItem><asp:ListItem Value="SUCCESS">Berhasil</asp:ListItem><asp:ListItem Value="FAILED">Gagal/Dibatalkan</asp:ListItem></asp:DropDownList></div>
-    <div class="summary-filter-field"><label for="<%= ddlTable.ClientID %>">Tabel</label><asp:DropDownList ID="ddlTable" runat="server" CssClass="form-control"><asp:ListItem Value="">Semua</asp:ListItem><asp:ListItem Value="tbio01">Biodata</asp:ListItem><asp:ListItem Value="treg">Registrasi</asp:ListItem><asp:ListItem Value="tkrs06">KRS</asp:ListItem><asp:ListItem Value="t_absensi14">Absensi</asp:ListItem></asp:DropDownList></div>
-    <div class="summary-filter-field"><label for="<%= ddlAcademicPeriod.ClientID %>">Tahun Akademik</label><asp:DropDownList ID="ddlAcademicPeriod" runat="server" CssClass="form-control" /></div>
+    <div class="summary-filter-row summary-filter-row-primary">
+     <div class="summary-filter-field"><label for="<%= txtStartDate.ClientID %>">Tanggal awal</label><asp:TextBox ID="txtStartDate" runat="server" CssClass="form-control" TextMode="Date" /></div>
+     <div class="summary-filter-field"><label for="<%= txtEndDate.ClientID %>">Tanggal akhir</label><asp:TextBox ID="txtEndDate" runat="server" CssClass="form-control" TextMode="Date" /></div>
+     <div class="summary-filter-field"><label for="<%= ddlAcademicPeriod.ClientID %>">Tahun Akademik</label><asp:DropDownList ID="ddlAcademicPeriod" runat="server" CssClass="form-control" /></div>
+    </div>
+    <div class="summary-filter-row summary-filter-row-secondary">
+     <div class="summary-filter-field"><label for="<%= ddlOperation.ClientID %>">Operasi</label><asp:DropDownList ID="ddlOperation" runat="server" CssClass="form-control"><asp:ListItem Value="">Semua</asp:ListItem><asp:ListItem Value="BACKUP">Backup</asp:ListItem><asp:ListItem Value="RESTORE">Pemulihan</asp:ListItem><asp:ListItem Value="EXPORT">Ekspor</asp:ListItem></asp:DropDownList></div>
+     <div class="summary-filter-field"><label for="<%= ddlStatus.ClientID %>">Status</label><asp:DropDownList ID="ddlStatus" runat="server" CssClass="form-control"><asp:ListItem Value="">Semua</asp:ListItem><asp:ListItem Value="WAITING">Menunggu</asp:ListItem><asp:ListItem Value="CLAIMED">Disiapkan</asp:ListItem><asp:ListItem Value="TRANSFERRING">Berjalan</asp:ListItem><asp:ListItem Value="SUCCESS">Berhasil</asp:ListItem><asp:ListItem Value="FAILED">Gagal/Dibatalkan</asp:ListItem></asp:DropDownList></div>
+     <div class="summary-filter-field"><label for="<%= ddlTable.ClientID %>">Tabel</label><asp:DropDownList ID="ddlTable" runat="server" CssClass="form-control"><asp:ListItem Value="">Semua</asp:ListItem><asp:ListItem Value="tbio01">Biodata</asp:ListItem><asp:ListItem Value="treg">Registrasi</asp:ListItem><asp:ListItem Value="tkrs06">KRS</asp:ListItem><asp:ListItem Value="t_absensi14">Absensi</asp:ListItem></asp:DropDownList></div>
+     <div class="summary-filter-action"><asp:Button ID="btnApplyReport" runat="server" Text="Tampilkan Laporan" CssClass="btn btn-primary" OnClick="btnApplyReport_Click" /><asp:Button ID="btnExportPdf" runat="server" Text="Ekspor PDF" CssClass="btn btn-danger summary-export-button" OnClick="btnExportPdf_Click" /></div>
+    </div>
    </div>
-   <div class="summary-filter-action"><asp:Button ID="btnApplyReport" runat="server" Text="Tampilkan Laporan" CssClass="btn btn-primary" OnClick="btnApplyReport_Click" /><asp:Button ID="btnExportPdf" runat="server" Text="Ekspor PDF" CssClass="btn btn-danger summary-export-button" OnClick="btnExportPdf_Click" /></div>
   </div>
  </div>
 
  <div class="summary-card-grid">
-  <div class="summary-card summary-card-neutral"><span>Total Proses</span><strong><asp:Literal ID="litTotalJobs" runat="server" /></strong></div>
-  <div class="summary-card summary-card-success"><span>Berhasil</span><strong><asp:Literal ID="litSuccessJobs" runat="server" /></strong></div>
-  <div class="summary-card summary-card-danger"><span>Gagal</span><strong><asp:Literal ID="litFailedJobs" runat="server" /></strong></div>
-  <div class="summary-card summary-card-warning"><span>Dibatalkan</span><strong><asp:Literal ID="litCancelledJobs" runat="server" /></strong></div>
-  <div class="summary-card summary-card-info"><span>Sedang Diproses</span><strong><asp:Literal ID="litActiveJobs" runat="server" /></strong></div>
-  <div class="summary-card summary-card-primary"><span>Mahasiswa Diproses</span><strong><asp:Literal ID="litProcessedStudents" runat="server" /></strong></div>
-  <div class="summary-card summary-card-neutral"><span>Rata-rata Durasi</span><strong><asp:Literal ID="litAverageDuration" runat="server" /></strong></div>
-  <div class="summary-card summary-card-neutral"><span>Selesai Terakhir</span><strong class="summary-card-date"><asp:Literal ID="litLastCompleted" runat="server" /></strong></div>
+  <div class="summary-card summary-card-neutral"><span class="summary-card-icon"><i class="fa fa-list-alt"></i></span><div class="summary-card-content"><span>Total Proses</span><strong><asp:Literal ID="litTotalJobs" runat="server" /></strong></div></div>
+  <div class="summary-card summary-card-success"><span class="summary-card-icon"><i class="fa fa-check-circle"></i></span><div class="summary-card-content"><span>Berhasil</span><strong><asp:Literal ID="litSuccessJobs" runat="server" /></strong></div></div>
+  <div class="summary-card summary-card-danger"><span class="summary-card-icon"><i class="fa fa-times-circle"></i></span><div class="summary-card-content"><span>Gagal</span><strong><asp:Literal ID="litFailedJobs" runat="server" /></strong></div></div>
+  <div class="summary-card summary-card-warning"><span class="summary-card-icon"><i class="fa fa-ban"></i></span><div class="summary-card-content"><span>Dibatalkan</span><strong><asp:Literal ID="litCancelledJobs" runat="server" /></strong></div></div>
+  <div class="summary-card summary-card-info"><span class="summary-card-icon"><i class="fa fa-spinner"></i></span><div class="summary-card-content"><span>Sedang Diproses</span><strong><asp:Literal ID="litActiveJobs" runat="server" /></strong></div></div>
+  <div class="summary-card summary-card-primary"><span class="summary-card-icon"><i class="fa fa-users"></i></span><div class="summary-card-content"><span>Mahasiswa Diproses</span><strong><asp:Literal ID="litProcessedStudents" runat="server" /></strong></div></div>
+  <div class="summary-card summary-card-neutral"><span class="summary-card-icon"><i class="fa fa-clock-o"></i></span><div class="summary-card-content"><span>Rata-rata Durasi</span><strong><asp:Literal ID="litAverageDuration" runat="server" /></strong></div></div>
+  <div class="summary-card summary-card-neutral"><span class="summary-card-icon"><i class="fa fa-calendar-check-o"></i></span><div class="summary-card-content"><span>Selesai Terakhir</span><strong class="summary-card-date"><asp:Literal ID="litLastCompleted" runat="server" /></strong></div></div>
  </div>
 
  <div class="panel panel-default">

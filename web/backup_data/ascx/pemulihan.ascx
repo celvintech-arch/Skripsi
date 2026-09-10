@@ -5,6 +5,8 @@
 <script runat="server">
 Protected CurrentRestoreSection As String="ta"
 Protected LookupPending As Boolean=False
+Protected BackupServiceReady As Boolean=False
+Private CurrentBackupService As BackupServiceState
 Protected Sub Page_Load(sender As Object,e As EventArgs)
  RequireBackupStaff()
  LoadBackupConnectionStatus()
@@ -27,36 +29,21 @@ End Sub
 Private Sub LoadBackupConnectionStatus()
  litBackupConnectionStatus.Text=""
  Try
-  Using cmd As New SqlCommand("SELECT TOP(1) AgentName,IsEnabled,LastSeenAt,LastDatabaseReady FROM dbo.BackupAgentNode WHERE IsPrimary=1 ORDER BY UpdatedAt DESC",cnsr)
-   cnsr.Open()
-   Using rd=cmd.ExecuteReader()
-    If Not rd.Read() Then
-     ShowBackupConnectionWarning("Database Backup belum terdaftar.","Daftarkan Database Backup utama sebelum menggunakan fitur pemulihan.","danger")
-     Return
-    End If
-    Dim enabled=Convert.ToBoolean(rd("IsEnabled")),lastSeen As Nullable(Of DateTime)=Nothing,databaseReady As Nullable(Of Boolean)=Nothing
-    If Not rd.IsDBNull(rd.GetOrdinal("LastSeenAt")) Then lastSeen=Convert.ToDateTime(rd("LastSeenAt"))
-    If Not rd.IsDBNull(rd.GetOrdinal("LastDatabaseReady")) Then databaseReady=Convert.ToBoolean(rd("LastDatabaseReady"))
-    If Not enabled Then
-     ShowBackupConnectionWarning("Database Backup sedang dinonaktifkan.","Layanan pemrosesan backup belum dapat melayani pemulihan.","danger")
-    ElseIf Not lastSeen.HasValue Then
-     ShowBackupConnectionWarning("Database Backup belum pernah terhubung.","Pastikan server Database Backup dan layanan pemrosesan backup berjalan.","warning")
-    ElseIf lastSeen.Value < DateTime.Now.AddMinutes(-3) Then
-     ShowBackupConnectionWarning("Database Backup sedang offline.","Koneksi terakhir " & lastSeen.Value.ToString("dd MMM yyyy HH:mm") & ". Pastikan server Database Backup dan layanan pemrosesan backup berjalan.","warning")
-    ElseIf Not databaseReady.GetValueOrDefault(False) Then
-     ShowBackupConnectionWarning("Database Backup belum siap.","Server terhubung, tetapi layanan pemrosesan belum dapat mengakses database backup.","warning")
-    End If
-   End Using
-  End Using
+  CurrentBackupService=ReadBackupServiceState()
+  BackupServiceReady=CurrentBackupService.IsReady
+  litBackupConnectionStatus.Text=BackupServiceAlertHtml(CurrentBackupService,"Pemulihan data")
  Catch ex As Exception
-  ShowBackupConnectionWarning("Status Database Backup tidak dapat diperiksa.",ex.Message,"warning")
+  CurrentBackupService=New BackupServiceState()
+  ShowBackupConnectionWarning("Status Database Backup tidak dapat diperiksa.",ex.Message,"danger")
  Finally
   tutupsr()
  End Try
+ btnRestorePeriods.Enabled=BackupServiceReady
+ btnSearchBackupNim.Enabled=BackupServiceReady
 End Sub
 
 Private Sub ShowBackupConnectionWarning(title As String,message As String,kind As String)
- litBackupConnectionStatus.Text="<div class='alert alert-" & kind & " backup-connection-alert' role='alert'><div class='backup-connection-alert-icon' aria-hidden='true'><svg viewBox='0 0 24 24' focusable='false'><path d='M12 3.25L22 20.5H2L12 3.25Z' fill='currentColor'/><path d='M12 8.2V14.1' stroke='white' stroke-width='2.2' stroke-linecap='round'/><circle cx='12' cy='17.25' r='1.2' fill='white'/></svg></div><div><strong>" & Server.HtmlEncode(title) & "</strong><div>" & Server.HtmlEncode(message) & "</div></div></div>"
+ litBackupConnectionStatus.Text &= "<div class='alert alert-" & kind & " backup-connection-alert' role='alert'><div class='backup-connection-alert-icon' aria-hidden='true'><svg viewBox='0 0 24 24' focusable='false'><path d='M12 3.25L22 20.5H2L12 3.25Z' fill='currentColor'/><path d='M12 8.2V14.1' stroke='white' stroke-width='2.2' stroke-linecap='round'/><circle cx='12' cy='17.25' r='1.2' fill='white'/></svg></div><div><strong>" & Server.HtmlEncode(title) & "</strong><div>" & Server.HtmlEncode(message) & "</div></div></div>"
 End Sub
 Private Function SelectedTables(list As CheckBoxList,requireAcademic As Boolean) As String
  Dim chosen As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
@@ -224,7 +211,7 @@ Private Sub PopulateRestorePeriods()
     End If
    Next
   End If
- If ddlRestoreEndTa.Items.Count<=1 AndAlso String.IsNullOrWhiteSpace(litBackupConnectionStatus.Text) Then
+ If ddlRestoreEndTa.Items.Count<=1 Then
    ShowBackupConnectionWarning("Belum ada Tahun Akademik pada Database Backup.","Database Backup terhubung, tetapi inventaris masih kosong. Tunggu pembaruan data atau pastikan database backup berisi data.","warning")
   End If
  Catch ex As Exception
@@ -272,6 +259,7 @@ Protected Sub btnRestorePeriods_Click(sender As Object,e As EventArgs)
 End Sub
 
 Private Sub CreateRestoreJob(nim As String,periods As String,expectedStudents As Integer,selectedTablesCsv As String)
+ EnsureBackupServiceReady(CurrentBackupService,"Pemulihan")
  Using cmd As New SqlCommand("dbo.sp_CreateRestoreTransferJob",cnsr)
   cmd.CommandType=CommandType.StoredProcedure
   cmd.Parameters.Add("@StudentNim",SqlDbType.Char,9).Value=If(String.IsNullOrWhiteSpace(nim),CObj(DBNull.Value),nim)
@@ -287,7 +275,8 @@ End Sub
 
 Private Sub ShowAlert(kind As String,title As String,message As String)
  Dim css=If(kind="error","danger",kind)
- litAlertRestore.Text="<div class='alert alert-" & css & "'><strong>" & Server.HtmlEncode(title) & "</strong><br />" & Server.HtmlEncode(message) & "</div>"
+ Dim historyLink=If(kind="success"," <a class='alert-link backup-history-link' href='index.aspx?tab=riwayat'>Lihat Riwayat Proses <i class='fa fa-arrow-right'></i></a>","")
+ litAlertRestore.Text="<div class='alert alert-" & css & "'><strong>" & Server.HtmlEncode(title) & "</strong><br />" & Server.HtmlEncode(message) & historyLink & "</div>"
 End Sub
 </script>
 <script type="text/javascript">
@@ -397,7 +386,7 @@ $(document).ready(applyRestoreScope);
         <asp:BoundField DataField="Nim1" HeaderText="NIM" />
         <asp:BoundField DataField="Nama" HeaderText="Nama Mahasiswa" />
         <asp:BoundField DataField="ThAkdk" HeaderText="TA Terakhir" />
-        <asp:TemplateField HeaderText="Aksi" ItemStyle-HorizontalAlign="Center"><ItemTemplate><asp:Button ID="btnRestoreStudent" runat="server" Text="Pulihkan" CssClass="btn btn-xs btn-success" CommandName="RestoreStudent" CommandArgument='<%# Eval("Nim1") %>' OnClientClick="return backupConfirm(this,'Pulihkan mahasiswa ini? Salinan backup tetap disimpan; data aktif yang sudah ada tidak akan ditimpa.',{title:'Konfirmasi pemulihan',confirmText:'Ya, pulihkan',confirmColor:'#15803d'});" /></ItemTemplate></asp:TemplateField>
+        <asp:TemplateField HeaderText="Aksi" ItemStyle-HorizontalAlign="Center"><ItemTemplate><asp:Button ID="btnRestoreStudent" runat="server" Text="Pulihkan" CssClass="btn btn-xs btn-success" Enabled='<%# BackupServiceReady %>' CommandName="RestoreStudent" CommandArgument='<%# Eval("Nim1") %>' OnClientClick="return backupConfirm(this,'Pulihkan mahasiswa ini? Salinan backup tetap disimpan; data aktif yang sudah ada tidak akan ditimpa.',{title:'Konfirmasi pemulihan',confirmText:'Ya, pulihkan',confirmColor:'#15803d'});" /></ItemTemplate></asp:TemplateField>
        </Columns>
       </asp:GridView>
      </div>
@@ -410,7 +399,7 @@ $(document).ready(applyRestoreScope);
    <div class="panel restore-card">
     <div class="panel-heading"><i class="fa fa-calendar"></i> Pemulihan Tahun Akademik</div>
     <div class="panel-body">
-     <p class="backup-mode-help"><i class="fa fa-info-circle"></i>Gunakan menu ini untuk memulihkan banyak mahasiswa berdasarkan satu atau beberapa Tahun Akademik.</p>
+     <p class="backup-mode-help"><i class="fa fa-info-circle"></i>Gunakan menu ini untuk memulihkan banyak mahasiswa berdasarkan satu atau beberapa Tahun Akademik. Data aktif yang sudah ada akan dilewati dan tidak ditimpa.</p>
      <div class="row backup-u-061">
       <div class="col-md-4"><label for="<%= ddlRestoreScope.ClientID %>">Cakupan pemulihan</label><asp:DropDownList ID="ddlRestoreScope" runat="server" CssClass="form-control" onchange="resetRestoreScope()"><asp:ListItem Value="SINGLE">1 Tahun Akademik</asp:ListItem><asp:ListItem Value="RANGE">Rentang Tahun Akademik</asp:ListItem></asp:DropDownList></div>
       <div class="col-md-4 backup-u-029" id="restoreStartTaGroup"><label for="<%= ddlRestoreStartTa.ClientID %>">TA awal:</label><asp:DropDownList ID="ddlRestoreStartTa" runat="server" CssClass="form-control" onchange="applyRestoreScope()" /></div>

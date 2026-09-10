@@ -227,14 +227,14 @@ Informasi minimum yang disarankan:
 - filter rentang tanggal maksimum 366 hari, Tahun Akademik, jenis operasi, status, dan tabel;
 - daftar maksimum 100 proses terbaru yang sesuai filter.
 
-Tampilan menggunakan kartu ringkasan, tabel detail proses, dan inventaris per Tahun Akademik. Tombol **Ekspor PDF** menghasilkan laporan A4 lanskap berdasarkan filter yang sedang dipilih, berisi delapan metrik ringkas, maksimum 100 proses terbaru, serta inventaris per Tahun Akademik. PDF dibuat langsung di memori server dan dikirim sebagai lampiran; tidak ada berkas sementara, koneksi langsung ke `dec_dummy_backup`, ataupun perubahan data. Ekspor Excel belum termasuk implementasi saat ini.
+Tampilan menggunakan kartu ringkasan proses, tabel detail proses, dan inventaris per Tahun Akademik. Tombol **Ekspor PDF** menghasilkan laporan A4 lanskap berdasarkan filter yang sedang dipilih, berisi metrik ringkas, maksimum 100 proses terbaru, serta inventaris per Tahun Akademik. PDF dibuat langsung di memori server dan dikirim sebagai lampiran; tidak ada berkas sementara, koneksi langsung ke `dec_dummy_backup`, ataupun perubahan data. Ekspor Excel belum termasuk implementasi saat ini.
 
 ### 13.5 Status Penerapan
 
 1. **Selesai:** source peran, menu, pembatasan sisi server, pengelolaan pengguna, Dashboard, dan Laporan.
 2. **Selesai:** migration SQL idempotent dan installer gabungan; sintaks 70 batch telah lolos `PARSEONLY`.
-3. **Selesai:** kompilasi ASP.NET Web Forms dan pengujian statis setelah penyederhanaan antarmuka menghasilkan **28 PASS, 0 FAIL, dan 5 SKIP**.
-4. **Selesai oleh pengelola:** `deployment/install_role_summary_report.sql` pada `dec_dummy`.
+3. **Selesai:** pengujian statis setelah penyempurnaan antarmuka menghasilkan **33 PASS, 0 FAIL, dan 5 SKIP**; pemeriksaan API serta database sengaja dilewati.
+4. **Selesai oleh pengelola:** `database/install_role_summary_report.sql` pada `dec_dummy`.
 5. **Selesai:** cutover source ke website aktif dan verifikasi kesamaan hash.
 6. **Selesai:** generator PDF dikompilasi dari source website, menghasilkan PDF uji delapan halaman yang valid, dan halaman awal, tengah, serta akhir telah dirender untuk pemeriksaan tata letak.
 7. **Belum dijalankan:** pengujian login nyata dan UAT terpisah untuk Staf serta Manager, termasuk unduhan PDF dengan data aktual.
@@ -260,4 +260,13 @@ Antarmuka operasional telah diringkas tanpa mengubah kontrak database atau alur 
 - filter Laporan menggunakan susunan responsif tiga, dua, atau satu kolom sesuai lebar layar;
 - tindakan penting memakai dialog SweetAlert yang konsisten, dengan fallback dialog browser jika pustaka tidak tersedia.
 
-Kompilasi ASP.NET Web Forms dan **28 pemeriksaan statis** telah lulus. Penilaian kemudahan penggunaan secara empiris tetap harus dilakukan melalui UAT dan SUS bersama pengguna Staf serta Manager.
+Dashboard berfungsi sebagai pusat pemantauan dan menjadi satu-satunya halaman yang menampilkan proses aktif, selain status kesiapan Database Backup, identitas serta heartbeat agent utama, pesan agent, konfigurasi backup otomatis, dan proses terakhir. Halaman Backup dan Pemulihan menggunakan pemeriksaan kesiapan yang sama sebelum membuat permintaan; pesan hanya ditampilkan ketika layanan belum siap atau statusnya tidak dapat diperiksa. Halaman Riwayat bersifat baca-saja, hanya menampilkan proses yang telah selesai, serta menyediakan filter operasi dan status dalam satu baris pada layar desktop. Halaman Ekspor menampilkan nama file, ukuran, dan status verifikasi; SHA-256 tetap dicatat pada hasil proses agent tetapi disembunyikan dari tampilan utama. File `.bak` tetap berada pada server Database Backup.
+
+Kelola Pengguna menampilkan ringkasan hak akses Staf dan Manager. Perlindungan sisi server dan antarmuka mencegah pengguna yang sedang login menonaktifkan dirinya sendiri atau mengubah dirinya menjadi Manager. Router dan kontrol halaman tetap membatasi Manager hanya pada Dashboard dan Laporan, termasuk akses melalui URL langsung.
+
+Sebanyak **33 pemeriksaan statis** telah lulus tanpa akses API atau database. Penilaian kemudahan penggunaan secara empiris tetap harus dilakukan melalui UAT dan SUS bersama pengguna Staf serta Manager.
+
+### 14.1 Keterkaitan dengan Bab 1 dan Bab 2
+
+- **Bab 1:** penguatan Dashboard, status kesiapan, filter riwayat, dan tautan pemantauan memperjelas jawaban sistem terhadap kebutuhan staf untuk mengendalikan serta menelusuri proses backup. Pembatasan role mendukung kebutuhan dua kelompok pengguna.
+- **Bab 2:** rancangan antarmuka, use case, activity diagram, struktur navigasi, dan rancangan pengujian perlu menampilkan status layanan bersama, filter Riwayat Proses, metrik ringkas Laporan, metadata ekspor, serta aturan perlindungan akun sendiri. Alur data utama dan arsitektur pemisahan server tidak berubah.

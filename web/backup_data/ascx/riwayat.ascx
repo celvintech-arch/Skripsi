@@ -7,15 +7,40 @@ Protected Sub Page_Load(sender As Object,e As EventArgs)
  Response.Cache.SetCacheability(HttpCacheability.NoCache)
  Response.Cache.SetNoStore()
  Response.Cache.SetExpires(DateTime.UtcNow.AddYears(-1))
- If Not IsPostBack Then LoadHistory()
+ If Not IsPostBack Then
+  ApplyHistoryFilterFromQuery()
+  LoadHistory()
+ End If
 End Sub
+
+Private Sub ApplyHistoryFilterFromQuery()
+ Dim operation=If(Request.QueryString("operation"),"").Trim().ToUpperInvariant(),status=If(Request.QueryString("status"),"").Trim().ToUpperInvariant()
+ If ddlHistoryOperation.Items.FindByValue(operation) IsNot Nothing Then ddlHistoryOperation.SelectedValue=operation
+ If ddlHistoryStatus.Items.FindByValue(status) IsNot Nothing Then ddlHistoryStatus.SelectedValue=status
+End Sub
+
+Protected Sub btnApplyHistoryFilter_Click(sender As Object,e As EventArgs)
+ gvProcessHistory.PageIndex=0
+ LoadHistory()
+End Sub
+
+Private Function HistoryWhereSql() As String
+ Dim filters As New System.Collections.Generic.List(Of String)()
+ If ddlHistoryOperation.SelectedValue<>"" Then filters.Add("j.OperationType=@OperationType")
+ Select Case ddlHistoryStatus.SelectedValue
+  Case "SUCCESS":filters.Add("j.Status='SUCCESS'")
+  Case "FAILED":filters.Add("j.Status='FAILED' AND ISNULL(j.ErrorMessage,'') NOT LIKE '[[]CANCELLED]%'")
+  Case "CANCELLED":filters.Add("j.Status='FAILED' AND ISNULL(j.ErrorMessage,'') LIKE '[[]CANCELLED]%'")
+ End Select
+ Return If(filters.Count=0,"", " WHERE " & String.Join(" AND ",filters.ToArray()))
+End Function
 
 Private Sub LoadHistory()
  Dim data As New DataTable()
- litHistoryRefresh.Text=""
  Try
-   Dim historySql="SELECT j.JobId,j.OperationType,j.TriggerSource,j.CutoffThAkdk,j.StudentNim,j.RestoreThAkdkList,j.SelectedTables,j.Status,j.ProcessedStudents,j.CreatedAt,j.CompletedAt,j.ProgressMessage,j.ResultMessage,j.ErrorMessage,j.TotalStudents,(SELECT COUNT(*) FROM dbo.BackupTransferJobStudent s WHERE s.JobId=j.JobId) TrackedStudents FROM dbo.BackupTransferJob j ORDER BY j.CreatedAt DESC"
+   Dim historySql="SELECT j.JobId,j.OperationType,j.TriggerSource,j.CutoffThAkdk,j.StudentNim,j.RestoreThAkdkList,j.SelectedTables,j.Status,j.ProcessedStudents,j.CreatedAt,j.CompletedAt,j.ProgressMessage,j.ResultMessage,j.ErrorMessage,j.TotalStudents,(SELECT COUNT(*) FROM dbo.BackupTransferJobStudent s WHERE s.JobId=j.JobId) TrackedStudents FROM dbo.BackupTransferJob j" & HistoryWhereSql() & " ORDER BY j.CreatedAt DESC"
   Using cmd As New SqlCommand(historySql,cnsr)
+   If ddlHistoryOperation.SelectedValue<>"" Then cmd.Parameters.Add("@OperationType",SqlDbType.VarChar,10).Value=ddlHistoryOperation.SelectedValue
    Using ad As New SqlDataAdapter(cmd):ad.Fill(data):End Using
   End Using
   Dim inventoryByYear=LoadInventoryPeriodsByYear()
@@ -36,13 +61,11 @@ Private Sub LoadHistory()
    row("ProgressLabel")=String.Format("{0:N0}",processed) & "/" & If(total>=0,String.Format("{0:N0}",total),"-")
    row("DetailLabel")=CleanProgressDetail(detail,operation,status,processed)
   Next
-  Dim activeData=data.Clone(),completedData=data.Clone()
+  Dim completedData=data.Clone()
   For Each row As DataRow In data.Rows
-   If IsActiveTransferStatus(row("Status").ToString()) Then activeData.ImportRow(row) Else completedData.ImportRow(row)
+   If Not IsActiveTransferStatus(row("Status").ToString()) Then completedData.ImportRow(row)
   Next
-  gvActiveProcesses.DataSource=activeData:gvActiveProcesses.DataBind()
   gvProcessHistory.DataSource=completedData:gvProcessHistory.DataBind()
-  If activeData.Rows.Count>0 Then litHistoryRefresh.Text="<script>(function(){window.backupHistoryAction=function(button,message){if(button.getAttribute('data-backup-confirmed')==='1'){button.removeAttribute('data-backup-confirmed');if(window.backupHistoryPollTimer)window.clearTimeout(window.backupHistoryPollTimer);button.setAttribute('data-submitting','1');button.classList.add('backup-action-submitting');return true;}if(button.getAttribute('data-submitting')==='1')return false;return window.backupConfirm(button,message,{title:'Batalkan proses?',confirmText:'Ya, batalkan'});};window.backupHistoryPollTimer=window.setTimeout(function(){window.location.replace('index.aspx?tab=riwayat&poll=' + Date.now());},10000);})();</" & "script>"
  Catch ex As Exception
   litHistoryMessage.Text="<div class='alert alert-danger'><strong>Gagal memuat riwayat.</strong> " & Server.HtmlEncode(ex.Message) & "</div>"
  Finally
@@ -113,13 +136,6 @@ Private Function CleanProgressDetail(detail As String,operation As String,status
 End Function
 
 
-Protected Function CanCancel(value As Object,operationValue As Object) As Boolean
- Dim status=If(value Is Nothing,"",value.ToString().Trim().ToUpperInvariant())
- Dim operation=If(operationValue Is Nothing,"",operationValue.ToString().Trim().ToUpperInvariant())
- If operation="EXPORT" Then Return status="WAITING"
- Return status="WAITING" OrElse status="CLAIMED" OrElse status="TRANSFERRING"
-End Function
-
 Private Function IsActiveTransferStatus(value As String) As Boolean
  Dim status=If(value Is Nothing,"",value.Trim().ToUpperInvariant())
  Return status="WAITING" OrElse status="CLAIMED" OrElse status="TRANSFERRING"
@@ -127,23 +143,6 @@ End Function
 
 Protected Sub gvProcessHistory_PageIndexChanging(sender As Object,e As GridViewPageEventArgs)
  gvProcessHistory.PageIndex=e.NewPageIndex
- LoadHistory()
-End Sub
-
-Protected Sub gvActiveProcesses_RowCommand(sender As Object,e As GridViewCommandEventArgs)
- If e.CommandName<>"CancelJob" Then Return
- Dim jobId As Guid
- If Not Guid.TryParse(Convert.ToString(e.CommandArgument),jobId) Then Return
- Try
-  Using cn As New SqlConnection(connstringLive),cmd As New SqlCommand("UPDATE dbo.BackupTransferJob SET Status='FAILED',CompletedAt=SYSDATETIME(),LeaseExpiresAt=NULL,ProgressMessage=NULL,ResultMessage=NULL,ErrorMessage=@message WHERE JobId=@job AND Status IN('WAITING','CLAIMED','TRANSFERRING') AND (OperationType<>'EXPORT' OR Status='WAITING')",cn)
-   cmd.Parameters.Add("@job",SqlDbType.UniqueIdentifier).Value=jobId
-   cmd.Parameters.Add("@message",SqlDbType.NVarChar,2000).Value="[CANCELLED] Dibatalkan oleh " & BackupRequestedBy() & "."
-   cn.Open()
-   If cmd.ExecuteNonQuery()=1 Then litHistoryMessage.Text="<div class='alert alert-success'><strong>Proses dibatalkan.</strong> Tahap yang belum dijalankan dihentikan; perubahan yang sudah tersimpan tidak dibatalkan.</div>" Else litHistoryMessage.Text="<div class='alert alert-warning'>Proses sudah selesai atau sebelumnya telah dibatalkan.</div>"
-  End Using
- Catch ex As Exception
-  litHistoryMessage.Text="<div class='alert alert-danger'><strong>Pembatalan gagal.</strong> " & Server.HtmlEncode(ex.Message) & "</div>"
- End Try
  LoadHistory()
 End Sub
 
@@ -242,30 +241,16 @@ End Function
   <h1>Riwayat Proses</h1>
  </div>
  <asp:Literal ID="litHistoryMessage" runat="server" />
- <div class="panel history-card">
-  <div class="panel-heading"><i class="fa fa-spinner fa-spin"></i> Proses Sedang Berjalan</div>
-  <div class="table-responsive">
-   <asp:GridView ID="gvActiveProcesses" runat="server" AutoGenerateColumns="false" CssClass="table table-striped table-hover history-table" EmptyDataText="Tidak ada proses yang sedang berjalan." GridLines="None" OnRowCommand="gvActiveProcesses_RowCommand">
-    <Columns>
-     <asp:BoundField DataField="CreatedAt" HeaderText="Dibuat" DataFormatString="{0:dd MMM yyyy HH:mm}" ItemStyle-Width="115px" HeaderStyle-Width="115px" />
-     <asp:BoundField DataField="OperationLabel" HeaderText="Operasi" ItemStyle-Width="270px" HeaderStyle-Width="270px" />
-     <asp:BoundField DataField="TableLabel" HeaderText="Tabel" ItemStyle-Width="210px" HeaderStyle-Width="210px" />
-     <asp:BoundField DataField="StatusLabel" HeaderText="Status" ItemStyle-CssClass="history-status" ItemStyle-Width="105px" HeaderStyle-Width="105px" />
-     <asp:BoundField DataField="ProgressLabel" HeaderText="Diproses" ItemStyle-HorizontalAlign="Right" ItemStyle-Width="95px" HeaderStyle-Width="95px" />
-     <asp:BoundField DataField="DetailLabel" HeaderText="Keterangan" NullDisplayText="-" ItemStyle-CssClass="history-note" />
-     <asp:TemplateField HeaderText="Aksi" ItemStyle-Width="115px" HeaderStyle-Width="115px" ItemStyle-CssClass="history-action-cell" ItemStyle-HorizontalAlign="Center" HeaderStyle-HorizontalAlign="Center">
-      <ItemTemplate>
-       <div class="history-actions">
-       <asp:LinkButton ID="btnCancelJob" runat="server" Text="Batalkan" CssClass="btn btn-warning btn-xs history-text-btn" CommandName="CancelJob" CommandArgument='<%# Eval("JobId") %>' Visible='<%# CanCancel(Eval("Status"),Eval("OperationType")) %>' OnClientClick="return backupHistoryAction(this,'Batalkan proses ini? Perubahan yang sudah tersimpan tidak dapat dibatalkan.');" />
-       </div>
-      </ItemTemplate>
-     </asp:TemplateField>
-    </Columns>
-   </asp:GridView>
+ <div class="panel panel-default history-filter-panel">
+  <div class="panel-heading"><i class="fa fa-filter"></i> Filter Riwayat</div>
+  <div class="panel-body history-filter-grid">
+   <div class="history-filter-field"><label for="<%= ddlHistoryOperation.ClientID %>">Jenis operasi</label><asp:DropDownList ID="ddlHistoryOperation" runat="server" CssClass="form-control"><asp:ListItem Value="">Semua</asp:ListItem><asp:ListItem Value="BACKUP">Backup</asp:ListItem><asp:ListItem Value="RESTORE">Pemulihan</asp:ListItem><asp:ListItem Value="EXPORT">Ekspor</asp:ListItem></asp:DropDownList></div>
+   <div class="history-filter-field"><label for="<%= ddlHistoryStatus.ClientID %>">Status</label><asp:DropDownList ID="ddlHistoryStatus" runat="server" CssClass="form-control"><asp:ListItem Value="">Semua</asp:ListItem><asp:ListItem Value="SUCCESS">Berhasil</asp:ListItem><asp:ListItem Value="FAILED">Gagal</asp:ListItem><asp:ListItem Value="CANCELLED">Dibatalkan</asp:ListItem></asp:DropDownList></div>
+   <div class="history-filter-action"><asp:Button ID="btnApplyHistoryFilter" runat="server" Text="Terapkan Filter" CssClass="btn btn-primary" OnClick="btnApplyHistoryFilter_Click" /></div>
   </div>
  </div>
  <div class="panel history-card">
-  <div class="panel-heading"><i class="fa fa-history"></i> Riwayat Proses Selesai</div>
+  <div class="panel-heading"><i class="fa fa-history"></i> Riwayat Proses</div>
   <div class="table-responsive">
    <asp:GridView ID="gvProcessHistory" runat="server" AutoGenerateColumns="false" AllowPaging="true" PageSize="10" PagerSettings-Mode="NumericFirstLast" PagerSettings-FirstPageText="Awal" PagerSettings-LastPageText="Akhir" PagerStyle-CssClass="customPager" PagerStyle-HorizontalAlign="Center" CssClass="table table-striped table-hover history-table" EmptyDataText="Belum ada riwayat proses selesai." GridLines="None" OnPageIndexChanging="gvProcessHistory_PageIndexChanging">
     <Columns>
@@ -280,5 +265,4 @@ End Function
    </asp:GridView>
   </div>
  </div>
- <asp:Literal ID="litHistoryRefresh" runat="server" />
 </div>

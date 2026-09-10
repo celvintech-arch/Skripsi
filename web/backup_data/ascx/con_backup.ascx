@@ -10,6 +10,18 @@
     Private _backupRoleResolved As Boolean
     Private _backupRole As String
 
+    Public Class BackupServiceState
+        Public StatusCode As String = "NOT_REGISTERED"
+        Public StatusText As String = "Belum terdaftar"
+        Public CssClass As String = "danger"
+        Public Description As String = "Database Backup utama belum terdaftar."
+        Public AgentName As String = "-"
+        Public LastSeenAt As Nullable(Of DateTime) = Nothing
+        Public LastDatabaseReady As Nullable(Of Boolean) = Nothing
+        Public LastMessage As String = "-"
+        Public IsReady As Boolean = False
+    End Class
+
     ' condecdummy.ascx tetap menjadi satu-satunya sumber konfigurasi koneksi.
     ' Adapter ini hanya mengubah format OLE DB menjadi format SqlClient di memori.
     Public ReadOnly Property connstringLive As String
@@ -38,6 +50,54 @@
     End Property
     Sub tutupsr()
         If cnsr.State <> ConnectionState.Closed Then cnsr.Close()
+    End Sub
+
+    Public Function ReadBackupServiceState() As BackupServiceState
+        Dim state As New BackupServiceState()
+        Using cn As New SqlConnection(connstringLive)
+            Using cmd As New SqlCommand("SELECT TOP(1) AgentName,IsEnabled,LastSeenAt,LastDatabaseReady,LastMessage FROM dbo.BackupAgentNode WHERE IsPrimary=1 ORDER BY UpdatedAt DESC",cn)
+                cn.Open()
+                Using rd=cmd.ExecuteReader()
+                    If Not rd.Read() Then Return state
+                    state.AgentName=rd("AgentName").ToString().Trim()
+                    Dim enabled=Convert.ToBoolean(rd("IsEnabled"))
+                    If Not rd.IsDBNull(rd.GetOrdinal("LastSeenAt")) Then state.LastSeenAt=Convert.ToDateTime(rd("LastSeenAt"))
+                    If Not rd.IsDBNull(rd.GetOrdinal("LastDatabaseReady")) Then state.LastDatabaseReady=Convert.ToBoolean(rd("LastDatabaseReady"))
+                    state.LastMessage=BackupAgentMessageForDisplay(If(rd.IsDBNull(rd.GetOrdinal("LastMessage")),"",rd("LastMessage").ToString()))
+                    If Not enabled Then
+                        state.StatusCode="NOT_READY":state.StatusText="Belum siap":state.CssClass="danger":state.Description="Agent backup utama sedang dinonaktifkan."
+                    ElseIf Not state.LastSeenAt.HasValue Then
+                        state.StatusCode="NOT_READY":state.StatusText="Belum siap":state.CssClass="warning":state.Description="Agent backup utama belum pernah mengirim heartbeat."
+                    ElseIf state.LastSeenAt.Value<DateTime.Now.AddMinutes(-3) Then
+                        state.StatusCode="OFFLINE":state.StatusText="Offline":state.CssClass="warning":state.Description="Heartbeat agent tidak diterima dalam tiga menit terakhir."
+                    ElseIf Not state.LastDatabaseReady.GetValueOrDefault(False) Then
+                        state.StatusCode="NOT_READY":state.StatusText="Belum siap":state.CssClass="warning":state.Description="Agent terhubung, tetapi Database Backup belum dapat diakses."
+                    Else
+                        state.StatusCode="READY":state.StatusText="Siap":state.CssClass="success":state.Description="Agent terhubung dan Database Backup siap memproses permintaan."
+                        state.IsReady=True
+                    End If
+                End Using
+            End Using
+        End Using
+        Return state
+    End Function
+
+    Public Function BackupAgentMessageForDisplay(value As String) As String
+        If String.IsNullOrWhiteSpace(value) Then Return "Belum ada pesan dari agent."
+        If value.TrimStart().StartsWith("{") Then Return "Heartbeat dan statistik Database Backup berhasil diterima."
+        Return value.Trim()
+    End Function
+
+    Public Function BackupServiceAlertHtml(state As BackupServiceState,activityName As String) As String
+        If state IsNot Nothing AndAlso state.IsReady Then Return ""
+        Dim detail=state.Description
+        If state.LastSeenAt.HasValue Then detail &= " Koneksi terakhir: " & state.LastSeenAt.Value.ToString("dd MMM yyyy HH:mm:ss") & "."
+        If Not state.IsReady Then detail &= " " & activityName & " belum dapat dijalankan."
+        Return "<div class='alert alert-" & state.CssClass & " backup-service-alert' role='status'><i class='fa " & If(state.IsReady,"fa-check-circle","fa-exclamation-triangle") & "' aria-hidden='true'></i><div><strong>Database Backup: " & Server.HtmlEncode(state.StatusText) & "</strong><span>" & Server.HtmlEncode(detail) & "</span></div></div>"
+    End Function
+
+    Public Sub EnsureBackupServiceReady(state As BackupServiceState,activityName As String)
+        If state Is Nothing OrElse Not state.IsReady Then Throw New ApplicationException(activityName & " tidak dapat dijalankan karena Database Backup belum siap. Periksa Dashboard untuk status layanan terbaru.")
     End Sub
 
     Private Function NormalizeBackupRole(ByVal value As Object) As String
