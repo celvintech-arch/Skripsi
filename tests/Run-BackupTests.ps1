@@ -172,12 +172,28 @@ Invoke-Test 'Pesan job dipisahkan berdasarkan fungsi' 'Data model' {
  foreach($column in @('ProgressMessage','ResultMessage','ErrorMessage')){Assert-True ($api.Contains($column)) "API belum menggunakan $column.";Assert-True ($history.Contains($column)) "Riwayat belum menggunakan $column."}
  'Tiga kolom pesan digunakan API dan Riwayat.'
 }
+Invoke-Test 'Relasi tabel operasional menggunakan AgentId' 'Data model' {
+ $sqlRoot=Join-Path $ToolingRoot 'database\modular'
+ $transferSchema=Get-Content -LiteralPath(Join-Path $sqlRoot '00_core\02_transfer_and_inventory_tables.sql')-Raw
+ $lookupSchema=Get-Content -LiteralPath(Join-Path $sqlRoot '00_core\03_lookup_schema.sql')-Raw
+ $workflowFiles=@(Get-ChildItem -LiteralPath $sqlRoot -Recurse -File -Filter *.sql)
+ $workflow=($workflowFiles|Where-Object{$_.FullName -notmatch '\\00_core\\0[23]_' -and $_.FullName -notmatch '\\09_verification\\'}|ForEach-Object{Get-Content -LiteralPath $_.FullName -Raw})-join "`n"
+ $runtime=(Get-Content -LiteralPath(Join-Path $ApplicationRoot 'api\agent.aspx')-Raw)+"`n"+
+  (Get-Content -LiteralPath(Join-Path $ApplicationRoot 'ascx\pemulihan.ascx')-Raw)+"`n"+
+  (Get-Content -LiteralPath(Join-Path $ApplicationRoot 'ascx\riwayat.ascx')-Raw)+"`n"+
+  (Get-Content -LiteralPath(Join-Path $ApplicationRoot 'ascx\summary_report.ascx')-Raw)
+ Assert-True (($transferSchema -match 'FK_BackupTransferJob_Agent\s+FOREIGN KEY\(AgentId\)') -and ($transferSchema -match 'FK_BackupAgentPeriodInventory_Agent\s+FOREIGN KEY\(AgentId\)')) 'FK job atau inventaris belum menggunakan AgentId.'
+ Assert-True ($lookupSchema -match 'FK_BackupLookupRequest_Agent\s+FOREIGN KEY\(AgentId\)') 'FK lookup belum menggunakan AgentId.'
+ Assert-True ($workflow -notmatch '(?i)JOIN\s+dbo\.BackupAgentNode\s+\w+\s+ON\s+\w+\.AgentName\s*=\s*\w+\.AgentName|WHERE\s+AgentName\s*=\s*@agent|INSERT\s+dbo\.(?:BackupTransferJob|BackupLookupRequest)\([^\r\n]*AgentName') 'Workflow SQL masih memakai AgentName sebagai relasi.'
+ Assert-True ($runtime -notmatch '(?i)\b[ajpq]\.AgentName\s*=\s*[ajpq]\.AgentName|\b[ajpq]\.AgentName\s*=\s*@agent|\bAgentName\s*=\s*@agent') 'Query runtime masih memakai AgentName sebagai relasi.'
+ 'FK job, inventaris, dan lookup serta seluruh query runtime menggunakan AgentId.'
+}
 Invoke-Test 'Riwayat hanya menampilkan proses yang telah selesai' 'Data safety' {
  $page=Get-Content -LiteralPath(Join-Path $ApplicationRoot 'ascx\riwayat.ascx')-Raw
  $commands=@([regex]::Matches($page,'CommandName="(?<name>[A-Za-z0-9_]+)"')|ForEach-Object{$_.Groups['name'].Value}|Sort-Object -Unique)
  Assert-True ($commands.Count -eq 0) 'Riwayat proses selesai masih memiliki tombol tindakan.'
  Assert-True ($page -notmatch '(?i)UPDATE\s+dbo\.BackupTransferJob') 'Halaman riwayat masih dapat mengubah status proses.'
- Assert-True ($page.Contains('Not IsActiveTransferStatus')) 'Riwayat belum mengecualikan proses aktif yang ditampilkan pada Dashboard.'
+ Assert-True ($page.Contains("j.Status NOT IN ('WAITING','CLAIMED','TRANSFERRING')")) 'Riwayat belum mengecualikan proses aktif yang ditampilkan pada Dashboard.'
  'Riwayat bersifat baca-saja dan hanya menampilkan proses yang sudah selesai.'
 }
 Invoke-Test 'Istilah tampilan menggunakan Database Backup' 'UI' {
@@ -314,11 +330,13 @@ Invoke-Test 'Laporan tersedia dan bersifat read-only' 'Feature' {
 Invoke-Test 'Ekspor menampilkan metadata hasil' 'UI' {
  $export=Get-Content -LiteralPath (Join-Path $ApplicationRoot 'ascx\ekspor.ascx') -Raw
  $api=Get-Content -LiteralPath (Join-Path $ApplicationRoot 'api\agent.aspx') -Raw
- foreach($token in @('litLastExportStatus','FileNameLabel','SizeLabel','VerificationLabel','RESTORE VERIFYONLY')){Assert-True ($export.Contains($token)) "Informasi ekspor belum lengkap: $token"}
+ $agent=Get-Content -LiteralPath (Join-Path $ToolingRoot 'agent\BackupAgent.ps1') -Raw
+ foreach($token in @('litLastExportStatus','litLastExportFile','litLastExportSize','litLastExportVerification','RESTORE VERIFYONLY')){Assert-True ($export.Contains($token)) "Informasi ekspor belum lengkap: $token"}
  Assert-True ($export -notmatch 'ChecksumLabel|Checksum SHA-256') 'Checksum SHA-256 masih ditampilkan pada halaman Ekspor.'
- Assert-True ($api.Contains('SHA-256:')) 'Checksum SHA-256 tidak lagi disimpan pada hasil proses agent.'
+ Assert-True ($api -notmatch 'SHA-256:') 'Metadata SHA-256 masih disimpan oleh API.'
+ Assert-True ($agent -notmatch '(?i)Get-FileHash\s+-Algorithm\s+SHA256') 'Agent masih menghitung SHA-256 file ekspor.'
  Assert-True ($export -notmatch '(?i)Ekspor membuat file') 'Paragraf penjelasan ekspor yang sudah dihapus masih ditampilkan.'
- 'Status, nama file, ukuran, dan verifikasi ditampilkan; SHA-256 tetap dicatat pada hasil agent tanpa ditampilkan pada halaman.'
+ 'Status, nama file, ukuran, dan verifikasi ditampilkan; SHA-256 file ekspor sudah dihapus dari agent dan API.'
 }
 Invoke-Test 'Kelola Pengguna melindungi akun yang sedang login' 'Authorization' {
  $operator=Get-Content -LiteralPath (Join-Path $ApplicationRoot 'ascx\operator.ascx') -Raw

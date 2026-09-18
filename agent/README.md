@@ -91,7 +91,7 @@ Tab **Riwayat Backup** menampilkan progress yang sudah dikonfirmasi serta pesan 
 
 ## Ekspor dan restore database manual
 
-Menu **Ekspor Database** membuat job manual. Agent menyimpan file `.bak` ke `ExportDirectory`, menjalankan `RESTORE VERIFYONLY WITH CHECKSUM`, menghitung SHA-256, lalu mencatat hasilnya pada riwayat. File tidak disediakan melalui HTTP.
+Menu **Ekspor Database** membuat job manual. Agent menyimpan file `.bak` ke `ExportDirectory`, menjalankan `RESTORE VERIFYONLY WITH CHECKSUM`, lalu mencatat nama file, ukuran, dan hasil verifikasi pada riwayat. File tidak disediakan melalui HTTP.
 
 Pada instalasi saat ini, `C:\BackupAgent\RestoreBackupDatabase.cmd` memakai konfigurasi development. Untuk production, jalankan `RestoreBackupDatabase.ps1` dengan `-ConfigPath C:\BackupAgent\agent.config.production.json`. Utilitas menolak tujuan `dec_dummy` dan `dec_dummy_backup`, menolak database yang sudah ada, dan memvalidasi empat tabel backup setelah restore.
 

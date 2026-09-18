@@ -36,8 +36,6 @@ Checklist ini digunakan setelah source dan staging disetujui. Tahap yang menjala
 - [ ] Suite source lulus dengan `-SkipApi -SkipLocalDatabase`.
 - [ ] Halaman login dan semua menu dapat dibuka tanpa compiler error.
 - [ ] Token salah ditolak.
-- [ ] Backup satu NIM menambah/memperbarui backup tanpa mengubah jumlah atau isi baris aktif.
-- [ ] Pengulangan backup NIM tidak membuat duplikasi.
 - [ ] Backup satu TA hanya menyalin baris periode itu, bukan seluruh riwayat NIM.
 - [ ] Backup rentang dan batas TA mengikuti cakupan yang dipilih.
 - [ ] Baris lama pada database backup tetap ada ketika tidak lagi ada pada sumber.
@@ -65,16 +63,16 @@ Batalkan cutover apabila terjadi compiler error, token salah diterima, koneksi t
 
 Runtime hasil optimasi telah dipasang pada jalur development `backup_data`. Pengujian statis pascadeploy tanggal 4 September 2026 menghasilkan **21 PASS, 0 FAIL, dan 5 SKIP**. Job `LINTAR Backup Agent` tetap nonaktif dan menggunakan konfigurasi development. Pengujian operasi data dan aktivasi production belum dilakukan. Tidak ada SQL, backup, pemulihan, ekspor, atau perubahan data yang dijalankan pada tahap optimasi ini.
 
-## 7. Cutover peran dan Laporan
+## 7. Cutover peran dan Laporan Ringkasan
 
 Source fitur, migrasi peran, dan cutover website telah selesai. Pengujian akun nyata dan UAT tetap diperlukan.
 
-- [x] Tetapkan peran `STAFF_BACKUP` dengan akses penuh dan `MANAGER_BACKUP` dengan akses Dashboard serta Laporan saja.
+- [x] Tetapkan peran `STAFF_BACKUP` dengan akses penuh dan `MANAGER_BACKUP` dengan akses Dashboard serta Laporan Ringkasan saja.
 - [x] Pertahankan role lama sebagai Staf untuk kompatibilitas tanpa memperbarui data akun secara otomatis.
 - [x] Terapkan pemeriksaan role pada server untuk menu, URL langsung, dan postback.
 - [ ] Pastikan Manager tidak dapat membuat, membatalkan, memulihkan, mengekspor, atau mengubah konfigurasi.
-- [x] Tambahkan filter dan metrik dasar Laporan.
-- [x] Pastikan Laporan bersifat baca-saja dan tidak membuka koneksi web langsung ke `dec_dummy_backup`.
+- [x] Tambahkan filter dan metrik dasar Laporan Ringkasan.
+- [x] Pastikan Laporan Ringkasan bersifat baca-saja dan tidak membuka koneksi web langsung ke `dec_dummy_backup`.
 - [x] Tambahkan ekspor PDF yang mengikuti filter aktif dan dibuat langsung di memori server.
 - [x] Validasi struktur PDF serta render halaman awal, tengah, dan akhir menggunakan data uji.
 - [x] Jalankan `deployment/install_role_summary_report.sql` pada `dec_dummy` setelah review DBA.
@@ -87,14 +85,20 @@ Source fitur, migrasi peran, dan cutover website telah selesai. Pengujian akun n
 - [x] Ubah nama tampilan menjadi Laporan dan Riwayat Proses.
 - [x] Jadikan pengaturan Backup Otomatis sebagai panel yang dapat dibuka dan ditutup.
 - [x] Tambahkan petunjuk singkat pada mode backup dan pemulihan.
-- [x] Susun filter Laporan secara responsif untuk layar kecil.
-- [x] Hapus fitur Backup per NIM dari portal; Pemulihan per NIM tetap tersedia.
+- [x] Susun filter Laporan Ringkasan secara responsif untuk layar kecil.
 - [x] Gunakan SweetAlert untuk konfirmasi tindakan, dengan fallback aman jika pustaka tidak tersedia.
-- [x] Pengujian statis aman menghasilkan **33 PASS, 0 FAIL, dan 5 SKIP** tanpa akses API atau database.
-- [x] Dashboard menampilkan status layanan, agent utama, heartbeat, jadwal otomatis, proses terakhir, dan proses aktif.
-- [x] Backup dan Pemulihan memeriksa kesiapan Database Backup serta menyediakan tautan ke Riwayat Proses.
-- [x] Riwayat hanya menampilkan proses selesai dengan filter satu baris; proses aktif dipusatkan di Dashboard.
-- [x] Laporan menampilkan metrik ringkas dan PDF tetap mengikuti filter aktif.
-- [x] Ekspor menampilkan nama file, ukuran, dan status verifikasi; SHA-256 tetap dicatat pada hasil agent tanpa ditampilkan pada halaman.
-- [x] Cegah pengguna aktif menonaktifkan dirinya atau mengubah dirinya menjadi Manager.
+- [x] Pemeriksaan statis source menghasilkan **29 PASS, 0 FAIL, dan 5 SKIP**.
 - [ ] Validasi kemudahan penggunaan melalui UAT dan SUS bersama Staf serta Manager.
+
+## 9. Migrasi relasi agent ke `AgentId`
+
+- [x] Ubah FK `BackupTransferJob`, `BackupAgentPeriodInventory`, dan `BackupLookupRequest` agar mengacu ke `BackupAgentNode.AgentId`.
+- [x] Sediakan backfill data lama dari `AgentName` ke `AgentId` sebelum constraint lama dilepas.
+- [x] Ubah stored procedure, query API, pemulihan, riwayat, dan laporan agar menggunakan `AgentId`.
+- [x] Tambahkan verifikasi FK dan pemeriksaan bahwa kolom relasi `AgentName` lama sudah tidak tersisa.
+- [x] Sinkronkan installer gabungan dan source website pada Deployment Package.
+- [ ] Hentikan sementara SQL Server Agent Job `LINTAR Backup Agent` sebelum migrasi.
+- [x] Jalankan `deployment/install_backup_data_all.sql` pada `dec_dummy` dan pastikan verifikasi relasi berstatus `OK`.
+- [x] Setelah migrasi berhasil, salin file runtime yang berubah dari `web/backup_data` ke website aktif dalam satu tahap cutover.
+- [x] Verifikasi hash source aktif dan jalankan pemeriksaan statis dengan hasil **29 PASS, 0 FAIL, dan 5 SKIP**.
+- [ ] Aktifkan kembali agent, jalankan heartbeat, lalu jalankan suite tanpa `-SkipApi` setelah disetujui.

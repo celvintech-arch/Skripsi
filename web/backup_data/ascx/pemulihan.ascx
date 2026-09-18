@@ -1,5 +1,6 @@
 <%@ Control Language="VB" ClassName="backup_data_pemulihan_control" %>
 <!-- #INCLUDE file="con_backup.ascx" -->
+<!-- #INCLUDE file="table_helpers.ascx" -->
 <%@ Import Namespace="System.Collections.Generic" %>
 
 <script runat="server">
@@ -45,24 +46,11 @@ End Sub
 Private Sub ShowBackupConnectionWarning(title As String,message As String,kind As String)
  litBackupConnectionStatus.Text &= "<div class='alert alert-" & kind & " backup-connection-alert' role='alert'><div class='backup-connection-alert-icon' aria-hidden='true'><svg viewBox='0 0 24 24' focusable='false'><path d='M12 3.25L22 20.5H2L12 3.25Z' fill='currentColor'/><path d='M12 8.2V14.1' stroke='white' stroke-width='2.2' stroke-linecap='round'/><circle cx='12' cy='17.25' r='1.2' fill='white'/></svg></div><div><strong>" & Server.HtmlEncode(title) & "</strong><div>" & Server.HtmlEncode(message) & "</div></div></div>"
 End Sub
-Private Function SelectedTables(list As CheckBoxList,requireAcademic As Boolean) As String
- Dim chosen As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
- For Each item As ListItem In list.Items : If item.Selected Then chosen.Add(item.Value)
- Next
- If chosen.Count=0 Then Throw New ApplicationException("Pilih minimal satu tabel.")
- If requireAcademic AndAlso Not chosen.Contains("treg") AndAlso Not chosen.Contains("tkrs06") AndAlso Not chosen.Contains("t_absensi14") Then Throw New ApplicationException("Pilih minimal satu tabel Registrasi, KRS, atau Absensi.")
- chosen.Add("tbio01")
- For Each item As ListItem In list.Items : item.Selected=chosen.Contains(item.Value) : Next
- Dim result As New List(Of String)()
- For Each name In New String(){"tbio01","treg","tkrs06","t_absensi14"} : If chosen.Contains(name) Then result.Add(name)
- Next
- Return String.Join(",",result.ToArray())
-End Function
 
 
 Private Sub PopulateStudentRestoreYears()
  ddlStudentRestoreYear.Items.Clear():ddlStudentRestoreYear.Items.Add(New ListItem("- Pilih Tahun Akademik -",""))
- Using cmd As New SqlCommand("SELECT DISTINCT LEFT(RTRIM(p.ThAkdk),4) Tahun FROM dbo.BackupAgentPeriodInventory p JOIN dbo.BackupAgentNode a ON a.AgentName=p.AgentName WHERE a.IsPrimary=1 AND a.IsEnabled=1 AND p.ThAkdk LIKE '[0-9][0-9][0-9][0-9][0-9]' ORDER BY Tahun DESC",cnsr)
+ Using cmd As New SqlCommand("SELECT DISTINCT LEFT(RTRIM(p.ThAkdk),4) Tahun FROM dbo.BackupAgentPeriodInventory p JOIN dbo.BackupAgentNode a ON a.AgentId=p.AgentId WHERE a.IsPrimary=1 AND a.IsEnabled=1 AND p.ThAkdk LIKE '[0-9][0-9][0-9][0-9][0-9]' ORDER BY Tahun DESC",cnsr)
   Try
    cnsr.Open():Using rd=cmd.ExecuteReader():While rd.Read():Dim year=rd("Tahun").ToString():ddlStudentRestoreYear.Items.Add(New ListItem(year,year)):End While:End Using
   Finally:tutupsr():End Try
@@ -274,6 +262,7 @@ Private Sub CreateRestoreJob(nim As String,periods As String,expectedStudents As
 End Sub
 
 Private Sub ShowAlert(kind As String,title As String,message As String)
+ message=BackupFriendlyText(message)
  Dim css=If(kind="error","danger",kind)
  Dim historyLink=If(kind="success"," <a class='alert-link backup-history-link' href='index.aspx?tab=riwayat'>Lihat Riwayat Proses <i class='fa fa-arrow-right'></i></a>","")
  litAlertRestore.Text="<div class='alert alert-" & css & "'><strong>" & Server.HtmlEncode(title) & "</strong><br />" & Server.HtmlEncode(message) & historyLink & "</div>"
@@ -373,10 +362,10 @@ $(document).ready(applyRestoreScope);
      <div class="well backup-u-010">
       <label>Tabel yang dipulihkan:</label>
       <asp:CheckBoxList ID="cblRestoreNimTables" runat="server" RepeatDirection="Horizontal" RepeatLayout="Flow" CssClass="backup-table-options">
-       <asp:ListItem Value="tbio01" Text=" Biodata (tbio01) · wajib" Selected="True" Enabled="False" />
-       <asp:ListItem Value="treg" Text=" Registrasi (treg)" Selected="True" />
-       <asp:ListItem Value="tkrs06" Text=" KRS (tkrs06)" Selected="True" />
-       <asp:ListItem Value="t_absensi14" Text=" Absensi (t_absensi14)" Selected="True" />
+       <asp:ListItem Value="tbio01" Text=" Biodata · wajib" Selected="True" Enabled="False" />
+       <asp:ListItem Value="treg" Text=" Registrasi" Selected="True" />
+       <asp:ListItem Value="tkrs06" Text=" KRS" Selected="True" />
+       <asp:ListItem Value="t_absensi14" Text=" Absensi" Selected="True" />
       </asp:CheckBoxList>
       <p class="help-block">Biodata otomatis disertakan jika tabel lain dipilih. Baris aktif yang sudah ada tetap dilewati.</p>
      </div>
@@ -408,10 +397,10 @@ $(document).ready(applyRestoreScope);
       <div class="well backup-u-010">
        <label>Tabel yang dipulihkan:</label>
        <asp:CheckBoxList ID="cblRestorePeriodTables" runat="server" RepeatDirection="Horizontal" RepeatLayout="Flow" CssClass="backup-table-options">
-        <asp:ListItem Value="tbio01" Text=" Biodata (tbio01) · wajib" Selected="True" Enabled="False" />
-        <asp:ListItem Value="treg" Text=" Registrasi (treg)" Selected="True" />
-        <asp:ListItem Value="tkrs06" Text=" KRS (tkrs06)" Selected="True" />
-        <asp:ListItem Value="t_absensi14" Text=" Absensi (t_absensi14)" Selected="True" />
+        <asp:ListItem Value="tbio01" Text=" Biodata · wajib" Selected="True" Enabled="False" />
+        <asp:ListItem Value="treg" Text=" Registrasi" Selected="True" />
+        <asp:ListItem Value="tkrs06" Text=" KRS" Selected="True" />
+        <asp:ListItem Value="t_absensi14" Text=" Absensi" Selected="True" />
        </asp:CheckBoxList>
        <p class="help-block">Minimal satu tabel akademik dipilih; Biodata otomatis disertakan.</p>
       </div>

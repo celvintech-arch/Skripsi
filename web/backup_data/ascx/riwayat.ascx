@@ -1,7 +1,18 @@
 <%@ Control Language="VB" ClassName="backup_data_riwayat_control" %>
 <!-- #INCLUDE file="con_backup.ascx" -->
+<!-- #INCLUDE file="table_helpers.ascx" -->
 
 <script runat="server">
+Private Const HistoryPageSize As Integer=10
+Private Property HistoryPageIndex As Long
+ Get
+  Return If(ViewState("HistoryPageIndex") Is Nothing,0L,Convert.ToInt64(ViewState("HistoryPageIndex")))
+ End Get
+ Set(value As Long)
+  ViewState("HistoryPageIndex")=Math.Max(0L,value)
+ End Set
+End Property
+
 Protected Sub Page_Load(sender As Object,e As EventArgs)
  RequireBackupStaff()
  Response.Cache.SetCacheability(HttpCacheability.NoCache)
@@ -20,29 +31,46 @@ Private Sub ApplyHistoryFilterFromQuery()
 End Sub
 
 Protected Sub btnApplyHistoryFilter_Click(sender As Object,e As EventArgs)
- gvProcessHistory.PageIndex=0
+ HistoryPageIndex=0
  LoadHistory()
 End Sub
 
 Private Function HistoryWhereSql() As String
  Dim filters As New System.Collections.Generic.List(Of String)()
+ filters.Add("j.Status NOT IN ('WAITING','CLAIMED','TRANSFERRING')")
  If ddlHistoryOperation.SelectedValue<>"" Then filters.Add("j.OperationType=@OperationType")
  Select Case ddlHistoryStatus.SelectedValue
   Case "SUCCESS":filters.Add("j.Status='SUCCESS'")
   Case "FAILED":filters.Add("j.Status='FAILED' AND ISNULL(j.ErrorMessage,'') NOT LIKE '[[]CANCELLED]%'")
   Case "CANCELLED":filters.Add("j.Status='FAILED' AND ISNULL(j.ErrorMessage,'') LIKE '[[]CANCELLED]%'")
  End Select
- Return If(filters.Count=0,"", " WHERE " & String.Join(" AND ",filters.ToArray()))
+ Return " WHERE " & String.Join(" AND ",filters.ToArray())
 End Function
 
 Private Sub LoadHistory()
  Dim data As New DataTable()
  Try
-   Dim historySql="SELECT j.JobId,j.OperationType,j.TriggerSource,j.CutoffThAkdk,j.StudentNim,j.RestoreThAkdkList,j.SelectedTables,j.Status,j.ProcessedStudents,j.CreatedAt,j.CompletedAt,j.ProgressMessage,j.ResultMessage,j.ErrorMessage,j.TotalStudents,(SELECT COUNT(*) FROM dbo.BackupTransferJobStudent s WHERE s.JobId=j.JobId) TrackedStudents FROM dbo.BackupTransferJob j" & HistoryWhereSql() & " ORDER BY j.CreatedAt DESC"
+  litHistoryMessage.Text=""
+  cnsr.Open()
+  Dim totalRows As Long
+  Using countCommand As New SqlCommand("SELECT COUNT_BIG(*) FROM dbo.BackupTransferJob j" & HistoryWhereSql(),cnsr)
+   AddHistoryParameters(countCommand)
+   totalRows=Convert.ToInt64(countCommand.ExecuteScalar())
+  End Using
+  Dim lastPage=If(totalRows=0,0L,(totalRows-1) \ HistoryPageSize)
+  HistoryPageIndex=Math.Min(HistoryPageIndex,lastPage)
+  ViewState("HistoryLastPage")=lastPage
+  Dim historySql="SELECT j.JobId,j.OperationType,j.TriggerSource,j.CutoffThAkdk,j.StudentNim,j.RestoreThAkdkList,j.SelectedTables,j.Status,j.ProcessedStudents,j.CreatedAt,j.CompletedAt,j.ProgressMessage,j.ResultMessage,j.ErrorMessage,j.TotalStudents,(SELECT COUNT(*) FROM dbo.BackupTransferJobStudent s WHERE s.JobId=j.JobId) TrackedStudents FROM dbo.BackupTransferJob j" & HistoryWhereSql() & " ORDER BY j.CreatedAt DESC,j.JobId DESC OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY"
   Using cmd As New SqlCommand(historySql,cnsr)
-   If ddlHistoryOperation.SelectedValue<>"" Then cmd.Parameters.Add("@OperationType",SqlDbType.VarChar,10).Value=ddlHistoryOperation.SelectedValue
+   AddHistoryParameters(cmd)
+   cmd.Parameters.Add("@Offset",SqlDbType.BigInt).Value=HistoryPageIndex*HistoryPageSize
+   cmd.Parameters.Add("@PageSize",SqlDbType.Int).Value=HistoryPageSize
    Using ad As New SqlDataAdapter(cmd):ad.Fill(data):End Using
   End Using
+  pnlHistoryPager.Visible=(totalRows>0)
+  lblHistoryPage.Text="Halaman " & (HistoryPageIndex+1).ToString("N0") & " dari " & (lastPage+1).ToString("N0") & " (" & totalRows.ToString("N0") & " proses)"
+  btnHistoryFirst.Enabled=(HistoryPageIndex>0):btnHistoryPrevious.Enabled=(HistoryPageIndex>0)
+  btnHistoryNext.Enabled=(HistoryPageIndex<lastPage):btnHistoryLast.Enabled=(HistoryPageIndex<lastPage)
   Dim inventoryByYear=LoadInventoryPeriodsByYear()
   data.Columns.Add("OperationLabel",GetType(String))
   data.Columns.Add("StatusLabel",GetType(String))
@@ -53,7 +81,7 @@ Private Sub LoadHistory()
    Dim operation=row("OperationType").ToString().Trim().ToUpperInvariant()
    Dim status=row("Status").ToString().Trim().ToUpperInvariant()
    row("OperationLabel")=GetOperationTargetLabel(row,operation,inventoryByYear)
-   row("TableLabel")=GetTableLabel(row("SelectedTables").ToString())
+   row("TableLabel")=BackupTableLabels(row("SelectedTables").ToString())
    Dim progress=If(row.IsNull("ProgressMessage"),"",row("ProgressMessage").ToString()),result=If(row.IsNull("ResultMessage"),"",row("ResultMessage").ToString()),failure=If(row.IsNull("ErrorMessage"),"",row("ErrorMessage").ToString())
    Dim detail=If(status="SUCCESS",result,If(status="FAILED",failure,progress))
    row("StatusLabel")=If(status="FAILED" AndAlso failure.StartsWith("[CANCELLED]",StringComparison.OrdinalIgnoreCase),"Dibatalkan",TransferStatusText(status))
@@ -61,34 +89,19 @@ Private Sub LoadHistory()
    row("ProgressLabel")=String.Format("{0:N0}",processed) & "/" & If(total>=0,String.Format("{0:N0}",total),"-")
    row("DetailLabel")=CleanProgressDetail(detail,operation,status,processed)
   Next
-  Dim completedData=data.Clone()
-  For Each row As DataRow In data.Rows
-   If Not IsActiveTransferStatus(row("Status").ToString()) Then completedData.ImportRow(row)
-  Next
-  gvProcessHistory.DataSource=completedData:gvProcessHistory.DataBind()
+  gvProcessHistory.DataSource=data:gvProcessHistory.DataBind()
  Catch ex As Exception
+  pnlHistoryPager.Visible=False
   litHistoryMessage.Text="<div class='alert alert-danger'><strong>Gagal memuat riwayat.</strong> " & Server.HtmlEncode(ex.Message) & "</div>"
  Finally
   tutupsr()
  End Try
 End Sub
 
-Private Function GetTableLabel(value As String) As String
- Dim labels As New System.Collections.Generic.List(Of String)()
- For Each name In value.Split(","c)
-  Select Case name.Trim().ToLowerInvariant()
-   Case "tbio01":labels.Add("Biodata")
-   Case "treg":labels.Add("Registrasi")
-   Case "tkrs06":labels.Add("KRS")
-   Case "t_absensi14":labels.Add("Absensi")
-  End Select
- Next
- Return If(labels.Count=0,"-",String.Join(", ",labels.ToArray()))
-End Function
 
 Private Function LoadInventoryPeriodsByYear() As System.Collections.Generic.Dictionary(Of String,System.Collections.Generic.HashSet(Of String))
  Dim result As New System.Collections.Generic.Dictionary(Of String,System.Collections.Generic.HashSet(Of String))(StringComparer.OrdinalIgnoreCase)
- Using cmd As New SqlCommand("SELECT DISTINCT RTRIM(p.ThAkdk) ThAkdk FROM dbo.BackupAgentPeriodInventory p JOIN dbo.BackupAgentNode a ON a.AgentName=p.AgentName WHERE a.IsPrimary=1 AND a.IsEnabled=1",cnsr)
+ Using cmd As New SqlCommand("SELECT DISTINCT RTRIM(p.ThAkdk) ThAkdk FROM dbo.BackupAgentPeriodInventory p JOIN dbo.BackupAgentNode a ON a.AgentId=p.AgentId WHERE a.IsPrimary=1 AND a.IsEnabled=1",cnsr)
   If cnsr.State=ConnectionState.Closed Then cnsr.Open()
   Using rd=cmd.ExecuteReader()
    While rd.Read()
@@ -112,7 +125,7 @@ Private Function GetProgressTotal(storedTotal As Integer,tracked As Integer,oper
 End Function
 
 Private Function CleanProgressDetail(detail As String,operation As String,status As String,processed As Integer) As String
- Dim cleaned=System.Text.RegularExpressions.Regex.Replace(detail,"^\[TOTAL:\d+\]\s*","")
+ Dim cleaned=System.Text.RegularExpressions.Regex.Replace(BackupFriendlyText(detail),"^\[TOTAL:\d+\]\s*","")
  cleaned=System.Text.RegularExpressions.Regex.Replace(cleaned,"(?i)\bMenunggu\s+laptop(?:\s+backup)?\b","Menunggu Database Backup")
  If status="SUCCESS" AndAlso operation="BACKUP" Then
   Return processed.ToString("N0") & " Data Mahasiswa Berhasil Dibackup"
@@ -136,13 +149,20 @@ Private Function CleanProgressDetail(detail As String,operation As String,status
 End Function
 
 
-Private Function IsActiveTransferStatus(value As String) As Boolean
- Dim status=If(value Is Nothing,"",value.Trim().ToUpperInvariant())
- Return status="WAITING" OrElse status="CLAIMED" OrElse status="TRANSFERRING"
-End Function
 
-Protected Sub gvProcessHistory_PageIndexChanging(sender As Object,e As GridViewPageEventArgs)
- gvProcessHistory.PageIndex=e.NewPageIndex
+Private Sub AddHistoryParameters(cmd As SqlCommand)
+ If ddlHistoryOperation.SelectedValue<>"" Then cmd.Parameters.Add("@OperationType",SqlDbType.VarChar,10).Value=ddlHistoryOperation.SelectedValue
+End Sub
+
+Protected Sub HistoryPage_Command(sender As Object,e As CommandEventArgs)
+ Dim lastPage=If(ViewState("HistoryLastPage") Is Nothing,0L,Convert.ToInt64(ViewState("HistoryLastPage")))
+ Select Case Convert.ToString(e.CommandArgument)
+  Case "first":HistoryPageIndex=0
+  Case "previous":HistoryPageIndex-=1
+  Case "next":HistoryPageIndex=Math.Min(lastPage,HistoryPageIndex+1)
+  Case "last":HistoryPageIndex=lastPage
+  Case Else:Return
+ End Select
  LoadHistory()
 End Sub
 
@@ -252,7 +272,7 @@ End Function
  <div class="panel history-card">
   <div class="panel-heading"><i class="fa fa-history"></i> Riwayat Proses</div>
   <div class="table-responsive">
-   <asp:GridView ID="gvProcessHistory" runat="server" AutoGenerateColumns="false" AllowPaging="true" PageSize="10" PagerSettings-Mode="NumericFirstLast" PagerSettings-FirstPageText="Awal" PagerSettings-LastPageText="Akhir" PagerStyle-CssClass="customPager" PagerStyle-HorizontalAlign="Center" CssClass="table table-striped table-hover history-table" EmptyDataText="Belum ada riwayat proses selesai." GridLines="None" OnPageIndexChanging="gvProcessHistory_PageIndexChanging">
+   <asp:GridView ID="gvProcessHistory" runat="server" AutoGenerateColumns="false" AllowPaging="false" CssClass="table table-striped table-hover history-table" EmptyDataText="Belum ada riwayat proses selesai." GridLines="None">
     <Columns>
      <asp:BoundField DataField="CreatedAt" HeaderText="Dibuat" DataFormatString="{0:dd MMM yyyy HH:mm}" ItemStyle-Width="115px" HeaderStyle-Width="115px" />
      <asp:BoundField DataField="OperationLabel" HeaderText="Operasi" ItemStyle-Width="270px" HeaderStyle-Width="270px" />
@@ -263,6 +283,13 @@ End Function
      <asp:BoundField DataField="DetailLabel" HeaderText="Keterangan" NullDisplayText="-" ItemStyle-CssClass="history-note" />
     </Columns>
    </asp:GridView>
+   <asp:Panel ID="pnlHistoryPager" runat="server" CssClass="panel-footer text-center" Visible="false">
+    <asp:Button ID="btnHistoryFirst" runat="server" Text="Awal" CssClass="btn btn-default btn-sm" CommandArgument="first" OnCommand="HistoryPage_Command" CausesValidation="false" />
+    <asp:Button ID="btnHistoryPrevious" runat="server" Text="Sebelumnya" CssClass="btn btn-default btn-sm" CommandArgument="previous" OnCommand="HistoryPage_Command" CausesValidation="false" />
+    <asp:Label ID="lblHistoryPage" runat="server" />
+    <asp:Button ID="btnHistoryNext" runat="server" Text="Berikutnya" CssClass="btn btn-default btn-sm" CommandArgument="next" OnCommand="HistoryPage_Command" CausesValidation="false" />
+    <asp:Button ID="btnHistoryLast" runat="server" Text="Akhir" CssClass="btn btn-default btn-sm" CommandArgument="last" OnCommand="HistoryPage_Command" CausesValidation="false" />
+   </asp:Panel>
   </div>
  </div>
 </div>

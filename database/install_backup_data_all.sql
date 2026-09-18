@@ -11,7 +11,9 @@
   3. Pastikan login IIS pada bagian izin sesuai Application Pool yang digunakan.
   4. Installer ini tidak membuat dec_dummy_backup, tidak mendaftarkan API key,
      dan tidak memasang SQL Server Agent job pada node backup.
-  5. Jika salah satu batch gagal, hentikan eksekusi, perbaiki penyebabnya,
+  5. Installer memigrasikan relasi agent dari AgentName ke AgentId tanpa menghapus
+     job, inventaris, atau permintaan lookup yang sudah tersimpan.
+  6. Jika salah satu batch gagal, hentikan eksekusi, perbaiki penyebabnya,
      lalu jalankan kembali karena objek dibuat secara idempotent.
 */
 
@@ -80,7 +82,7 @@ GO
    ========================================================================== */
 /*
  Fungsi: Membuat tabel antrean, detail mahasiswa, dan inventaris backup.
- Script kanonik untuk instalasi baru.
+ Script kanonik untuk instalasi baru dan migrasi relasi agent lama.
 */
 
 USE [dec_dummy];
@@ -94,7 +96,7 @@ BEGIN
     CREATE TABLE dbo.BackupTransferJob
     (
         JobId UNIQUEIDENTIFIER NOT NULL CONSTRAINT PK_BackupTransferJob PRIMARY KEY DEFAULT NEWID(),
-        AgentName NVARCHAR(128) NOT NULL,
+        AgentId UNIQUEIDENTIFIER NOT NULL,
         OperationType VARCHAR(10) NOT NULL,
         TriggerSource VARCHAR(10) NOT NULL CONSTRAINT DF_BackupTransferJob_Trigger DEFAULT('MANUAL'),
         CutoffThAkdk CHAR(5) NULL,
@@ -114,12 +116,40 @@ BEGIN
         CreatedAt DATETIME2(0) NOT NULL CONSTRAINT DF_BackupTransferJob_CreatedAt DEFAULT SYSDATETIME(),
         StartedAt DATETIME2(0) NULL,
         CompletedAt DATETIME2(0) NULL,
-        CONSTRAINT FK_BackupTransferJob_Agent FOREIGN KEY(AgentName) REFERENCES dbo.BackupAgentNode(AgentName),
+        CONSTRAINT FK_BackupTransferJob_Agent FOREIGN KEY(AgentId) REFERENCES dbo.BackupAgentNode(AgentId),
         CONSTRAINT CK_BackupTransferJob_Operation CHECK(OperationType IN('BACKUP','RESTORE','EXPORT')),
         CONSTRAINT CK_BackupTransferJob_Trigger CHECK(TriggerSource IN('MANUAL','SCHEDULED')),
         CONSTRAINT CK_BackupTransferJob_Status CHECK(Status IN('WAITING','CLAIMED','TRANSFERRING','SUCCESS','FAILED'))
     );
 END;
+GO
+
+/* Migrasi instalasi lama: petakan AgentName ke AgentId sebelum mengganti FK. */
+IF COL_LENGTH(N'dbo.BackupTransferJob',N'AgentId') IS NULL
+    ALTER TABLE dbo.BackupTransferJob ADD AgentId UNIQUEIDENTIFIER NULL;
+GO
+IF COL_LENGTH(N'dbo.BackupTransferJob',N'AgentName') IS NOT NULL
+BEGIN
+    EXEC sys.sp_executesql N'
+        UPDATE j SET AgentId=a.AgentId
+        FROM dbo.BackupTransferJob j
+        JOIN dbo.BackupAgentNode a ON a.AgentName=j.AgentName;';
+END;
+GO
+IF EXISTS(SELECT 1 FROM dbo.BackupTransferJob WHERE AgentId IS NULL)
+    THROW 51291,'Migrasi BackupTransferJob gagal karena terdapat AgentName yang tidak terdaftar.',1;
+ALTER TABLE dbo.BackupTransferJob ALTER COLUMN AgentId UNIQUEIDENTIFIER NOT NULL;
+GO
+
+IF EXISTS(SELECT 1 FROM sys.foreign_keys WHERE parent_object_id=OBJECT_ID(N'dbo.BackupTransferJob') AND name=N'FK_BackupTransferJob_Agent')
+    ALTER TABLE dbo.BackupTransferJob DROP CONSTRAINT FK_BackupTransferJob_Agent;
+GO
+IF NOT EXISTS(SELECT 1 FROM sys.foreign_keys WHERE parent_object_id=OBJECT_ID(N'dbo.BackupTransferJob') AND name=N'FK_BackupTransferJob_Agent')
+    ALTER TABLE dbo.BackupTransferJob WITH CHECK ADD CONSTRAINT FK_BackupTransferJob_Agent
+        FOREIGN KEY(AgentId) REFERENCES dbo.BackupAgentNode(AgentId);
+GO
+IF COL_LENGTH(N'dbo.BackupTransferJob',N'AgentName') IS NOT NULL
+    ALTER TABLE dbo.BackupTransferJob DROP COLUMN AgentName;
 GO
 
 IF COL_LENGTH(N'dbo.BackupTransferJob',N'SelectedTables') IS NULL
@@ -147,15 +177,50 @@ IF OBJECT_ID(N'dbo.BackupAgentPeriodInventory', N'U') IS NULL
 BEGIN
     CREATE TABLE dbo.BackupAgentPeriodInventory
     (
-        AgentName NVARCHAR(128) NOT NULL,
+        AgentId UNIQUEIDENTIFIER NOT NULL,
         ThAkdk CHAR(5) NOT NULL,
         StudentCount INT NOT NULL,
         LatestStudentCount INT NULL,
         UpdatedAt DATETIME2(0) NOT NULL CONSTRAINT DF_BackupAgentPeriodInventory_UpdatedAt DEFAULT SYSDATETIME(),
-        CONSTRAINT PK_BackupAgentPeriodInventory PRIMARY KEY(AgentName,ThAkdk),
-        CONSTRAINT FK_BackupAgentPeriodInventory_Agent FOREIGN KEY(AgentName) REFERENCES dbo.BackupAgentNode(AgentName)
+        CONSTRAINT PK_BackupAgentPeriodInventory PRIMARY KEY(AgentId,ThAkdk),
+        CONSTRAINT FK_BackupAgentPeriodInventory_Agent FOREIGN KEY(AgentId) REFERENCES dbo.BackupAgentNode(AgentId)
     );
 END;
+GO
+
+/* Migrasi primary key inventaris dari AgentName ke AgentId. */
+IF COL_LENGTH(N'dbo.BackupAgentPeriodInventory',N'AgentId') IS NULL
+    ALTER TABLE dbo.BackupAgentPeriodInventory ADD AgentId UNIQUEIDENTIFIER NULL;
+GO
+IF COL_LENGTH(N'dbo.BackupAgentPeriodInventory',N'AgentName') IS NOT NULL
+BEGIN
+    EXEC sys.sp_executesql N'
+        UPDATE p SET AgentId=a.AgentId
+        FROM dbo.BackupAgentPeriodInventory p
+        JOIN dbo.BackupAgentNode a ON a.AgentName=p.AgentName;';
+END;
+GO
+IF EXISTS(SELECT 1 FROM dbo.BackupAgentPeriodInventory WHERE AgentId IS NULL)
+    THROW 51292,'Migrasi BackupAgentPeriodInventory gagal karena terdapat AgentName yang tidak terdaftar.',1;
+ALTER TABLE dbo.BackupAgentPeriodInventory ALTER COLUMN AgentId UNIQUEIDENTIFIER NOT NULL;
+GO
+
+IF EXISTS(SELECT 1 FROM sys.foreign_keys WHERE parent_object_id=OBJECT_ID(N'dbo.BackupAgentPeriodInventory') AND name=N'FK_BackupAgentPeriodInventory_Agent')
+    ALTER TABLE dbo.BackupAgentPeriodInventory DROP CONSTRAINT FK_BackupAgentPeriodInventory_Agent;
+GO
+IF COL_LENGTH(N'dbo.BackupAgentPeriodInventory',N'AgentName') IS NOT NULL
+BEGIN
+    IF EXISTS(SELECT 1 FROM sys.key_constraints WHERE parent_object_id=OBJECT_ID(N'dbo.BackupAgentPeriodInventory') AND name=N'PK_BackupAgentPeriodInventory')
+        ALTER TABLE dbo.BackupAgentPeriodInventory DROP CONSTRAINT PK_BackupAgentPeriodInventory;
+    ALTER TABLE dbo.BackupAgentPeriodInventory DROP COLUMN AgentName;
+END;
+GO
+IF NOT EXISTS(SELECT 1 FROM sys.key_constraints WHERE parent_object_id=OBJECT_ID(N'dbo.BackupAgentPeriodInventory') AND name=N'PK_BackupAgentPeriodInventory')
+    ALTER TABLE dbo.BackupAgentPeriodInventory ADD CONSTRAINT PK_BackupAgentPeriodInventory PRIMARY KEY(AgentId,ThAkdk);
+GO
+IF NOT EXISTS(SELECT 1 FROM sys.foreign_keys WHERE parent_object_id=OBJECT_ID(N'dbo.BackupAgentPeriodInventory') AND name=N'FK_BackupAgentPeriodInventory_Agent')
+    ALTER TABLE dbo.BackupAgentPeriodInventory WITH CHECK ADD CONSTRAINT FK_BackupAgentPeriodInventory_Agent
+        FOREIGN KEY(AgentId) REFERENCES dbo.BackupAgentNode(AgentId);
 GO
 
 /* ========================================================================== 
@@ -175,7 +240,7 @@ IF OBJECT_ID('dbo.BackupLookupRequest','U') IS NULL
 BEGIN
  CREATE TABLE dbo.BackupLookupRequest(
   LookupId UNIQUEIDENTIFIER NOT NULL CONSTRAINT PK_BackupLookupRequest PRIMARY KEY DEFAULT NEWID(),
-  AgentName NVARCHAR(128) NOT NULL,
+  AgentId UNIQUEIDENTIFIER NOT NULL,
   QueryType VARCHAR(10) NOT NULL,
   SearchKeyword NVARCHAR(100) NULL,
   FilterYear CHAR(4) NULL,
@@ -187,12 +252,45 @@ BEGIN
   CreatedAt DATETIME2(0) NOT NULL CONSTRAINT DF_BackupLookupRequest_CreatedAt DEFAULT SYSDATETIME(),
   CompletedAt DATETIME2(0) NULL,
   ExpiresAt DATETIME2(0) NOT NULL CONSTRAINT DF_BackupLookupRequest_ExpiresAt DEFAULT DATEADD(MINUTE,15,SYSDATETIME()),
-  CONSTRAINT FK_BackupLookupRequest_Agent FOREIGN KEY(AgentName) REFERENCES dbo.BackupAgentNode(AgentName),
+  CONSTRAINT FK_BackupLookupRequest_Agent FOREIGN KEY(AgentId) REFERENCES dbo.BackupAgentNode(AgentId),
   CONSTRAINT CK_BackupLookupRequest_QueryType CHECK(QueryType IN('PERIODS','SEARCH')),
   CONSTRAINT CK_BackupLookupRequest_Status CHECK(Status IN('WAITING','CLAIMED','SUCCESS','FAILED'))
  );
- CREATE INDEX IX_BackupLookupRequest_Queue ON dbo.BackupLookupRequest(AgentName,Status,CreatedAt);
+ CREATE INDEX IX_BackupLookupRequest_Queue ON dbo.BackupLookupRequest(AgentId,Status,CreatedAt);
 END;
+GO
+
+/* Migrasi instalasi lama dari AgentName ke AgentId tanpa kehilangan antrean lookup. */
+IF COL_LENGTH(N'dbo.BackupLookupRequest',N'AgentId') IS NULL
+ ALTER TABLE dbo.BackupLookupRequest ADD AgentId UNIQUEIDENTIFIER NULL;
+GO
+IF COL_LENGTH(N'dbo.BackupLookupRequest',N'AgentName') IS NOT NULL
+BEGIN
+ EXEC sys.sp_executesql N'
+  UPDATE q SET AgentId=a.AgentId
+  FROM dbo.BackupLookupRequest q
+  JOIN dbo.BackupAgentNode a ON a.AgentName=q.AgentName;';
+END;
+GO
+IF EXISTS(SELECT 1 FROM dbo.BackupLookupRequest WHERE AgentId IS NULL)
+ THROW 51293,'Migrasi BackupLookupRequest gagal karena terdapat AgentName yang tidak terdaftar.',1;
+ALTER TABLE dbo.BackupLookupRequest ALTER COLUMN AgentId UNIQUEIDENTIFIER NOT NULL;
+GO
+IF EXISTS(SELECT 1 FROM sys.foreign_keys WHERE parent_object_id=OBJECT_ID(N'dbo.BackupLookupRequest') AND name=N'FK_BackupLookupRequest_Agent')
+ ALTER TABLE dbo.BackupLookupRequest DROP CONSTRAINT FK_BackupLookupRequest_Agent;
+GO
+IF EXISTS(SELECT 1 FROM sys.indexes WHERE object_id=OBJECT_ID(N'dbo.BackupLookupRequest') AND name=N'IX_BackupLookupRequest_Queue')
+ DROP INDEX IX_BackupLookupRequest_Queue ON dbo.BackupLookupRequest;
+GO
+IF COL_LENGTH(N'dbo.BackupLookupRequest',N'AgentName') IS NOT NULL
+ ALTER TABLE dbo.BackupLookupRequest DROP COLUMN AgentName;
+GO
+IF NOT EXISTS(SELECT 1 FROM sys.foreign_keys WHERE parent_object_id=OBJECT_ID(N'dbo.BackupLookupRequest') AND name=N'FK_BackupLookupRequest_Agent')
+ ALTER TABLE dbo.BackupLookupRequest WITH CHECK ADD CONSTRAINT FK_BackupLookupRequest_Agent
+  FOREIGN KEY(AgentId) REFERENCES dbo.BackupAgentNode(AgentId);
+GO
+IF NOT EXISTS(SELECT 1 FROM sys.indexes WHERE object_id=OBJECT_ID(N'dbo.BackupLookupRequest') AND name=N'IX_BackupLookupRequest_Queue')
+ CREATE INDEX IX_BackupLookupRequest_Queue ON dbo.BackupLookupRequest(AgentId,Status,CreatedAt);
 GO
 
 /* ========================================================================== 
@@ -407,9 +505,9 @@ BEGIN
  IF @SelectionMode NOT IN('SINGLE','RANGE','UP_TO') THROW 51145,'Cakupan backup tidak valid.',1;
  IF @SelectionMode='RANGE' AND (@StartThAkdk IS NULL OR @StartThAkdk NOT LIKE '[0-9][0-9][0-9][0-9][0-9]') THROW 51146,'TA awal rentang harus lima digit.',1;
  IF @SelectionMode='RANGE' AND @StartThAkdk>@CutoffThAkdk BEGIN DECLARE @swap CHAR(5)=@StartThAkdk;SET @StartThAkdk=@CutoffThAkdk;SET @CutoffThAkdk=@swap;END;
- DECLARE @agent NVARCHAR(128),@job UNIQUEIDENTIFIER=NEWID(),@target NVARCHAR(30);
+ DECLARE @agent UNIQUEIDENTIFIER,@job UNIQUEIDENTIFIER=NEWID(),@target NVARCHAR(30);
  SET @target=CASE @SelectionMode WHEN 'SINGLE' THEN CONCAT('SINGLE:',@CutoffThAkdk) WHEN 'RANGE' THEN CONCAT('RANGE:',@StartThAkdk,'-',@CutoffThAkdk) ELSE CONCAT('UP_TO:',@CutoffThAkdk) END;
- SELECT @agent=AgentName FROM dbo.BackupAgentNode WHERE IsPrimary=1 AND IsEnabled=1;
+ SELECT @agent=AgentId FROM dbo.BackupAgentNode WHERE IsPrimary=1 AND IsEnabled=1;
  IF @agent IS NULL THROW 51103,'Node backup utama belum didaftarkan.',1;
  BEGIN TRAN;
  IF EXISTS(SELECT 1 FROM dbo.BackupTransferJob WITH(UPDLOCK,HOLDLOCK) WHERE OperationType='BACKUP' AND Status IN('WAITING','CLAIMED','TRANSFERRING'))
@@ -417,7 +515,7 @@ BEGIN
   ROLLBACK;
   THROW 51122,'Masih ada job backup aktif atau menunggu. Tunggu job tersebut selesai sebelum membuat job baru.',1;
  END;
- INSERT dbo.BackupTransferJob(JobId,AgentName,OperationType,TriggerSource,CutoffThAkdk,RestoreThAkdkList,SelectedTables,RequestedBy,Status)
+ INSERT dbo.BackupTransferJob(JobId,AgentId,OperationType,TriggerSource,CutoffThAkdk,RestoreThAkdkList,SelectedTables,RequestedBy,Status)
  VALUES(@job,@agent,'BACKUP',@TriggerSource,@CutoffThAkdk,@target,@SelectedTables,@RequestedBy,'WAITING');
  INSERT dbo.BackupTransferJobStudent(JobId,Nim1)
  SELECT DISTINCT @job,b.nim1
@@ -449,8 +547,8 @@ BEGIN
  IF EXISTS(SELECT 1 FROM @tables WHERE TableName<>'tbio01') AND NOT EXISTS(SELECT 1 FROM @tables WHERE TableName='tbio01') INSERT @tables VALUES('tbio01');
  SET @SelectedTables='tbio01'+CASE WHEN EXISTS(SELECT 1 FROM @tables WHERE TableName='treg') THEN ',treg' ELSE '' END+CASE WHEN EXISTS(SELECT 1 FROM @tables WHERE TableName='tkrs06') THEN ',tkrs06' ELSE '' END+CASE WHEN EXISTS(SELECT 1 FROM @tables WHERE TableName='t_absensi14') THEN ',t_absensi14' ELSE '' END;
  IF @StudentNim IS NULL OR LEN(@StudentNim)<>9 OR @StudentNim LIKE '%[^0-9A-Za-z]%' THROW 51142,'NIM harus tepat 9 karakter alfanumerik.',1;
- DECLARE @agent NVARCHAR(128),@job UNIQUEIDENTIFIER=NEWID(),@latestTa CHAR(5);
- SELECT @agent=AgentName FROM dbo.BackupAgentNode WHERE IsPrimary=1 AND IsEnabled=1;
+ DECLARE @agent UNIQUEIDENTIFIER,@job UNIQUEIDENTIFIER=NEWID(),@latestTa CHAR(5);
+ SELECT @agent=AgentId FROM dbo.BackupAgentNode WHERE IsPrimary=1 AND IsEnabled=1;
  IF @agent IS NULL THROW 51103,'Node backup utama belum didaftarkan.',1;
  SELECT TOP(1) @latestTa=LTRIM(RTRIM(r.th_akdk))
  FROM dbo.tbio01 b JOIN dbo.treg r ON r.nim1=b.nim1
@@ -462,7 +560,7 @@ BEGIN
   ROLLBACK;
   THROW 51122,'Masih ada job backup aktif atau menunggu. Tunggu job tersebut selesai sebelum membuat job baru.',1;
  END;
- INSERT dbo.BackupTransferJob(JobId,AgentName,OperationType,TriggerSource,CutoffThAkdk,StudentNim,SelectedTables,RequestedBy,Status,TotalStudents,ProgressMessage)
+ INSERT dbo.BackupTransferJob(JobId,AgentId,OperationType,TriggerSource,CutoffThAkdk,StudentNim,SelectedTables,RequestedBy,Status,TotalStudents,ProgressMessage)
  VALUES(@job,@agent,'BACKUP','MANUAL',@latestTa,@StudentNim,@SelectedTables,@RequestedBy,'WAITING',1,'Menunggu Database Backup');
  INSERT dbo.BackupTransferJobStudent(JobId,Nim1) VALUES(@job,@StudentNim);
  COMMIT;
@@ -489,7 +587,7 @@ AS
 BEGIN
  SET NOCOUNT ON;
  IF @BatchSize NOT BETWEEN 1 AND 1000 THROW 51110,'Ukuran batch tidak valid.',1;
- IF NOT EXISTS(SELECT 1 FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentName=j.AgentName
+ IF NOT EXISTS(SELECT 1 FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentId=j.AgentId
   WHERE j.JobId=@JobId AND j.OperationType='BACKUP' AND j.Status IN('CLAIMED','TRANSFERRING') AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@ApiKey)) THROW 51104,'Job atau token tidak valid.',1;
  UPDATE dbo.BackupTransferJob SET Status='TRANSFERRING',LeaseExpiresAt=DATEADD(MINUTE,5,SYSDATETIME()) WHERE JobId=@JobId;
  SELECT TOP(@BatchSize) Nim1 FROM dbo.BackupTransferJobStudent WHERE JobId=@JobId AND Status='PENDING' ORDER BY Nim1;
@@ -502,7 +600,7 @@ BEGIN
  SET NOCOUNT ON; SET XACT_ABORT ON;
  IF ISJSON(@NimsJson)<>1 THROW 51111,'Daftar mahasiswa tidak valid.',1;
  BEGIN TRAN;
- IF NOT EXISTS(SELECT 1 FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentName=j.AgentName
+ IF NOT EXISTS(SELECT 1 FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentId=j.AgentId
   WHERE j.JobId=@JobId AND j.OperationType='BACKUP' AND j.Status IN('CLAIMED','TRANSFERRING') AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@ApiKey)) BEGIN ROLLBACK; THROW 51104,'Job atau token tidak valid.',1; END;
  ;WITH n AS(SELECT DISTINCT CONVERT(char(9),[value]) Nim1 FROM OPENJSON(@NimsJson) WHERE LEN(CONVERT(varchar(30),[value]))=9)
  UPDATE s SET Status='COPIED' FROM dbo.BackupTransferJobStudent s JOIN n ON n.Nim1=s.Nim1 WHERE s.JobId=@JobId AND s.Status='PENDING';
@@ -548,10 +646,10 @@ BEGIN
  IF @StudentNim IS NOT NULL AND (LEN(@StudentNim)<>9 OR @StudentNim LIKE '%[^0-9A-Za-z]%') THROW 51108,'NIM harus 9 karakter alfanumerik.',1;
  IF @ThAkdkList IS NOT NULL AND EXISTS(SELECT 1 FROM STRING_SPLIT(@ThAkdkList,',') WHERE LTRIM(RTRIM(value)) NOT LIKE '[0-9][0-9][0-9][0-9][0-9]') THROW 51109,'Daftar Tahun Akademik tidak valid.',1;
  IF @ExpectedStudents IS NOT NULL AND @ExpectedStudents<0 THROW 51141,'Jumlah hasil filter tidak valid.',1;
- DECLARE @agent NVARCHAR(128),@job UNIQUEIDENTIFIER=NEWID();
- SELECT @agent=AgentName FROM dbo.BackupAgentNode WHERE IsPrimary=1 AND IsEnabled=1;
+ DECLARE @agent UNIQUEIDENTIFIER,@job UNIQUEIDENTIFIER=NEWID();
+ SELECT @agent=AgentId FROM dbo.BackupAgentNode WHERE IsPrimary=1 AND IsEnabled=1;
  IF @agent IS NULL THROW 51103,'Node backup utama belum didaftarkan.',1;
- INSERT dbo.BackupTransferJob(JobId,AgentName,OperationType,TriggerSource,StudentNim,RestoreThAkdkList,SelectedTables,RequestedBy,Status,TotalStudents,ProgressMessage)
+ INSERT dbo.BackupTransferJob(JobId,AgentId,OperationType,TriggerSource,StudentNim,RestoreThAkdkList,SelectedTables,RequestedBy,Status,TotalStudents,ProgressMessage)
  VALUES(@job,@agent,'RESTORE','MANUAL',@StudentNim,@ThAkdkList,@SelectedTables,@RequestedBy,'WAITING',@ExpectedStudents,'Menunggu Database Backup');
  SELECT @job JobId,'WAITING' Status;
 END;
@@ -575,7 +673,7 @@ CREATE OR ALTER PROCEDURE dbo.sp_AgentConfirmRestoreBatch @ApiKey NVARCHAR(256),
 AS
 BEGIN
  SET NOCOUNT ON;
- IF NOT EXISTS(SELECT 1 FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentName=j.AgentName WHERE j.JobId=@JobId AND j.OperationType='RESTORE' AND j.Status IN('CLAIMED','TRANSFERRING') AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@ApiKey)) THROW 51104,'Job atau token tidak valid.',1;
+ IF NOT EXISTS(SELECT 1 FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentId=j.AgentId WHERE j.JobId=@JobId AND j.OperationType='RESTORE' AND j.Status IN('CLAIMED','TRANSFERRING') AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@ApiKey)) THROW 51104,'Job atau token tidak valid.',1;
  ;WITH n AS(SELECT DISTINCT CONVERT(char(9),[value]) Nim1 FROM OPENJSON(@NimsJson) WHERE LEN(CONVERT(varchar(30),[value]))=9)
  MERGE dbo.BackupTransferJobStudent t USING n s ON t.JobId=@JobId AND t.Nim1=s.Nim1
  WHEN MATCHED THEN UPDATE SET Status='RESTORED'
@@ -603,13 +701,13 @@ CREATE OR ALTER PROCEDURE dbo.sp_CreateBackupExportJob @RequestedBy VARCHAR(50)
 AS
 BEGIN
  SET NOCOUNT ON; SET XACT_ABORT ON;
- DECLARE @agent NVARCHAR(128),@job UNIQUEIDENTIFIER=NEWID();
- SELECT @agent=AgentName FROM dbo.BackupAgentNode WHERE IsPrimary=1 AND IsEnabled=1;
+ DECLARE @agent UNIQUEIDENTIFIER,@job UNIQUEIDENTIFIER=NEWID();
+ SELECT @agent=AgentId FROM dbo.BackupAgentNode WHERE IsPrimary=1 AND IsEnabled=1;
  IF @agent IS NULL THROW 51103,'Node backup utama belum didaftarkan.',1;
  BEGIN TRAN;
  IF EXISTS(SELECT 1 FROM dbo.BackupTransferJob WITH(UPDLOCK,HOLDLOCK) WHERE OperationType='EXPORT' AND Status IN('WAITING','CLAIMED','TRANSFERRING'))
  BEGIN ROLLBACK; THROW 51140,'Masih ada ekspor database yang aktif atau menunggu.',1; END;
- INSERT dbo.BackupTransferJob(JobId,AgentName,OperationType,TriggerSource,RequestedBy,Status,ProgressMessage)
+ INSERT dbo.BackupTransferJob(JobId,AgentId,OperationType,TriggerSource,RequestedBy,Status,ProgressMessage)
  VALUES(@job,@agent,'EXPORT','MANUAL',@RequestedBy,'WAITING','Menunggu Database Backup');
  COMMIT;
  SELECT @job JobId,'WAITING' Status;
@@ -640,19 +738,19 @@ BEGIN
  IF @QueryType NOT IN('PERIODS','SEARCH') THROW 51150,'Jenis lookup backup tidak valid.',1;
  IF @FilterYear IS NOT NULL AND @FilterYear NOT LIKE '[0-9][0-9][0-9][0-9]' THROW 51151,'Filter tahun tidak valid.',1;
  IF LEN(ISNULL(@SearchKeyword,''))>100 THROW 51152,'Kata pencarian terlalu panjang.',1;
- DECLARE @agent NVARCHAR(128),@id UNIQUEIDENTIFIER;
- SELECT @agent=AgentName FROM dbo.BackupAgentNode WHERE IsPrimary=1 AND IsEnabled=1;
+ DECLARE @agent UNIQUEIDENTIFIER,@id UNIQUEIDENTIFIER;
+ SELECT @agent=AgentId FROM dbo.BackupAgentNode WHERE IsPrimary=1 AND IsEnabled=1;
  IF @agent IS NULL THROW 51103,'Node backup utama belum didaftarkan.',1;
  DELETE dbo.BackupLookupRequest WHERE ExpiresAt<DATEADD(HOUR,-1,SYSDATETIME());
  SELECT TOP(1) @id=LookupId FROM dbo.BackupLookupRequest
- WHERE AgentName=@agent AND QueryType=@QueryType
+ WHERE AgentId=@agent AND QueryType=@QueryType
   AND ISNULL(SearchKeyword,'')=ISNULL(@SearchKeyword,'') AND ISNULL(FilterYear,'')=ISNULL(@FilterYear,'')
   AND ((Status IN('WAITING','CLAIMED') AND ExpiresAt>SYSDATETIME()) OR (Status='SUCCESS' AND CompletedAt>DATEADD(MINUTE,-5,SYSDATETIME())))
  ORDER BY CreatedAt DESC;
  IF @id IS NULL
  BEGIN
   SET @id=NEWID();
-  INSERT dbo.BackupLookupRequest(LookupId,AgentName,QueryType,SearchKeyword,FilterYear,RequestedBy,Status)
+  INSERT dbo.BackupLookupRequest(LookupId,AgentId,QueryType,SearchKeyword,FilterYear,RequestedBy,Status)
   VALUES(@id,@agent,@QueryType,@SearchKeyword,@FilterYear,@RequestedBy,'WAITING');
  END;
  SELECT LookupId,Status,ResultJson,ErrorMessage,SearchKeyword,FilterYear FROM dbo.BackupLookupRequest WHERE LookupId=@id;
@@ -685,16 +783,16 @@ CREATE OR ALTER PROCEDURE dbo.sp_AgentClaimBackupTransferJob @ApiKey NVARCHAR(25
 AS
 BEGIN
  SET NOCOUNT ON; SET XACT_ABORT ON;
- DECLARE @agent NVARCHAR(128),@job UNIQUEIDENTIFIER;
- SELECT @agent=AgentName FROM dbo.BackupAgentNode WHERE IsPrimary=1 AND IsEnabled=1 AND ApiKeyHash=HASHBYTES('SHA2_256',@ApiKey);
+ DECLARE @agent UNIQUEIDENTIFIER,@job UNIQUEIDENTIFIER;
+ SELECT @agent=AgentId FROM dbo.BackupAgentNode WHERE IsPrimary=1 AND IsEnabled=1 AND ApiKeyHash=HASHBYTES('SHA2_256',@ApiKey);
  IF @agent IS NULL THROW 51104,'Token agent tidak valid.',1;
  BEGIN TRAN;
  UPDATE dbo.BackupTransferJob SET Status=CASE WHEN RetryCount>=5 THEN 'FAILED' ELSE 'WAITING' END,
   RetryCount=RetryCount+1,LeaseExpiresAt=NULL,ProgressMessage=CASE WHEN RetryCount>=5 THEN NULL ELSE 'Menunggu Database Backup' END,ResultMessage=NULL,ErrorMessage=CASE WHEN RetryCount>=5 THEN 'Batas retry agent terlampaui.' ELSE NULL END,
   CompletedAt=CASE WHEN RetryCount>=5 THEN SYSDATETIME() ELSE CompletedAt END
- WHERE AgentName=@agent AND Status IN('CLAIMED','TRANSFERRING') AND LeaseExpiresAt<SYSDATETIME();
+ WHERE AgentId=@agent AND Status IN('CLAIMED','TRANSFERRING') AND LeaseExpiresAt<SYSDATETIME();
  SELECT TOP(1) @job=JobId FROM dbo.BackupTransferJob WITH(UPDLOCK,READPAST)
- WHERE AgentName=@agent AND Status='WAITING' ORDER BY CreatedAt,JobId;
+ WHERE AgentId=@agent AND Status='WAITING' ORDER BY CreatedAt,JobId;
  IF @job IS NOT NULL UPDATE dbo.BackupTransferJob SET Status='CLAIMED',StartedAt=COALESCE(StartedAt,SYSDATETIME()),LeaseExpiresAt=DATEADD(MINUTE,@LeaseMinutes,SYSDATETIME()) WHERE JobId=@job;
  COMMIT;
  SELECT JobId,OperationType,CutoffThAkdk,StudentNim,RestoreThAkdkList,SelectedTables,LastProgressNim,RetryCount,
@@ -722,16 +820,16 @@ AS
 BEGIN
  SET NOCOUNT ON; SET XACT_ABORT ON;
  IF ISJSON(@InventoryJson)<>1 THROW 51112,'Inventaris agent tidak valid.',1;
- DECLARE @agent NVARCHAR(128);
- SELECT @agent=AgentName FROM dbo.BackupAgentNode WHERE IsPrimary=1 AND IsEnabled=1 AND ApiKeyHash=HASHBYTES('SHA2_256',@ApiKey);
+ DECLARE @agent UNIQUEIDENTIFIER;
+ SELECT @agent=AgentId FROM dbo.BackupAgentNode WHERE IsPrimary=1 AND IsEnabled=1 AND ApiKeyHash=HASHBYTES('SHA2_256',@ApiKey);
  IF @agent IS NULL THROW 51104,'Token agent tidak valid.',1;
  DECLARE @items TABLE(ThAkdk CHAR(5) PRIMARY KEY,StudentCount INT,LatestStudentCount INT);
  INSERT @items SELECT CONVERT(char(5),JSON_VALUE([value],'$.thAkdk')),CONVERT(int,JSON_VALUE([value],'$.studentCount')),CONVERT(int,JSON_VALUE([value],'$.latestStudentCount')) FROM OPENJSON(@InventoryJson) WHERE JSON_VALUE([value],'$.thAkdk') LIKE '[0-9][0-9][0-9][0-9][0-9]';
  BEGIN TRAN;
- DELETE p FROM dbo.BackupAgentPeriodInventory p WHERE p.AgentName=@agent AND NOT EXISTS(SELECT 1 FROM @items i WHERE i.ThAkdk=p.ThAkdk);
- MERGE dbo.BackupAgentPeriodInventory t USING @items s ON t.AgentName=@agent AND t.ThAkdk=s.ThAkdk
+ DELETE p FROM dbo.BackupAgentPeriodInventory p WHERE p.AgentId=@agent AND NOT EXISTS(SELECT 1 FROM @items i WHERE i.ThAkdk=p.ThAkdk);
+ MERGE dbo.BackupAgentPeriodInventory t USING @items s ON t.AgentId=@agent AND t.ThAkdk=s.ThAkdk
  WHEN MATCHED THEN UPDATE SET StudentCount=s.StudentCount,LatestStudentCount=s.LatestStudentCount,UpdatedAt=SYSDATETIME()
- WHEN NOT MATCHED THEN INSERT(AgentName,ThAkdk,StudentCount,LatestStudentCount) VALUES(@agent,s.ThAkdk,s.StudentCount,s.LatestStudentCount);
+ WHEN NOT MATCHED THEN INSERT(AgentId,ThAkdk,StudentCount,LatestStudentCount) VALUES(@agent,s.ThAkdk,s.StudentCount,s.LatestStudentCount);
  COMMIT;
 END;
 GO
@@ -877,6 +975,55 @@ ORDER BY InstallationStatus DESC,ObjectType,ObjectName;
 
 IF EXISTS(SELECT 1 FROM @RequiredObjects WHERE OBJECT_ID(N'dbo.'+ObjectName,ObjectType) IS NULL)
  THROW 51290,'Instalasi modular belum lengkap. Periksa objek berstatus MISSING.',1;
+GO
+
+DECLARE @RequiredAgentForeignKeys TABLE
+(
+ TableName SYSNAME NOT NULL,
+ ForeignKeyName SYSNAME NOT NULL
+);
+INSERT @RequiredAgentForeignKeys(TableName,ForeignKeyName) VALUES
+ (N'BackupTransferJob',N'FK_BackupTransferJob_Agent'),
+ (N'BackupAgentPeriodInventory',N'FK_BackupAgentPeriodInventory_Agent'),
+ (N'BackupLookupRequest',N'FK_BackupLookupRequest_Agent');
+
+SELECT r.TableName,r.ForeignKeyName,
+ CASE WHEN EXISTS
+ (
+  SELECT 1
+  FROM sys.foreign_keys fk
+  JOIN sys.foreign_key_columns fkc ON fkc.constraint_object_id=fk.object_id
+  JOIN sys.columns pc ON pc.object_id=fkc.parent_object_id AND pc.column_id=fkc.parent_column_id
+  JOIN sys.columns rc ON rc.object_id=fkc.referenced_object_id AND rc.column_id=fkc.referenced_column_id
+  WHERE fk.parent_object_id=OBJECT_ID(N'dbo.'+r.TableName)
+    AND fk.name=r.ForeignKeyName
+    AND fk.referenced_object_id=OBJECT_ID(N'dbo.BackupAgentNode')
+    AND pc.name=N'AgentId' AND rc.name=N'AgentId'
+ ) THEN 'OK' ELSE 'MISSING' END AS RelationStatus
+FROM @RequiredAgentForeignKeys r;
+
+IF EXISTS
+(
+ SELECT 1 FROM @RequiredAgentForeignKeys r
+ WHERE NOT EXISTS
+ (
+  SELECT 1
+  FROM sys.foreign_keys fk
+  JOIN sys.foreign_key_columns fkc ON fkc.constraint_object_id=fk.object_id
+  JOIN sys.columns pc ON pc.object_id=fkc.parent_object_id AND pc.column_id=fkc.parent_column_id
+  JOIN sys.columns rc ON rc.object_id=fkc.referenced_object_id AND rc.column_id=fkc.referenced_column_id
+  WHERE fk.parent_object_id=OBJECT_ID(N'dbo.'+r.TableName)
+    AND fk.name=r.ForeignKeyName
+    AND fk.referenced_object_id=OBJECT_ID(N'dbo.BackupAgentNode')
+    AND pc.name=N'AgentId' AND rc.name=N'AgentId'
+ )
+)
+ THROW 51294,'Relasi AgentId belum lengkap. Periksa hasil verifikasi relasi.',1;
+
+IF COL_LENGTH(N'dbo.BackupTransferJob',N'AgentName') IS NOT NULL
+ OR COL_LENGTH(N'dbo.BackupAgentPeriodInventory',N'AgentName') IS NOT NULL
+ OR COL_LENGTH(N'dbo.BackupLookupRequest',N'AgentName') IS NOT NULL
+ THROW 51295,'Kolom relasi AgentName lama masih tersedia pada tabel operasional.',1;
 GO
 
 PRINT N'Pemrosesan batch selesai. Instalasi hanya dinyatakan berhasil jika verifikasi tidak menampilkan MISSING dan tidak ada pesan error.';

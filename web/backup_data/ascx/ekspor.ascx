@@ -25,28 +25,21 @@ End Sub
 
 Private Sub LoadExports()
  Dim data As New DataTable()
- litLastExportStatus.Text="Belum ada ekspor":litLastExportFile.Text="-":litLastExportCompleted.Text="-"
+ litLastExportStatus.Text="Belum ada ekspor":litLastExportFile.Text="-":litLastExportSize.Text="-":litLastExportVerification.Text="-":litLastExportCompleted.Text="-"
  Try
   Using cmd As New SqlCommand("SELECT TOP(20) JobId,Status,CreatedAt,CompletedAt,ProgressMessage,ResultMessage,ErrorMessage FROM dbo.BackupTransferJob WHERE OperationType='EXPORT' ORDER BY CreatedAt DESC",cnsr)
    Using ad As New SqlDataAdapter(cmd):ad.Fill(data):End Using
   End Using
-   data.Columns.Add("StatusLabel",GetType(String)):data.Columns.Add("FileNameLabel",GetType(String)):data.Columns.Add("SizeLabel",GetType(String)):data.Columns.Add("VerificationLabel",GetType(String)):data.Columns.Add("DetailLabel",GetType(String))
-  For Each row As DataRow In data.Rows
-   row("StatusLabel")=StatusText(row("Status").ToString())
-   Dim status=row("Status").ToString().Trim().ToUpperInvariant(),messageColumn=If(status="SUCCESS","ResultMessage",If(status="FAILED","ErrorMessage","ProgressMessage"))
-   Dim detail=If(row.IsNull(messageColumn),"",row(messageColumn).ToString())
-   row("FileNameLabel")=MetadataValue(detail,"File lokal:\s*(?<value>[^|]+)")
-   row("SizeLabel")=MetadataValue(detail,"Ukuran:\s*(?<value>[^|]+)")
-   row("VerificationLabel")=If(detail.IndexOf("RESTORE VERIFYONLY berhasil",StringComparison.OrdinalIgnoreCase)>=0,"Terverifikasi",If(status="SUCCESS","Metadata verifikasi tidak tersedia",StatusText(status)))
-   row("DetailLabel")=If(status="SUCCESS","-",If(String.IsNullOrWhiteSpace(detail),"-",detail))
-  Next
   If data.Rows.Count>0 Then
    Dim latest=data.Rows(0)
-   litLastExportStatus.Text=Server.HtmlEncode(latest("StatusLabel").ToString())
-   litLastExportFile.Text=Server.HtmlEncode(latest("FileNameLabel").ToString())
+   Dim status=latest("Status").ToString().Trim().ToUpperInvariant(),messageColumn=If(status="SUCCESS","ResultMessage",If(status="FAILED","ErrorMessage","ProgressMessage"))
+   Dim detail=If(latest.IsNull(messageColumn),"",latest(messageColumn).ToString())
+   litLastExportStatus.Text=Server.HtmlEncode(StatusText(status))
+   litLastExportFile.Text=Server.HtmlEncode(MetadataValue(detail,"File lokal:\s*(?<value>[^|]+)"))
+   litLastExportSize.Text=Server.HtmlEncode(MetadataValue(detail,"Ukuran:\s*(?<value>[^|]+)"))
+   litLastExportVerification.Text=Server.HtmlEncode(If(detail.IndexOf("RESTORE VERIFYONLY berhasil",StringComparison.OrdinalIgnoreCase)>=0,"Terverifikasi",If(status="SUCCESS","Belum tersedia",StatusText(status))))
    litLastExportCompleted.Text=If(latest.IsNull("CompletedAt"),"Belum selesai",Convert.ToDateTime(latest("CompletedAt")).ToString("dd MMM yyyy HH:mm"))
   End If
-  gvExports.DataSource=data:gvExports.DataBind()
   If data.Select("Status='WAITING' OR Status='CLAIMED' OR Status='TRANSFERRING'").Length>0 Then litExportRefresh.Text="<script>window.setTimeout(function(){window.location.replace('index.aspx?tab=ekspor&poll='+Date.now());},10000);</" & "script>"
  Catch ex As Exception
   ShowAlert("danger","Gagal memuat riwayat ekspor",ex.Message)
@@ -80,31 +73,20 @@ End Sub
   <h1>Ekspor Database</h1>
  </div>
  <asp:Literal ID="litExportAlert" runat="server" />
- <div class="export-latest-card">
-  <div><span>Status ekspor terakhir</span><strong><asp:Literal ID="litLastExportStatus" runat="server" /></strong></div>
-  <div><span>Nama file</span><strong><asp:Literal ID="litLastExportFile" runat="server" /></strong></div>
-  <div><span>Selesai</span><strong><asp:Literal ID="litLastExportCompleted" runat="server" /></strong></div>
- </div>
- <div class="panel panel-default backup-u-014">
-  <div class="panel-heading backup-u-042"><i class="fa fa-database"></i> Buat File Database</div>
+ <div class="panel panel-default export-action-panel">
+  <div class="panel-heading backup-u-042"><i class="fa fa-database"></i> File Database Backup Terakhir</div>
   <div class="panel-body">
-   <asp:Button ID="btnCreateExport" runat="server" Text="Buat Backup .BAK" CssClass="btn btn-success" OnClick="btnCreateExport_Click" OnClientClick="return backupConfirm(this,'Buat file .bak dari Database Backup sekarang?',{title:'Konfirmasi ekspor database',confirmText:'Ya, buat file .BAK',confirmColor:'#15803d'});" />
-  </div>
- </div>
- <div class="panel panel-default backup-u-013">
-  <div class="panel-heading backup-u-042"><i class="fa fa-history"></i> Riwayat Ekspor</div>
-  <div class="table-responsive">
-   <asp:GridView ID="gvExports" runat="server" AutoGenerateColumns="false" CssClass="table table-bordered table-hover backup-u-058" GridLines="None" EmptyDataText="Belum ada ekspor database.">
-    <Columns>
-     <asp:BoundField DataField="CreatedAt" HeaderText="Dibuat" DataFormatString="{0:dd MMM yyyy HH:mm}" />
-     <asp:BoundField DataField="StatusLabel" HeaderText="Status" />
-     <asp:BoundField DataField="CompletedAt" HeaderText="Selesai" DataFormatString="{0:dd MMM yyyy HH:mm}" NullDisplayText="-" />
-     <asp:BoundField DataField="FileNameLabel" HeaderText="Nama File" />
-     <asp:BoundField DataField="SizeLabel" HeaderText="Ukuran" />
-     <asp:BoundField DataField="VerificationLabel" HeaderText="Verifikasi" />
-     <asp:BoundField DataField="DetailLabel" HeaderText="Keterangan" />
-    </Columns>
-   </asp:GridView>
+   <div class="export-latest-card">
+    <div><span>Status</span><strong><asp:Literal ID="litLastExportStatus" runat="server" /></strong></div>
+    <div><span>Nama file</span><strong><asp:Literal ID="litLastExportFile" runat="server" /></strong></div>
+    <div><span>Ukuran</span><strong><asp:Literal ID="litLastExportSize" runat="server" /></strong></div>
+    <div><span>Verifikasi</span><strong><asp:Literal ID="litLastExportVerification" runat="server" /></strong></div>
+    <div><span>Selesai</span><strong><asp:Literal ID="litLastExportCompleted" runat="server" /></strong></div>
+   </div>
+   <div class="export-action-buttons">
+    <asp:Button ID="btnCreateExport" runat="server" Text="Buat File .BAK" CssClass="btn btn-primary" OnClick="btnCreateExport_Click" OnClientClick="return backupConfirm(this,'Buat file .bak dari Database Backup sekarang?',{title:'Konfirmasi ekspor database',confirmText:'Ya, buat file .BAK',confirmColor:'#A01626'});" />
+    <a class="btn btn-default" href="index.aspx?tab=riwayat&amp;operation=EXPORT"><i class="fa fa-history"></i> Lihat Riwayat Ekspor</a>
+   </div>
   </div>
  </div>
  <asp:Literal ID="litExportRefresh" runat="server" />

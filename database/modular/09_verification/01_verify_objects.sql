@@ -30,3 +30,52 @@ ORDER BY InstallationStatus DESC,ObjectType,ObjectName;
 IF EXISTS(SELECT 1 FROM @RequiredObjects WHERE OBJECT_ID(N'dbo.'+ObjectName,ObjectType) IS NULL)
  THROW 51290,'Instalasi modular belum lengkap. Periksa objek berstatus MISSING.',1;
 GO
+
+DECLARE @RequiredAgentForeignKeys TABLE
+(
+ TableName SYSNAME NOT NULL,
+ ForeignKeyName SYSNAME NOT NULL
+);
+INSERT @RequiredAgentForeignKeys(TableName,ForeignKeyName) VALUES
+ (N'BackupTransferJob',N'FK_BackupTransferJob_Agent'),
+ (N'BackupAgentPeriodInventory',N'FK_BackupAgentPeriodInventory_Agent'),
+ (N'BackupLookupRequest',N'FK_BackupLookupRequest_Agent');
+
+SELECT r.TableName,r.ForeignKeyName,
+ CASE WHEN EXISTS
+ (
+  SELECT 1
+  FROM sys.foreign_keys fk
+  JOIN sys.foreign_key_columns fkc ON fkc.constraint_object_id=fk.object_id
+  JOIN sys.columns pc ON pc.object_id=fkc.parent_object_id AND pc.column_id=fkc.parent_column_id
+  JOIN sys.columns rc ON rc.object_id=fkc.referenced_object_id AND rc.column_id=fkc.referenced_column_id
+  WHERE fk.parent_object_id=OBJECT_ID(N'dbo.'+r.TableName)
+    AND fk.name=r.ForeignKeyName
+    AND fk.referenced_object_id=OBJECT_ID(N'dbo.BackupAgentNode')
+    AND pc.name=N'AgentId' AND rc.name=N'AgentId'
+ ) THEN 'OK' ELSE 'MISSING' END AS RelationStatus
+FROM @RequiredAgentForeignKeys r;
+
+IF EXISTS
+(
+ SELECT 1 FROM @RequiredAgentForeignKeys r
+ WHERE NOT EXISTS
+ (
+  SELECT 1
+  FROM sys.foreign_keys fk
+  JOIN sys.foreign_key_columns fkc ON fkc.constraint_object_id=fk.object_id
+  JOIN sys.columns pc ON pc.object_id=fkc.parent_object_id AND pc.column_id=fkc.parent_column_id
+  JOIN sys.columns rc ON rc.object_id=fkc.referenced_object_id AND rc.column_id=fkc.referenced_column_id
+  WHERE fk.parent_object_id=OBJECT_ID(N'dbo.'+r.TableName)
+    AND fk.name=r.ForeignKeyName
+    AND fk.referenced_object_id=OBJECT_ID(N'dbo.BackupAgentNode')
+    AND pc.name=N'AgentId' AND rc.name=N'AgentId'
+ )
+)
+ THROW 51294,'Relasi AgentId belum lengkap. Periksa hasil verifikasi relasi.',1;
+
+IF COL_LENGTH(N'dbo.BackupTransferJob',N'AgentName') IS NOT NULL
+ OR COL_LENGTH(N'dbo.BackupAgentPeriodInventory',N'AgentName') IS NOT NULL
+ OR COL_LENGTH(N'dbo.BackupLookupRequest',N'AgentName') IS NOT NULL
+ THROW 51295,'Kolom relasi AgentName lama masih tersedia pada tabel operasional.',1;
+GO

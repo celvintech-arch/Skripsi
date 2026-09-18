@@ -91,7 +91,7 @@
   Dim jobId As Guid : If Not Guid.TryParse(jobText,jobId) Then Throw New HttpException(400,"Job tidak valid.")
   Dim message=GetValue(body,"message"),totalStudents As Integer
   If message.Length>500 Then message=message.Substring(0,500)
-  Using cmd As New SqlCommand("SET NOCOUNT ON; UPDATE j SET LeaseExpiresAt=DATEADD(MINUTE,10,SYSDATETIME()),ProgressMessage=@m,TotalStudents=CASE WHEN @total>0 THEN @total ELSE TotalStudents END,ErrorMessage=NULL FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentName=j.AgentName WHERE j.JobId=@j AND j.Status IN('CLAIMED','TRANSFERRING') AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t); SELECT j.Status,j.ProcessedStudents,j.ProgressMessage,j.ErrorMessage FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentName=j.AgentName WHERE j.JobId=@j AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t);",cn)
+  Using cmd As New SqlCommand("SET NOCOUNT ON; UPDATE j SET LeaseExpiresAt=DATEADD(MINUTE,10,SYSDATETIME()),ProgressMessage=@m,TotalStudents=CASE WHEN @total>0 THEN @total ELSE TotalStudents END,ErrorMessage=NULL FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentId=j.AgentId WHERE j.JobId=@j AND j.Status IN('CLAIMED','TRANSFERRING') AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t); SELECT j.Status,j.ProcessedStudents,j.ProgressMessage,j.ErrorMessage FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentId=j.AgentId WHERE j.JobId=@j AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t);",cn)
    cmd.Parameters.Add("@j",SqlDbType.UniqueIdentifier).Value=jobId
    cmd.Parameters.Add("@t",SqlDbType.NVarChar,256).Value=apiKey
    cmd.Parameters.Add("@m",SqlDbType.NVarChar,2000).Value=If(String.IsNullOrWhiteSpace(message),CObj(DBNull.Value),message)
@@ -110,7 +110,7 @@
   Dim failure=GetValue(body,"errorMessage")
   If String.IsNullOrWhiteSpace(failure) Then failure="Agent menghentikan job karena terjadi kesalahan."
   If failure.Length>2000 Then failure=failure.Substring(0,2000)
-  Using cmd As New SqlCommand("SET NOCOUNT ON; UPDATE j SET Status='FAILED',CompletedAt=SYSDATETIME(),LeaseExpiresAt=NULL,ProgressMessage=NULL,ResultMessage=NULL,ErrorMessage=@e FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentName=j.AgentName WHERE j.JobId=@j AND j.Status IN('CLAIMED','TRANSFERRING') AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t); SELECT j.Status,j.ProcessedStudents,j.ErrorMessage FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentName=j.AgentName WHERE j.JobId=@j AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t);",cn)
+  Using cmd As New SqlCommand("SET NOCOUNT ON; UPDATE j SET Status='FAILED',CompletedAt=SYSDATETIME(),LeaseExpiresAt=NULL,ProgressMessage=NULL,ResultMessage=NULL,ErrorMessage=@e FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentId=j.AgentId WHERE j.JobId=@j AND j.Status IN('CLAIMED','TRANSFERRING') AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t); SELECT j.Status,j.ProcessedStudents,j.ErrorMessage FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentId=j.AgentId WHERE j.JobId=@j AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t);",cn)
    cmd.Parameters.Add("@j",SqlDbType.UniqueIdentifier).Value=jobId
    cmd.Parameters.Add("@t",SqlDbType.NVarChar,256).Value=apiKey
    cmd.Parameters.Add("@e",SqlDbType.NVarChar,2000).Value=failure
@@ -135,7 +135,7 @@
  End Function
 
  Private Function ClaimLookup(cn As SqlConnection,apiKey As String) As Object
-  Dim sql="SET NOCOUNT ON; SET XACT_ABORT ON; DECLARE @agent nvarchar(128),@id uniqueidentifier; SELECT @agent=AgentName FROM dbo.BackupAgentNode WHERE IsPrimary=1 AND IsEnabled=1 AND ApiKeyHash=HASHBYTES('SHA2_256',@t); IF @agent IS NULL THROW 51104,'Token agent tidak valid.',1; BEGIN TRAN; UPDATE dbo.BackupLookupRequest SET Status='WAITING',LeaseExpiresAt=NULL WHERE AgentName=@agent AND Status='CLAIMED' AND LeaseExpiresAt<SYSDATETIME() AND ExpiresAt>SYSDATETIME(); UPDATE dbo.BackupLookupRequest SET Status='FAILED',CompletedAt=SYSDATETIME(),ErrorMessage='Permintaan pencarian kedaluwarsa.' WHERE AgentName=@agent AND Status IN('WAITING','CLAIMED') AND ExpiresAt<=SYSDATETIME(); SELECT TOP(1) @id=LookupId FROM dbo.BackupLookupRequest WITH(UPDLOCK,READPAST) WHERE AgentName=@agent AND Status='WAITING' AND ExpiresAt>SYSDATETIME() ORDER BY CreatedAt,LookupId; IF @id IS NOT NULL UPDATE dbo.BackupLookupRequest SET Status='CLAIMED',LeaseExpiresAt=DATEADD(MINUTE,5,SYSDATETIME()) WHERE LookupId=@id; COMMIT; SELECT LookupId,QueryType,SearchKeyword,FilterYear FROM dbo.BackupLookupRequest WHERE LookupId=@id;"
+  Dim sql="SET NOCOUNT ON; SET XACT_ABORT ON; DECLARE @agent uniqueidentifier,@id uniqueidentifier; SELECT @agent=AgentId FROM dbo.BackupAgentNode WHERE IsPrimary=1 AND IsEnabled=1 AND ApiKeyHash=HASHBYTES('SHA2_256',@t); IF @agent IS NULL THROW 51104,'Token agent tidak valid.',1; BEGIN TRAN; UPDATE dbo.BackupLookupRequest SET Status='WAITING',LeaseExpiresAt=NULL WHERE AgentId=@agent AND Status='CLAIMED' AND LeaseExpiresAt<SYSDATETIME() AND ExpiresAt>SYSDATETIME(); UPDATE dbo.BackupLookupRequest SET Status='FAILED',CompletedAt=SYSDATETIME(),ErrorMessage='Permintaan pencarian kedaluwarsa.' WHERE AgentId=@agent AND Status IN('WAITING','CLAIMED') AND ExpiresAt<=SYSDATETIME(); SELECT TOP(1) @id=LookupId FROM dbo.BackupLookupRequest WITH(UPDLOCK,READPAST) WHERE AgentId=@agent AND Status='WAITING' AND ExpiresAt>SYSDATETIME() ORDER BY CreatedAt,LookupId; IF @id IS NOT NULL UPDATE dbo.BackupLookupRequest SET Status='CLAIMED',LeaseExpiresAt=DATEADD(MINUTE,5,SYSDATETIME()) WHERE LookupId=@id; COMMIT; SELECT LookupId,QueryType,SearchKeyword,FilterYear FROM dbo.BackupLookupRequest WHERE LookupId=@id;"
   Using cmd As New SqlCommand(sql,cn)
    cmd.Parameters.Add("@t",SqlDbType.NVarChar,256).Value=apiKey
    Using rd=cmd.ExecuteReader()
@@ -152,7 +152,7 @@
   If body.ContainsKey("result") AndAlso body("result") IsNot Nothing Then resultJson=CreateJsonSerializer().Serialize(body("result"))
   If resultJson IsNot Nothing AndAlso resultJson.Length>2000000 Then Throw New HttpException(400,"Hasil lookup terlalu besar.")
   If errorMessage.Length>1000 Then errorMessage=errorMessage.Substring(0,1000)
-  Dim sql="SET NOCOUNT ON; UPDATE q SET Status=CASE WHEN @ok=1 THEN 'SUCCESS' ELSE 'FAILED' END,ResultJson=CASE WHEN @ok=1 THEN @json ELSE NULL END,ErrorMessage=CASE WHEN @ok=1 THEN NULL ELSE @error END,CompletedAt=SYSDATETIME(),LeaseExpiresAt=NULL,ExpiresAt=DATEADD(MINUTE,15,SYSDATETIME()) FROM dbo.BackupLookupRequest q JOIN dbo.BackupAgentNode a ON a.AgentName=q.AgentName WHERE q.LookupId=@id AND q.Status='CLAIMED' AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t); SELECT Status FROM dbo.BackupLookupRequest WHERE LookupId=@id;"
+  Dim sql="SET NOCOUNT ON; UPDATE q SET Status=CASE WHEN @ok=1 THEN 'SUCCESS' ELSE 'FAILED' END,ResultJson=CASE WHEN @ok=1 THEN @json ELSE NULL END,ErrorMessage=CASE WHEN @ok=1 THEN NULL ELSE @error END,CompletedAt=SYSDATETIME(),LeaseExpiresAt=NULL,ExpiresAt=DATEADD(MINUTE,15,SYSDATETIME()) FROM dbo.BackupLookupRequest q JOIN dbo.BackupAgentNode a ON a.AgentId=q.AgentId WHERE q.LookupId=@id AND q.Status='CLAIMED' AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t); SELECT Status FROM dbo.BackupLookupRequest WHERE LookupId=@id;"
   Using cmd As New SqlCommand(sql,cn)
    cmd.Parameters.Add("@id",SqlDbType.UniqueIdentifier).Value=lookupId:cmd.Parameters.Add("@t",SqlDbType.NVarChar,256).Value=apiKey:cmd.Parameters.Add("@ok",SqlDbType.Bit).Value=succeeded
    cmd.Parameters.Add("@json",SqlDbType.NVarChar,-1).Value=If(resultJson Is Nothing,CObj(DBNull.Value),resultJson)
@@ -201,7 +201,7 @@
     End Using
    End Using
   Catch ex As SqlException When ex.Number=51110
-   Using cmd As New SqlCommand("SET NOCOUNT ON; IF NOT EXISTS(SELECT 1 FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentName=j.AgentName WHERE j.JobId=@j AND j.OperationType='BACKUP' AND j.Status IN('CLAIMED','TRANSFERRING') AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t)) THROW 51104,'Job atau token tidak valid.',1; UPDATE dbo.BackupTransferJob SET Status='TRANSFERRING',LeaseExpiresAt=DATEADD(MINUTE,10,SYSDATETIME()) WHERE JobId=@j; SELECT TOP(@s) Nim1 FROM dbo.BackupTransferJobStudent WHERE JobId=@j AND Status='PENDING' ORDER BY Nim1;",cn)
+   Using cmd As New SqlCommand("SET NOCOUNT ON; IF NOT EXISTS(SELECT 1 FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentId=j.AgentId WHERE j.JobId=@j AND j.OperationType='BACKUP' AND j.Status IN('CLAIMED','TRANSFERRING') AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t)) THROW 51104,'Job atau token tidak valid.',1; UPDATE dbo.BackupTransferJob SET Status='TRANSFERRING',LeaseExpiresAt=DATEADD(MINUTE,10,SYSDATETIME()) WHERE JobId=@j; SELECT TOP(@s) Nim1 FROM dbo.BackupTransferJobStudent WHERE JobId=@j AND Status='PENDING' ORDER BY Nim1;",cn)
     cmd.Parameters.Add("@j",SqlDbType.UniqueIdentifier).Value=jobId
     cmd.Parameters.Add("@t",SqlDbType.NVarChar,256).Value=apiKey
     cmd.Parameters.Add("@s",SqlDbType.Int).Value=batchSize
@@ -237,7 +237,7 @@
  End Function
 
  Private Function GetSelectedJobTables(cn As SqlConnection,apiKey As String,jobId As Guid,operation As String) As List(Of String)
-  Using cmd As New SqlCommand("SELECT j.SelectedTables FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentName=j.AgentName WHERE j.JobId=@j AND j.OperationType=@o AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t)",cn)
+  Using cmd As New SqlCommand("SELECT j.SelectedTables FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentId=j.AgentId WHERE j.JobId=@j AND j.OperationType=@o AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t)",cn)
    cmd.Parameters.Add("@j",SqlDbType.UniqueIdentifier).Value=jobId
    cmd.Parameters.Add("@o",SqlDbType.VarChar,10).Value=operation
    cmd.Parameters.Add("@t",SqlDbType.NVarChar,256).Value=apiKey
@@ -248,7 +248,7 @@
  End Function
 
  Private Function GetBackupScope(cn As SqlConnection,apiKey As String,jobId As Guid) As String
-  Using cmd As New SqlCommand("SELECT ISNULL(j.RestoreThAkdkList,'') FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentName=j.AgentName WHERE j.JobId=@j AND j.OperationType='BACKUP' AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t)",cn)
+  Using cmd As New SqlCommand("SELECT ISNULL(j.RestoreThAkdkList,'') FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentId=j.AgentId WHERE j.JobId=@j AND j.OperationType='BACKUP' AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t)",cn)
    cmd.Parameters.Add("@j",SqlDbType.UniqueIdentifier).Value=jobId
    cmd.Parameters.Add("@t",SqlDbType.NVarChar,256).Value=apiKey
    Dim value=cmd.ExecuteScalar()
@@ -343,11 +343,11 @@
 
  Private Function CompleteExport(cn As SqlConnection,apiKey As String,jobText As String,body As Dictionary(Of String,Object)) As Object
   Dim jobId As Guid : If Not Guid.TryParse(jobText,jobId) Then Throw New HttpException(400,"Job tidak valid.")
-  Dim fileName=Path.GetFileName(GetValue(body,"fileName")),hash=GetValue(body,"sha256"),sizeBytes As Long
+  Dim fileName=Path.GetFileName(GetValue(body,"fileName")),sizeBytes As Long
   If String.IsNullOrWhiteSpace(fileName) OrElse Not fileName.EndsWith(".bak",StringComparison.OrdinalIgnoreCase) Then Throw New HttpException(400,"Nama file ekspor tidak valid.")
-  If hash.Length<>64 OrElse Not Long.TryParse(GetValue(body,"sizeBytes"),sizeBytes) OrElse sizeBytes<=0 Then Throw New HttpException(400,"Metadata ekspor tidak valid.")
-  Dim detail="File lokal: " & fileName & " | Ukuran: " & Math.Round(sizeBytes/1048576.0,2).ToString("N2",CultureInfo.InvariantCulture) & " MB | SHA-256: " & hash.ToUpperInvariant() & " | RESTORE VERIFYONLY berhasil."
-  Using cmd As New SqlCommand("SET NOCOUNT ON; UPDATE j SET Status='SUCCESS',ProcessedStudents=0,CompletedAt=SYSDATETIME(),LeaseExpiresAt=NULL,ProgressMessage=NULL,ResultMessage=@m,ErrorMessage=NULL FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentName=j.AgentName WHERE j.JobId=@j AND j.OperationType='EXPORT' AND j.Status IN('CLAIMED','TRANSFERRING') AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t); SELECT j.Status,j.ResultMessage FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentName=j.AgentName WHERE j.JobId=@j AND j.OperationType='EXPORT' AND j.Status='SUCCESS' AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t);",cn)
+  If Not Long.TryParse(GetValue(body,"sizeBytes"),sizeBytes) OrElse sizeBytes<=0 Then Throw New HttpException(400,"Metadata ekspor tidak valid.")
+  Dim detail="File lokal: " & fileName & " | Ukuran: " & Math.Round(sizeBytes/1048576.0,2).ToString("N2",CultureInfo.InvariantCulture) & " MB | RESTORE VERIFYONLY berhasil."
+  Using cmd As New SqlCommand("SET NOCOUNT ON; UPDATE j SET Status='SUCCESS',ProcessedStudents=0,CompletedAt=SYSDATETIME(),LeaseExpiresAt=NULL,ProgressMessage=NULL,ResultMessage=@m,ErrorMessage=NULL FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentId=j.AgentId WHERE j.JobId=@j AND j.OperationType='EXPORT' AND j.Status IN('CLAIMED','TRANSFERRING') AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t); SELECT j.Status,j.ResultMessage FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentId=j.AgentId WHERE j.JobId=@j AND j.OperationType='EXPORT' AND j.Status='SUCCESS' AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t);",cn)
    cmd.Parameters.Add("@j",SqlDbType.UniqueIdentifier).Value=jobId
    cmd.Parameters.Add("@t",SqlDbType.NVarChar,256).Value=apiKey
    cmd.Parameters.Add("@m",SqlDbType.NVarChar,2000).Value=detail
@@ -402,7 +402,7 @@
  End Function
 
  Private Function ValidateRestoreJob(cn As SqlConnection,apiKey As String,jobId As Guid) As Boolean
-  Using cmd As New SqlCommand("SELECT j.StudentNim FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentName=j.AgentName WHERE j.JobId=@j AND j.OperationType='RESTORE' AND j.Status IN('CLAIMED','TRANSFERRING') AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t)",cn)
+  Using cmd As New SqlCommand("SELECT j.StudentNim FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentId=j.AgentId WHERE j.JobId=@j AND j.OperationType='RESTORE' AND j.Status IN('CLAIMED','TRANSFERRING') AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t)",cn)
    cmd.Parameters.Add("@j",SqlDbType.UniqueIdentifier).Value=jobId : cmd.Parameters.Add("@t",SqlDbType.NVarChar,256).Value=apiKey
    Dim value=cmd.ExecuteScalar()
    If value Is Nothing Then Throw New HttpException(403,"Job pemulihan atau token tidak valid.")
@@ -414,7 +414,7 @@
   Dim jobId As Guid : If Not Guid.TryParse(jobText,jobId) Then Throw New HttpException(400,"Job tidak valid.")
   Dim phase=GetValue(body,"phase").Trim().ToLowerInvariant()
   If phase="baseline" Then
-   Using cmd As New SqlCommand("IF NOT EXISTS(SELECT 1 FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentName=j.AgentName WHERE j.JobId=@j AND j.OperationType='BACKUP' AND j.Status IN('CLAIMED','TRANSFERRING') AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t)) THROW 51104,'Job atau token tidak valid.',1; SELECT (SELECT COUNT(*) FROM dbo.tbio01) BioRows,(SELECT COUNT(*) FROM dbo.treg) RegRows,(SELECT COUNT(*) FROM dbo.tkrs06) KrsRows,(SELECT COUNT(*) FROM dbo.t_absensi14) AbsRows,(SELECT SUM(CONVERT(decimal(18,2),size)*8.0/1024.0) FROM sys.database_files WHERE type=0) SizeMb;",cn)
+   Using cmd As New SqlCommand("IF NOT EXISTS(SELECT 1 FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentId=j.AgentId WHERE j.JobId=@j AND j.OperationType='BACKUP' AND j.Status IN('CLAIMED','TRANSFERRING') AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t)) THROW 51104,'Job atau token tidak valid.',1; SELECT (SELECT COUNT(*) FROM dbo.tbio01) BioRows,(SELECT COUNT(*) FROM dbo.treg) RegRows,(SELECT COUNT(*) FROM dbo.tkrs06) KrsRows,(SELECT COUNT(*) FROM dbo.t_absensi14) AbsRows,(SELECT SUM(CONVERT(decimal(18,2),size)*8.0/1024.0) FROM sys.database_files WHERE type=0) SizeMb;",cn)
     cmd.Parameters.Add("@j",SqlDbType.UniqueIdentifier).Value=jobId:cmd.Parameters.Add("@t",SqlDbType.NVarChar,256).Value=apiKey
     Using rd=cmd.ExecuteReader():rd.Read():Return New With {.ok=True,.bioRows=Convert.ToInt64(rd("BioRows")),.regRows=Convert.ToInt64(rd("RegRows")),.krsRows=Convert.ToInt64(rd("KrsRows")),.absRows=Convert.ToInt64(rd("AbsRows")),.sizeMb=Convert.ToDouble(rd("SizeMb"))}:End Using
    End Using
@@ -424,7 +424,7 @@
   Dim liveSizeBefore=BodyDouble(body,"liveSizeBefore")
   Dim arcBioBefore=BodyLong(body,"arcBioBefore"),arcRegBefore=BodyLong(body,"arcRegBefore"),arcKrsBefore=BodyLong(body,"arcKrsBefore"),arcAbsBefore=BodyLong(body,"arcAbsBefore"),arcBioAfter=BodyLong(body,"arcBioAfter"),arcRegAfter=BodyLong(body,"arcRegAfter"),arcKrsAfter=BodyLong(body,"arcKrsAfter"),arcAbsAfter=BodyLong(body,"arcAbsAfter")
   Dim arcSizeBefore=BodyDouble(body,"arcSizeBefore"),arcSizeAfter=BodyDouble(body,"arcSizeAfter")
-  Using cmd As New SqlCommand("SET NOCOUNT ON; DECLARE @processed int=(SELECT ProcessedStudents FROM dbo.BackupTransferJob WHERE JobId=@j),@m nvarchar(2000); SET @m=CONCAT(ISNULL(@processed,0),' Data Mahasiswa Berhasil Dibackup'); UPDATE j SET ProgressMessage=NULL,ResultMessage=@m,ErrorMessage=NULL FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentName=j.AgentName WHERE j.JobId=@j AND j.OperationType='BACKUP' AND j.Status='SUCCESS' AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t); IF @@ROWCOUNT<>1 THROW 51104,'Snapshot job atau token tidak valid.',1; SELECT @m Message;",cn)
+  Using cmd As New SqlCommand("SET NOCOUNT ON; DECLARE @processed int=(SELECT ProcessedStudents FROM dbo.BackupTransferJob WHERE JobId=@j),@m nvarchar(2000); SET @m=CONCAT(ISNULL(@processed,0),' Data Mahasiswa Berhasil Dibackup'); UPDATE j SET ProgressMessage=NULL,ResultMessage=@m,ErrorMessage=NULL FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentId=j.AgentId WHERE j.JobId=@j AND j.OperationType='BACKUP' AND j.Status='SUCCESS' AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t); IF @@ROWCOUNT<>1 THROW 51104,'Snapshot job atau token tidak valid.',1; SELECT @m Message;",cn)
    cmd.Parameters.Add("@j",SqlDbType.UniqueIdentifier).Value=jobId:cmd.Parameters.Add("@t",SqlDbType.NVarChar,256).Value=apiKey
    cmd.Parameters.Add("@lbb",SqlDbType.BigInt).Value=liveBioBefore:cmd.Parameters.Add("@lrb",SqlDbType.BigInt).Value=liveRegBefore:cmd.Parameters.Add("@lkb",SqlDbType.BigInt).Value=liveKrsBefore:cmd.Parameters.Add("@lab",SqlDbType.BigInt).Value=liveAbsBefore
    cmd.Parameters.Add("@lsb",SqlDbType.Decimal).Value=liveSizeBefore
@@ -662,7 +662,7 @@
 
  Private Function CompleteRestore(cn As SqlConnection,apiKey As String,jobText As String) As Object
   Dim jobId As Guid : If Not Guid.TryParse(jobText,jobId) Then Throw New HttpException(400,"Job tidak valid.")
-  Dim sql="SET NOCOUNT ON; DECLARE @restored int=(SELECT COUNT(*) FROM dbo.BackupTransferJobStudent WHERE JobId=@j AND Status='RESTORED'),@skipped int=(SELECT COUNT(*) FROM dbo.BackupTransferJobStudent WHERE JobId=@j AND Status='SKIPPED'); UPDATE j SET Status='SUCCESS',ProcessedStudents=@restored,CompletedAt=SYSDATETIME(),LeaseExpiresAt=NULL,ProgressMessage=NULL,ResultMessage=CONCAT(@restored,' Data Mahasiswa Memiliki Baris yang Berhasil Dipulihkan',CASE WHEN @skipped>0 THEN CONCAT(CHAR(13),CHAR(10),@skipped,' Data Mahasiswa Dilewati Karena Seluruh Baris Sudah Tersedia') ELSE '' END),ErrorMessage=NULL FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentName=j.AgentName WHERE j.JobId=@j AND j.OperationType='RESTORE' AND j.Status IN('CLAIMED','TRANSFERRING') AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t); SELECT j.Status,j.ProcessedStudents,@skipped SkippedStudents FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentName=j.AgentName WHERE j.JobId=@j AND j.OperationType='RESTORE' AND j.Status='SUCCESS' AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t);"
+  Dim sql="SET NOCOUNT ON; DECLARE @restored int=(SELECT COUNT(*) FROM dbo.BackupTransferJobStudent WHERE JobId=@j AND Status='RESTORED'),@skipped int=(SELECT COUNT(*) FROM dbo.BackupTransferJobStudent WHERE JobId=@j AND Status='SKIPPED'); UPDATE j SET Status='SUCCESS',ProcessedStudents=@restored,CompletedAt=SYSDATETIME(),LeaseExpiresAt=NULL,ProgressMessage=NULL,ResultMessage=CONCAT(@restored,' Data Mahasiswa Memiliki Baris yang Berhasil Dipulihkan',CASE WHEN @skipped>0 THEN CONCAT(CHAR(13),CHAR(10),@skipped,' Data Mahasiswa Dilewati Karena Seluruh Baris Sudah Tersedia') ELSE '' END),ErrorMessage=NULL FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentId=j.AgentId WHERE j.JobId=@j AND j.OperationType='RESTORE' AND j.Status IN('CLAIMED','TRANSFERRING') AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t); SELECT j.Status,j.ProcessedStudents,@skipped SkippedStudents FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentId=j.AgentId WHERE j.JobId=@j AND j.OperationType='RESTORE' AND j.Status='SUCCESS' AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t);"
   Using cmd As New SqlCommand(sql,cn)
    cmd.Parameters.Add("@t",SqlDbType.NVarChar,256).Value=apiKey
    cmd.Parameters.Add("@j",SqlDbType.UniqueIdentifier).Value=jobId

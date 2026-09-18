@@ -418,9 +418,8 @@ function Process-ExportJob($claim,$database) {
  }finally{$cn.Close()}
  $file=[IO.FileInfo]::new($backupPath)
  if(-not $file.Exists -or $file.Length -le 0){throw 'File ekspor tidak terbentuk.'}
- $hash=(Get-FileHash -Algorithm SHA256 -LiteralPath $backupPath).Hash
- $confirm=Invoke-AgentApi 'exportconfirm' @{databaseReady=$database.Ready;message='Ekspor database selesai';jobId=[string]$claim.jobId;fileName=$file.Name;sizeBytes=$file.Length;sha256=$hash}
- Write-AgentLog ('Ekspor job '+$claim.jobId+' selesai: '+$backupPath+' | '+$file.Length+' bytes | SHA-256 '+$hash)
+ $confirm=Invoke-AgentApi 'exportconfirm' @{databaseReady=$database.Ready;message='Ekspor database selesai';jobId=[string]$claim.jobId;fileName=$file.Name;sizeBytes=$file.Length}
+ Write-AgentLog ('Ekspor job '+$claim.jobId+' selesai: '+$backupPath+' | '+$file.Length+' bytes | RESTORE VERIFYONLY berhasil')
 }
 function Process-BackupJobs($schema,$database) {
  $claim=Invoke-AgentApi 'claim' @{databaseReady=$database.Ready;message=$database.Message};if(-not $claim.hasJob){return}

@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$SiteName='Default Web Site',[string]$ServerIp='127.0.0.1',[string]$CertificateOutput=(Join-Path $PSScriptRoot 'LintarBackupHttps.cer'))
+param([string]$SiteName='Default Web Site',[string]$ServerIp='10.200.120.83',[string]$CertificateOutput=(Join-Path $PSScriptRoot 'LintarBackupHttps.cer'))
 $ErrorActionPreference='Stop'
 $admin=([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if(-not $admin){throw 'Jalankan PowerShell sebagai Administrator pada server IIS.'}

@@ -19,19 +19,19 @@ BEGIN
  IF @QueryType NOT IN('PERIODS','SEARCH') THROW 51150,'Jenis lookup backup tidak valid.',1;
  IF @FilterYear IS NOT NULL AND @FilterYear NOT LIKE '[0-9][0-9][0-9][0-9]' THROW 51151,'Filter tahun tidak valid.',1;
  IF LEN(ISNULL(@SearchKeyword,''))>100 THROW 51152,'Kata pencarian terlalu panjang.',1;
- DECLARE @agent NVARCHAR(128),@id UNIQUEIDENTIFIER;
- SELECT @agent=AgentName FROM dbo.BackupAgentNode WHERE IsPrimary=1 AND IsEnabled=1;
+ DECLARE @agent UNIQUEIDENTIFIER,@id UNIQUEIDENTIFIER;
+ SELECT @agent=AgentId FROM dbo.BackupAgentNode WHERE IsPrimary=1 AND IsEnabled=1;
  IF @agent IS NULL THROW 51103,'Node backup utama belum didaftarkan.',1;
  DELETE dbo.BackupLookupRequest WHERE ExpiresAt<DATEADD(HOUR,-1,SYSDATETIME());
  SELECT TOP(1) @id=LookupId FROM dbo.BackupLookupRequest
- WHERE AgentName=@agent AND QueryType=@QueryType
+ WHERE AgentId=@agent AND QueryType=@QueryType
   AND ISNULL(SearchKeyword,'')=ISNULL(@SearchKeyword,'') AND ISNULL(FilterYear,'')=ISNULL(@FilterYear,'')
   AND ((Status IN('WAITING','CLAIMED') AND ExpiresAt>SYSDATETIME()) OR (Status='SUCCESS' AND CompletedAt>DATEADD(MINUTE,-5,SYSDATETIME())))
  ORDER BY CreatedAt DESC;
  IF @id IS NULL
  BEGIN
   SET @id=NEWID();
-  INSERT dbo.BackupLookupRequest(LookupId,AgentName,QueryType,SearchKeyword,FilterYear,RequestedBy,Status)
+  INSERT dbo.BackupLookupRequest(LookupId,AgentId,QueryType,SearchKeyword,FilterYear,RequestedBy,Status)
   VALUES(@id,@agent,@QueryType,@SearchKeyword,@FilterYear,@RequestedBy,'WAITING');
  END;
  SELECT LookupId,Status,ResultJson,ErrorMessage,SearchKeyword,FilterYear FROM dbo.BackupLookupRequest WHERE LookupId=@id;

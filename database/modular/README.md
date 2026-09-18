@@ -56,9 +56,11 @@ Semua file dalam folder ini merupakan script aktif. Migration monolitik dan depl
 
 Setiap job backup dan pemulihan menyimpan daftar tabel pada `BackupTransferJob.SelectedTables`. Daftar yang diizinkan adalah `tbio01`, `treg`, `tkrs06`, dan `t_absensi14`; `tbio01` otomatis ditambahkan jika tabel lain dipilih. Konfigurasi backup otomatis menyimpan pilihan yang sama pada `BackupJobConfiguration.SelectedTables`.
 
+Relasi dari `BackupTransferJob`, `BackupAgentPeriodInventory`, dan `BackupLookupRequest` ke `BackupAgentNode` menggunakan `AgentId`. `AgentName` tetap menjadi nama unik pada tabel induk dan identitas yang ditampilkan atau dikirim oleh agent. Script inti memigrasikan instalasi lama dengan memetakan nilai `AgentName` ke `AgentId` sebelum mengganti constraint, primary key inventaris, dan indeks antrean.
+
 ## Validasi versi saat ini
 
 - Alias hasil validasi tabel sumber menggunakan `TotalRows` agar tidak berbenturan dengan keyword SQL Server.
 - `sp_AgentSyncPeriodInventory` diakhiri pemisah batch `GO` sebelum script berikutnya.
 - Installer gabungan terakhir memuat 17 bagian dan 17 stored procedure, termasuk `sp_GetBackupOperatorRole`.
-- Kandidat role dan Summary Report menghasilkan **26 PASS, 0 FAIL, dan 5 SKIP**; pengujian login nyata serta integrasi database dijalankan setelah migration dan cutover disetujui.
+- Pemeriksaan statis setelah migrasi relasi agent ke `AgentId` menghasilkan **29 PASS, 0 FAIL, dan 5 SKIP**; pengujian API serta integrasi database dijalankan setelah migrasi dan cutover disetujui.

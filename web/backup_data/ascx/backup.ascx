@@ -1,5 +1,6 @@
 <%@ Control Language="VB" ClassName="backup_data_backup_v3_control" %>
 <!-- #INCLUDE file="con_backup.ascx" -->
+<!-- #INCLUDE file="table_helpers.ascx" -->
 <%@ Import Namespace="System.Collections.Generic" %>
 
 <script runat="server">
@@ -51,20 +52,6 @@ Private Sub ValidateSelectedSourceDatabase(selectedDatabase As String)
  Dim builder As New SqlConnectionStringBuilder(cnsr.ConnectionString)
  If Not String.Equals(selectedDatabase,builder.InitialCatalog,StringComparison.OrdinalIgnoreCase) Then Throw New ApplicationException("Database sumber belum terdaftar pada koneksi aplikasi.")
 End Sub
-Private Function SelectedTables(list As CheckBoxList,requireAcademic As Boolean) As String
- Dim chosen As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
- For Each item As ListItem In list.Items
-  If item.Selected Then chosen.Add(item.Value)
- Next
- If chosen.Count=0 Then Throw New ApplicationException("Pilih minimal satu tabel.")
- If requireAcademic AndAlso Not chosen.Contains("treg") AndAlso Not chosen.Contains("tkrs06") AndAlso Not chosen.Contains("t_absensi14") Then Throw New ApplicationException("Pilih minimal satu tabel Registrasi, KRS, atau Absensi.")
- chosen.Add("tbio01")
- For Each item As ListItem In list.Items : item.Selected=chosen.Contains(item.Value) : Next
- Dim result As New List(Of String)()
- For Each name In New String(){"tbio01","treg","tkrs06","t_absensi14"} : If chosen.Contains(name) Then result.Add(name)
- Next
- Return String.Join(",",result.ToArray())
-End Function
 Private Sub ApplySelectedTables(list As CheckBoxList,value As String)
  Dim selected As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
  If String.IsNullOrWhiteSpace(value) Then value="tbio01,treg,tkrs06,t_absensi14"
@@ -72,18 +59,6 @@ Private Sub ApplySelectedTables(list As CheckBoxList,value As String)
  selected.Add("tbio01")
  For Each item As ListItem In list.Items : item.Selected=selected.Contains(item.Value) : Next
 End Sub
-Private Function SelectedTableLabels(value As String) As String
- Dim labels As New List(Of String)()
- For Each name In value.Split(","c)
-  Select Case name.Trim().ToLowerInvariant()
-   Case "tbio01":labels.Add("Biodata")
-   Case "treg":labels.Add("Registrasi")
-   Case "tkrs06":labels.Add("KRS")
-   Case "t_absensi14":labels.Add("Absensi")
-  End Select
- Next
- Return String.Join(", ",labels.ToArray())
-End Function
 Private Sub PopulateBackupPeriods(list As DropDownList,prompt As String)
  list.Items.Clear():list.Items.Add(New ListItem(prompt,""))
  Dim sql="SELECT LTRIM(RTRIM(r.th_akdk)) th_akdk,COUNT(DISTINCT r.nim1) StudentCount FROM dbo.treg r JOIN dbo.tbio01 b ON b.nim1=r.nim1 WHERE LTRIM(RTRIM(r.th_akdk)) LIKE '[0-9][0-9][0-9][0-9][0-9]' GROUP BY LTRIM(RTRIM(r.th_akdk)) ORDER BY th_akdk DESC"
@@ -142,7 +117,7 @@ Private Sub Summary(onOff As Boolean,nextRun As Nullable(Of DateTime))
  lblSummaryScheduleStatus.CssClass="label " & If(onOff,"label-success","label-default")
  pnlSummaryDetails.Visible=onOff
  If onOff Then
-  litSummaryFrekuensi.Text=Server.HtmlEncode(ddlFrekuensi.SelectedItem.Text):litSummaryJam.Text=Server.HtmlEncode(ddlJamEksekusi.SelectedItem.Text):litSummaryTables.Text=Server.HtmlEncode(SelectedTableLabels(SelectedTables(cblScheduleTables,True))):litSummaryNextRun.Text=If(nextRun.HasValue,nextRun.Value.ToString("dd MMM yyyy HH:mm"),"Belum dijadwalkan")
+  litSummaryFrekuensi.Text=Server.HtmlEncode(ddlFrekuensi.SelectedItem.Text):litSummaryJam.Text=Server.HtmlEncode(ddlJamEksekusi.SelectedItem.Text):litSummaryTables.Text=Server.HtmlEncode(BackupTableLabels(SelectedTables(cblScheduleTables,True), "")):litSummaryNextRun.Text=If(nextRun.HasValue,nextRun.Value.ToString("dd MMM yyyy HH:mm"),"Belum dijadwalkan")
   litSummaryCountdown.Text=If(nextRun.HasValue,"<span id='backupCountdown' data-next='" & nextRun.Value.ToString("yyyy-MM-ddTHH:mm:ss") & "'>Menghitung...</span>","-")
  End If
 End Sub
@@ -195,6 +170,7 @@ Protected Sub btnJalankanBackup_Click(sender As Object,e As EventArgs)
  End Try
 End Sub
 Private Sub ShowAlert(lit As Literal,kind As String,title As String,msg As String)
+ msg=BackupFriendlyText(msg)
  Dim alertType As String = If(kind = "error", "danger", kind)
  If kind = "success" AndAlso Object.ReferenceEquals(lit, litAlertBackup) Then
   lit.Text = "<div class='alert alert-success backup-u-001'><div class='backup-u-036'><i class='fa fa-check-circle'></i> " & Server.HtmlEncode(title) & "</div><div class='backup-u-023'>" & Server.HtmlEncode(msg) & " <a class='alert-link backup-history-link' href='index.aspx?tab=riwayat'>Lihat Riwayat Proses <i class='fa fa-arrow-right'></i></a></div></div>"
@@ -414,10 +390,10 @@ End Sub
                                     <asp:DropDownList ID="ddlBatasThAkdk" runat="server" CssClass="form-control"></asp:DropDownList>
                                     <label class="backup-u-069">Tabel yang dibackup:</label>
                                     <asp:CheckBoxList ID="cblScheduleTables" runat="server" RepeatDirection="Horizontal" RepeatLayout="Flow" CssClass="backup-table-options">
-                                        <asp:ListItem Value="tbio01" Text=" Biodata (tbio01) · wajib" Selected="True" Enabled="False" />
-                                        <asp:ListItem Value="treg" Text=" Registrasi (treg)" Selected="True" />
-                                        <asp:ListItem Value="tkrs06" Text=" KRS (tkrs06)" Selected="True" />
-                                        <asp:ListItem Value="t_absensi14" Text=" Absensi (t_absensi14)" Selected="True" />
+                                        <asp:ListItem Value="tbio01" Text=" Biodata · wajib" Selected="True" Enabled="False" />
+                                        <asp:ListItem Value="treg" Text=" Registrasi" Selected="True" />
+                                        <asp:ListItem Value="tkrs06" Text=" KRS" Selected="True" />
+                                        <asp:ListItem Value="t_absensi14" Text=" Absensi" Selected="True" />
                                     </asp:CheckBoxList>
                                     <p class="help-block"><i class="fa fa-lock" aria-hidden="true"></i>Biodata wajib disertakan pada setiap backup.</p>
                                 </div>
@@ -471,10 +447,10 @@ End Sub
                             <div class="well backup-u-010">
                                 <label>Tabel yang dibackup:</label>
                                 <asp:CheckBoxList ID="cblBackupTables" runat="server" RepeatDirection="Horizontal" RepeatLayout="Flow" CssClass="backup-table-options">
-                                    <asp:ListItem Value="tbio01" Text=" Biodata (tbio01) · wajib" Selected="True" Enabled="False" />
-                                    <asp:ListItem Value="treg" Text=" Registrasi (treg)" Selected="True" />
-                                    <asp:ListItem Value="tkrs06" Text=" KRS (tkrs06)" Selected="True" />
-                                    <asp:ListItem Value="t_absensi14" Text=" Absensi (t_absensi14)" Selected="True" />
+                                    <asp:ListItem Value="tbio01" Text=" Biodata · wajib" Selected="True" Enabled="False" />
+                                    <asp:ListItem Value="treg" Text=" Registrasi" Selected="True" />
+                                    <asp:ListItem Value="tkrs06" Text=" KRS" Selected="True" />
+                                    <asp:ListItem Value="t_absensi14" Text=" Absensi" Selected="True" />
                                 </asp:CheckBoxList>
                                 <p class="help-block"><i class="fa fa-lock" aria-hidden="true"></i>Biodata wajib disertakan; pilih minimal satu tabel akademik lainnya.</p>
                             </div>

@@ -19,7 +19,8 @@
             litServiceStatus.Text="<span class='monitor-status monitor-status-" & serviceState.CssClass & "'><i class='fa " & If(serviceState.IsReady,"fa-check-circle","fa-exclamation-circle") & "'></i>" & Server.HtmlEncode(serviceState.StatusText) & "</span>"
             litAgentName.Text=Server.HtmlEncode(serviceState.AgentName)
             litLastHeartbeat.Text=If(serviceState.LastSeenAt.HasValue,serviceState.LastSeenAt.Value.ToString("dd MMM yyyy HH:mm:ss"),"Belum pernah terhubung")
-            litAgentMessage.Text=Server.HtmlEncode(serviceState.LastMessage)
+            pnlAgentMessage.Visible=Not serviceState.IsReady
+            litAgentMessage.Text=If(serviceState.IsReady,"",Server.HtmlEncode(serviceState.LastMessage))
 
             Dim ds As New DataSet()
             Dim sql="SELECT TOP(1) IsEnabled,Frequency,CutoffThAkdk,NextRunAt FROM dbo.BackupJobConfiguration WHERE ConfigurationId=1;" & _
@@ -67,7 +68,7 @@
         Catch ex As Exception
             litMonitoringMessage.Text="<div class='alert alert-warning'><strong>Ringkasan pemantauan belum dapat dimuat.</strong> " & Server.HtmlEncode(ex.Message) & "</div>"
             litServiceStatus.Text="<span class='monitor-status monitor-status-danger'>Belum siap</span>"
-            litAgentName.Text="-":litLastHeartbeat.Text="-":litAgentMessage.Text="Status belum tersedia."
+            litAgentName.Text="-":litLastHeartbeat.Text="-":litAgentMessage.Text="Status belum tersedia.":pnlAgentMessage.Visible=True
             litAutomaticStatus.Text="<span class='monitor-status monitor-status-neutral'>-</span>":litAutomaticFrequency.Text="-":litAutomaticScope.Text="-":litNextSchedule.Text="-"
             litLastBackup.Text="-":litLastRestore.Text="-":litLastExport.Text="-":litActiveProcessCount.Text="0"
         End Try
@@ -177,7 +178,7 @@
             <dl class="monitor-detail-list">
                 <div><dt>Agent utama</dt><dd><asp:Literal ID="litAgentName" runat="server" /></dd></div>
                 <div><dt>Heartbeat terakhir</dt><dd><asp:Literal ID="litLastHeartbeat" runat="server" /></dd></div>
-                <div class="monitor-detail-wide"><dt>Pesan terakhir agent</dt><dd><asp:Literal ID="litAgentMessage" runat="server" /></dd></div>
+                <asp:Panel ID="pnlAgentMessage" runat="server" CssClass="monitor-detail-wide"><dt>Pesan terakhir agent</dt><dd><asp:Literal ID="litAgentMessage" runat="server" /></dd></asp:Panel>
             </dl>
         </section>
         <section class="monitor-panel">
@@ -193,7 +194,7 @@
     <div class="monitor-activity-grid">
         <div class="monitor-activity-card"><i class="fa fa-database"></i><span>Backup terakhir</span><strong><asp:Literal ID="litLastBackup" runat="server" /></strong></div>
         <div class="monitor-activity-card"><i class="fa fa-undo"></i><span>Pemulihan terakhir</span><strong><asp:Literal ID="litLastRestore" runat="server" /></strong></div>
-        <div class="monitor-activity-card"><i class="fa fa-file-archive-o"></i><span>Ekspor terakhir</span><strong><asp:Literal ID="litLastExport" runat="server" /></strong></div>
+        <div class="monitor-activity-card"><i class="fa fa-file-o"></i><span>Ekspor terakhir</span><strong><asp:Literal ID="litLastExport" runat="server" /></strong></div>
     </div>
 
     <div class="panel panel-default monitor-active-panel">
@@ -259,25 +260,25 @@
                 </thead>
                 <tbody>
                     <tr>
-                        <td class="backup-u-040"><i class="fa fa-user-circle text-primary me-2"></i> Biodata Mahasiswa <span class="backup-u-031">(tbio01)</span></td>
+                        <td class="backup-u-040"><i class="fa fa-user-circle text-primary me-2"></i> Biodata</td>
                         <td class="text-center font-bold backup-u-020"><asp:Literal ID="litLiveBio" runat="server" /></td>
                         <td class="text-center backup-u-022"><asp:Literal ID="litArcBio" runat="server" /></td>
                         <td class="text-center backup-u-048"><asp:Literal ID="litTotalBio" runat="server" /></td>
                     </tr>
                     <tr>
-                        <td class="backup-u-040"><i class="fa fa-file-text-o text-warning me-2"></i> Registrasi Semester <span class="backup-u-031">(treg)</span></td>
+                        <td class="backup-u-040"><i class="fa fa-file-text-o text-warning me-2"></i> Registrasi</td>
                         <td class="text-center font-bold backup-u-020"><asp:Literal ID="litLiveReg" runat="server" /></td>
                         <td class="text-center backup-u-022"><asp:Literal ID="litArcReg" runat="server" /></td>
                         <td class="text-center backup-u-048"><asp:Literal ID="litTotalReg" runat="server" /></td>
                     </tr>
                     <tr>
-                        <td class="backup-u-040"><i class="fa fa-list-alt text-info me-2"></i> Kartu Rencana Studi <span class="backup-u-031">(tkrs06)</span></td>
+                        <td class="backup-u-040"><i class="fa fa-list-alt text-info me-2"></i> KRS</td>
                         <td class="text-center font-bold backup-u-020"><asp:Literal ID="litLiveKrs" runat="server" /></td>
                         <td class="text-center backup-u-022"><asp:Literal ID="litArcKrs" runat="server" /></td>
                         <td class="text-center backup-u-048"><asp:Literal ID="litTotalKrs" runat="server" /></td>
                     </tr>
                     <tr>
-                        <td class="backup-u-040"><i class="fa fa-calendar-check-o text-success me-2"></i> Absensi Perkuliahan <span class="backup-u-031">(t_absensi14)</span></td>
+                        <td class="backup-u-040"><i class="fa fa-calendar-check-o text-success me-2"></i> Absensi</td>
                         <td class="text-center font-bold backup-u-020"><asp:Literal ID="litLiveAbs" runat="server" /></td>
                         <td class="text-center backup-u-022"><asp:Literal ID="litArcAbs" runat="server" /></td>
                         <td class="text-center backup-u-048"><asp:Literal ID="litTotalAbs" runat="server" /></td>

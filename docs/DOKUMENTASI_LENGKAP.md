@@ -1,23 +1,25 @@
 # Dokumentasi Sistem Backup Data Mahasiswa LINTAR
 
+Model relasi agent menggunakan `BackupAgentNode.AgentId` sebagai primary key yang dirujuk oleh `BackupTransferJob`, `BackupAgentPeriodInventory`, dan `BackupLookupRequest`. `AgentName` hanya dipertahankan sebagai nama unik pada tabel induk dan identitas eksternal agent.
+
 Dokumen ini menjelaskan implementasi modul `backup_data` yang terpasang saat ini serta rencana pengembangan berikutnya. Sistem menyalin data akademik dari database aktif ke database backup. Operasi backup tidak menghapus data pada database aktif.
 
 ## 1. Ruang Lingkup
 
 Sistem menyediakan:
 
-- backup manual berdasarkan satu Tahun Akademik, rentang Tahun Akademik, batas Tahun Akademik, atau NIM;
+- backup manual berdasarkan satu Tahun Akademik, rentang Tahun Akademik, atau batas Tahun Akademik;
 - backup otomatis berdasarkan jadwal;
 - pemilihan satu database sumber `dec_dummy`;
 - pembaruan salinan lama dengan upsert;
 - antrean, heartbeat, progres, log, statistik, dan riwayat;
 - pemulihan berdasarkan Tahun Akademik atau NIM;
 - ekspor database backup ke berkas SQL Server `.bak`;
-- dua peran pengguna: Staf mempunyai akses penuh, sedangkan Manager hanya mempunyai akses Dashboard dan Laporan.
+- dua peran pengguna: Staf mempunyai akses penuh, sedangkan Manager hanya mempunyai akses Dashboard dan Laporan Ringkasan.
 
 Status mahasiswa aktif atau nonaktif tidak digunakan sebagai filter.
 
-Kode peran dan Laporan telah diimplementasikan, migrasi peran telah dipasang oleh pengelola, dan source telah dipindahkan ke website aktif pada 7 September 2026.
+Kode peran dan Laporan Ringkasan telah diimplementasikan, migrasi peran telah dipasang oleh pengelola, dan source telah dipindahkan ke website aktif pada 7 September 2026.
 
 ## 2. Database dan Tabel
 
@@ -67,7 +69,7 @@ C:\BackupAgent\BackupAgent.ps1
 
 Folder web aktif `backup_data` hanya boleh berisi file runtime. Agent aktif berada di `C:\BackupAgent`, sedangkan paket deployment ditempatkan di `C:\BackupAgent\DeploymentPackage`. Salinan source website yang siap dipasang berada pada `DeploymentPackage\web\backup_data`; SQL, agent, pengujian, dan dokumentasi tetap berada di foldernya masing-masing di luar web root aktif.
 
-Diagram di atas menggambarkan target production. Lingkungan development menggunakan URL internal pada `agent.config.development.json` dengan `AllowHttp=true`; perpindahan ke URL production dilakukan melalui cutover terpisah.
+Diagram di atas menggambarkan target production. Lingkungan development saat ini menggunakan `http://10.200.120.83/backup_data` dengan `agent.config.development.json` dan `AllowHttp=true`; perpindahan ke URL production dilakukan melalui cutover terpisah.
 
 ## 5. Perilaku Backup
 
@@ -82,6 +84,10 @@ Mahasiswa dipilih apabila mempunyai baris `treg` pada Tahun Akademik yang dipili
 - untuk mode rentang, hanya baris di antara TA awal dan TA akhir.
 
 Pemilihan tidak didasarkan pada Tahun Akademik terakhir mahasiswa.
+
+### Berdasarkan NIM
+
+Backup per NIM menyalin biodata dan seluruh riwayat registrasi, KRS, serta presensi NIM tersebut.
 
 ### Penulisan ke Database Backup
 
@@ -156,7 +162,7 @@ Script SQL harus diuji pada salinan database dan ditinjau DBA sebelum production
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\BackupAgent\DeploymentPackage\tests\Run-BackupTests.ps1 `
-  -ApplicationRoot C:\inetpub\wwwroot\backup_data `
+  -ApplicationRoot \\10.200.120.83\web_iis\lintar2022\backup_data `
   -ToolingRoot C:\BackupAgent\DeploymentPackage `
   -ConfigPath C:\BackupAgent\agent.config.development.json `
   -SkipApi -SkipLocalDatabase
@@ -176,10 +182,10 @@ Pengujian integrasi API, backup, pemulihan, ekspor, dan penjadwalan baru dilakuk
 - Pengujian optimasi sebelum penambahan role menghasilkan **21 PASS, 0 FAIL, dan 5 SKIP**.
 - Endpoint aktif hanya menerima POST dan menolak permintaan tanpa API key dengan status HTTP 401.
 - Migration role dijalankan oleh pengelola. Proses cutover source tidak menjalankan backup, restore, ekspor, agent, atau perubahan data akademik.
-- Peran dan Laporan telah dipasang pada website aktif setelah migrasi database diselesaikan oleh pengelola.
+- Peran dan Laporan Ringkasan telah dipasang pada website aktif setelah migrasi database diselesaikan oleh pengelola.
 - Verifikasi pascacutover fitur peran menghasilkan **26 PASS, 0 FAIL, dan 5 SKIP**; verifikasi setelah penambahan ekspor PDF menghasilkan **27 PASS, 0 FAIL, dan 5 SKIP**; verifikasi setelah penyederhanaan antarmuka menghasilkan **28 PASS, 0 FAIL, dan 5 SKIP**. Login nyata per peran dan pengujian operasi data tetap menunggu UAT.
 
-## 13. Implementasi Peran dan Laporan
+## 13. Implementasi Peran dan Laporan Ringkasan
 
 Source fitur, migrasi peran, dan cutover website telah selesai. Pengujian login nyata menggunakan akun Staf dan Manager tetap diperlukan untuk UAT.
 
@@ -192,7 +198,7 @@ Implementasi memisahkan kewenangan pengguna menjadi dua peran dan menyediakan la
 | Fungsi | Staf | Manager |
 |---|---:|---:|
 | Dashboard | Ya | Ya |
-| Laporan dan ekspor PDF | Ya | Ya |
+| Laporan Ringkasan dan ekspor PDF | Ya | Ya |
 | Backup manual dan otomatis | Ya | Tidak |
 | Pemulihan data | Ya | Tidak |
 | Riwayat dan pembatalan proses | Ya | Tidak |
@@ -200,7 +206,7 @@ Implementasi memisahkan kewenangan pengguna menjadi dua peran dan menyediakan la
 | Kelola pengguna/operator | Ya | Tidak |
 | Ekspor database backup | Ya | Tidak |
 
-Peran **Staf** mempunyai akses penuh terhadap seluruh fungsi modul. Peran **Manager** hanya dapat membuka Dashboard dan Laporan serta tidak dapat membuat, membatalkan, atau mengubah proses maupun konfigurasi.
+Peran **Staf** mempunyai akses penuh terhadap seluruh fungsi modul. Peran **Manager** hanya dapat membuka Dashboard dan Laporan Ringkasan serta tidak dapat membuat, membatalkan, atau mengubah proses maupun konfigurasi.
 
 ### 13.3 Otorisasi yang Diimplementasikan
 
@@ -213,9 +219,9 @@ Peran **Staf** mempunyai akses penuh terhadap seluruh fungsi modul. Peran **Mana
 - API agent tetap menggunakan API key dan tidak mengikuti role pengguna portal.
 - Staf tidak dapat menonaktifkan atau menurunkan role akun yang sedang digunakannya sendiri.
 
-### 13.4 Cakupan Laporan
+### 13.4 Cakupan Laporan Ringkasan
 
-Laporan merupakan halaman baca-saja yang mengambil data dari `BackupTransferJob`, `BackupAgentPeriodInventory`, dan `BackupAgentNode` melalui database aktif. Web tetap tidak membuka koneksi langsung ke `dec_dummy_backup`.
+Laporan Ringkasan merupakan halaman baca-saja yang mengambil data dari `BackupTransferJob`, `BackupAgentPeriodInventory`, dan `BackupAgentNode` melalui database aktif. Web tetap tidak membuka koneksi langsung ke `dec_dummy_backup`.
 
 Informasi minimum yang disarankan:
 
@@ -227,14 +233,14 @@ Informasi minimum yang disarankan:
 - filter rentang tanggal maksimum 366 hari, Tahun Akademik, jenis operasi, status, dan tabel;
 - daftar maksimum 100 proses terbaru yang sesuai filter.
 
-Tampilan menggunakan kartu ringkasan proses, tabel detail proses, dan inventaris per Tahun Akademik. Tombol **Ekspor PDF** menghasilkan laporan A4 lanskap berdasarkan filter yang sedang dipilih, berisi metrik ringkas, maksimum 100 proses terbaru, serta inventaris per Tahun Akademik. PDF dibuat langsung di memori server dan dikirim sebagai lampiran; tidak ada berkas sementara, koneksi langsung ke `dec_dummy_backup`, ataupun perubahan data. Ekspor Excel belum termasuk implementasi saat ini.
+Tampilan menggunakan kartu ringkasan, tabel detail proses, dan inventaris per Tahun Akademik. Tombol **Ekspor PDF** menghasilkan laporan A4 lanskap berdasarkan filter yang sedang dipilih, berisi delapan metrik ringkas, maksimum 100 proses terbaru, serta inventaris per Tahun Akademik. PDF dibuat langsung di memori server dan dikirim sebagai lampiran; tidak ada berkas sementara, koneksi langsung ke `dec_dummy_backup`, ataupun perubahan data. Ekspor Excel belum termasuk implementasi saat ini.
 
 ### 13.5 Status Penerapan
 
-1. **Selesai:** source peran, menu, pembatasan sisi server, pengelolaan pengguna, Dashboard, dan Laporan.
+1. **Selesai:** source peran, menu, pembatasan sisi server, pengelolaan pengguna, Dashboard, dan Laporan Ringkasan.
 2. **Selesai:** migration SQL idempotent dan installer gabungan; sintaks 70 batch telah lolos `PARSEONLY`.
-3. **Selesai:** pengujian statis setelah penyempurnaan antarmuka menghasilkan **33 PASS, 0 FAIL, dan 5 SKIP**; pemeriksaan API serta database sengaja dilewati.
-4. **Selesai oleh pengelola:** `database/install_role_summary_report.sql` pada `dec_dummy`.
+3. **Selesai:** kompilasi ASP.NET Web Forms dan pengujian statis setelah penyederhanaan antarmuka menghasilkan **28 PASS, 0 FAIL, dan 5 SKIP**.
+4. **Selesai oleh pengelola:** `deployment/install_role_summary_report.sql` pada `dec_dummy`.
 5. **Selesai:** cutover source ke website aktif dan verifikasi kesamaan hash.
 6. **Selesai:** generator PDF dikompilasi dari source website, menghasilkan PDF uji delapan halaman yang valid, dan halaman awal, tengah, serta akhir telah dirender untuk pemeriksaan tata letak.
 7. **Belum dijalankan:** pengujian login nyata dan UAT terpisah untuk Staf serta Manager, termasuk unduhan PDF dengan data aktual.
@@ -242,9 +248,9 @@ Tampilan menggunakan kartu ringkasan proses, tabel detail proses, dan inventaris
 ### 13.6 Kriteria Penerimaan
 
 - Staf dapat menggunakan seluruh fungsi yang tersedia.
-- Manager hanya dapat melihat Dashboard dan Laporan.
+- Manager hanya dapat melihat Dashboard dan Laporan Ringkasan.
 - Manager tidak dapat menjalankan fungsi operasional melalui URL atau request langsung.
-- Laporan menampilkan nilai yang konsisten dengan tabel kontrol dan inventaris.
+- Laporan Ringkasan menampilkan nilai yang konsisten dengan tabel kontrol dan inventaris.
 - Filter laporan tidak menjalankan perubahan data.
 - PDF dapat diunduh oleh Staf dan Manager, mengikuti filter aktif, terbuka tanpa kesalahan, dan tidak memicu job maupun perubahan data.
 - Perubahan role dan akses penting dapat ditelusuri melalui log.
@@ -254,19 +260,10 @@ Tampilan menggunakan kartu ringkasan proses, tabel detail proses, dan inventaris
 Antarmuka operasional telah diringkas tanpa mengubah kontrak database atau alur pemrosesan:
 
 - menu Staf dikelompokkan menjadi **Operasional**, **Pemantauan**, dan **Administrasi**;
-- istilah tampilan menggunakan **Laporan**, **Riwayat Proses**, dan **layanan pemrosesan backup**;
+- istilah tampilan menggunakan **Laporan Ringkasan**, **Riwayat Proses**, dan **layanan pemrosesan backup**;
 - pengaturan Backup Otomatis ditempatkan pada panel yang dapat dibuka dan ditutup;
-- halaman Backup memiliki mode Tahun Akademik dan otomatis, sedangkan Pemulihan tetap mendukung Tahun Akademik serta NIM;
-- filter Laporan menggunakan susunan responsif tiga, dua, atau satu kolom sesuai lebar layar;
+- halaman Backup dan Pemulihan memiliki petunjuk singkat untuk membedakan mode Tahun Akademik, NIM, dan otomatis;
+- filter Laporan Ringkasan menggunakan susunan responsif tiga, dua, atau satu kolom sesuai lebar layar;
 - tindakan penting memakai dialog SweetAlert yang konsisten, dengan fallback dialog browser jika pustaka tidak tersedia.
 
-Dashboard berfungsi sebagai pusat pemantauan dan menjadi satu-satunya halaman yang menampilkan proses aktif, selain status kesiapan Database Backup, identitas serta heartbeat agent utama, pesan agent, konfigurasi backup otomatis, dan proses terakhir. Halaman Backup dan Pemulihan menggunakan pemeriksaan kesiapan yang sama sebelum membuat permintaan; pesan hanya ditampilkan ketika layanan belum siap atau statusnya tidak dapat diperiksa. Halaman Riwayat bersifat baca-saja, hanya menampilkan proses yang telah selesai, serta menyediakan filter operasi dan status dalam satu baris pada layar desktop. Halaman Ekspor menampilkan nama file, ukuran, dan status verifikasi; SHA-256 tetap dicatat pada hasil proses agent tetapi disembunyikan dari tampilan utama. File `.bak` tetap berada pada server Database Backup.
-
-Kelola Pengguna menampilkan ringkasan hak akses Staf dan Manager. Perlindungan sisi server dan antarmuka mencegah pengguna yang sedang login menonaktifkan dirinya sendiri atau mengubah dirinya menjadi Manager. Router dan kontrol halaman tetap membatasi Manager hanya pada Dashboard dan Laporan, termasuk akses melalui URL langsung.
-
-Sebanyak **33 pemeriksaan statis** telah lulus tanpa akses API atau database. Penilaian kemudahan penggunaan secara empiris tetap harus dilakukan melalui UAT dan SUS bersama pengguna Staf serta Manager.
-
-### 14.1 Keterkaitan dengan Bab 1 dan Bab 2
-
-- **Bab 1:** penguatan Dashboard, status kesiapan, filter riwayat, dan tautan pemantauan memperjelas jawaban sistem terhadap kebutuhan staf untuk mengendalikan serta menelusuri proses backup. Pembatasan role mendukung kebutuhan dua kelompok pengguna.
-- **Bab 2:** rancangan antarmuka, use case, activity diagram, struktur navigasi, dan rancangan pengujian perlu menampilkan status layanan bersama, filter Riwayat Proses, metrik ringkas Laporan, metadata ekspor, serta aturan perlindungan akun sendiri. Alur data utama dan arsitektur pemisahan server tidak berubah.
+Kompilasi ASP.NET Web Forms dan **28 pemeriksaan statis** telah lulus. Penilaian kemudahan penggunaan secara empiris tetap harus dilakukan melalui UAT dan SUS bersama pengguna Staf serta Manager.

@@ -1,5 +1,6 @@
 <%@ Control Language="VB" ClassName="backup_data_summary_report_control" %>
 <!-- #INCLUDE file="con_backup.ascx" -->
+<!-- #INCLUDE file="table_helpers.ascx" -->
 <!-- #INCLUDE file="pdf_report_writer.ascx" -->
 
 <script runat="server">
@@ -31,10 +32,8 @@ Protected Sub btnExportPdf_Click(sender As Object,e As EventArgs)
   summaryItems.Add(New System.Collections.Generic.KeyValuePair(Of String,String)("Berhasil",litSuccessJobs.Text))
   summaryItems.Add(New System.Collections.Generic.KeyValuePair(Of String,String)("Gagal",litFailedJobs.Text))
   summaryItems.Add(New System.Collections.Generic.KeyValuePair(Of String,String)("Dibatalkan",litCancelledJobs.Text))
-  summaryItems.Add(New System.Collections.Generic.KeyValuePair(Of String,String)("Sedang Diproses",litActiveJobs.Text))
   summaryItems.Add(New System.Collections.Generic.KeyValuePair(Of String,String)("Mahasiswa Diproses",litProcessedStudents.Text))
   summaryItems.Add(New System.Collections.Generic.KeyValuePair(Of String,String)("Rata-rata Durasi",litAverageDuration.Text))
-  summaryItems.Add(New System.Collections.Generic.KeyValuePair(Of String,String)("Selesai Terakhir",litLastCompleted.Text))
   Dim period=startDate.ToString("dd MMM yyyy") & " - " & endDate.ToString("dd MMM yyyy")
   Dim pdf=BackupSummaryPdfWriter.Create(period,ReportFilterDescription(),summaryItems,jobs,inventory)
   Dim fileName="LINTAR_Laporan_Ringkasan_" & DateTime.Now.ToString("yyyyMMdd_HHmmss") & ".pdf"
@@ -58,7 +57,7 @@ Private Sub LoadAcademicPeriods()
  ddlAcademicPeriod.Items.Clear()
  ddlAcademicPeriod.Items.Add(New ListItem("Semua Tahun Akademik",""))
  Try
-  Using cmd As New SqlCommand("SELECT DISTINCT RTRIM(p.ThAkdk) ThAkdk FROM dbo.BackupAgentPeriodInventory p JOIN dbo.BackupAgentNode a ON a.AgentName=p.AgentName WHERE a.IsPrimary=1 AND a.IsEnabled=1 ORDER BY ThAkdk DESC",cnsr)
+  Using cmd As New SqlCommand("SELECT DISTINCT RTRIM(p.ThAkdk) ThAkdk FROM dbo.BackupAgentPeriodInventory p JOIN dbo.BackupAgentNode a ON a.AgentId=p.AgentId WHERE a.IsPrimary=1 AND a.IsEnabled=1 ORDER BY ThAkdk DESC",cnsr)
    cnsr.Open()
    Using rd=cmd.ExecuteReader()
     While rd.Read()
@@ -100,12 +99,23 @@ Private Sub AddReportParameters(cmd As SqlCommand,startDate As DateTime,endDate 
  cmd.Parameters.Add("@ThAkdk",SqlDbType.Char,5).Value=ddlAcademicPeriod.SelectedValue
 End Sub
 
+Private Function AcademicScopeFilterSql() As String
+ ' Match the stored scope, not just its final academic period.
+ Return "(@ThAkdk='' OR " & _
+  "(j.OperationType='BACKUP' AND NULLIF(LTRIM(RTRIM(j.StudentNim)),'') IS NULL AND (" & _
+  "(j.RestoreThAkdkList LIKE 'SINGLE:[0-9][0-9][0-9][0-9][0-9]' AND SUBSTRING(j.RestoreThAkdkList,8,5)=@ThAkdk) OR " & _
+  "(j.RestoreThAkdkList LIKE 'RANGE:[0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9]' AND @ThAkdk BETWEEN SUBSTRING(j.RestoreThAkdkList,7,5) AND SUBSTRING(j.RestoreThAkdkList,13,5)) OR " & _
+  "(j.RestoreThAkdkList LIKE 'UP_TO:[0-9][0-9][0-9][0-9][0-9]' AND @ThAkdk<=SUBSTRING(j.RestoreThAkdkList,7,5)) OR " & _
+  "(NULLIF(LTRIM(RTRIM(j.RestoreThAkdkList)),'') IS NULL AND @ThAkdk<=j.CutoffThAkdk))) OR " & _
+  "(j.OperationType='RESTORE' AND EXISTS (SELECT 1 FROM STRING_SPLIT(ISNULL(j.RestoreThAkdkList,''),',') p WHERE LTRIM(RTRIM(p.value))=@ThAkdk)))"
+End Function
+
 Private Function FilterSql() As String
  Return "j.CreatedAt>=@StartDate AND j.CreatedAt<@EndExclusive " & _
   "AND (@OperationType='' OR j.OperationType=@OperationType) " & _
   "AND (@Status='' OR j.Status=@Status) " & _
   "AND (@TableName='' OR ','+j.SelectedTables+',' LIKE '%,'+@TableName+',%') " & _
-  "AND (@ThAkdk='' OR j.CutoffThAkdk=@ThAkdk OR ','+ISNULL(j.RestoreThAkdkList,'')+',' LIKE '%,'+RTRIM(@ThAkdk)+',%')"
+  "AND " & AcademicScopeFilterSql()
 End Function
 
 Private Sub LoadReport()
@@ -129,10 +139,8 @@ Private Sub LoadSummary(startDate As DateTime,endDate As DateTime)
   "SUM(CASE WHEN j.Status='SUCCESS' THEN 1 ELSE 0 END) SuccessJobs," & _
   "SUM(CASE WHEN j.Status='FAILED' AND ISNULL(j.ErrorMessage,'') LIKE '[[]CANCELLED]%' THEN 1 ELSE 0 END) CancelledJobs," & _
   "SUM(CASE WHEN j.Status='FAILED' AND ISNULL(j.ErrorMessage,'') NOT LIKE '[[]CANCELLED]%' THEN 1 ELSE 0 END) FailedJobs," & _
-  "SUM(CASE WHEN j.Status IN('WAITING','CLAIMED','TRANSFERRING') THEN 1 ELSE 0 END) ActiveJobs," & _
-  "SUM(CONVERT(BIGINT,j.ProcessedStudents)) ProcessedStudents," & _
-  "AVG(CASE WHEN j.StartedAt IS NOT NULL AND j.CompletedAt IS NOT NULL THEN CONVERT(DECIMAL(18,2),DATEDIFF(SECOND,j.StartedAt,j.CompletedAt)) END) AverageSeconds," & _
-  "MAX(j.CompletedAt) LastCompletedAt FROM dbo.BackupTransferJob j WHERE " & FilterSql()
+   "SUM(CONVERT(BIGINT,j.ProcessedStudents)) ProcessedStudents," & _
+   "AVG(CASE WHEN j.StartedAt IS NOT NULL AND j.CompletedAt IS NOT NULL THEN CONVERT(DECIMAL(18,2),DATEDIFF(SECOND,j.StartedAt,j.CompletedAt)) END) AverageSeconds FROM dbo.BackupTransferJob j WHERE " & FilterSql()
  Using cmd As New SqlCommand(sql,cnsr)
   AddReportParameters(cmd,startDate,endDate)
   cnsr.Open()
@@ -142,10 +150,8 @@ Private Sub LoadSummary(startDate As DateTime,endDate As DateTime)
     litSuccessJobs.Text=NumberValue(rd("SuccessJobs"))
     litFailedJobs.Text=NumberValue(rd("FailedJobs"))
     litCancelledJobs.Text=NumberValue(rd("CancelledJobs"))
-    litActiveJobs.Text=NumberValue(rd("ActiveJobs"))
     litProcessedStudents.Text=NumberValue(rd("ProcessedStudents"))
     litAverageDuration.Text=If(IsDBNull(rd("AverageSeconds")),"-",FormatDuration(Convert.ToInt64(Math.Round(Convert.ToDouble(rd("AverageSeconds"))))))
-    litLastCompleted.Text=If(IsDBNull(rd("LastCompletedAt")),"-",Convert.ToDateTime(rd("LastCompletedAt")).ToString("dd MMM yyyy HH:mm"))
    End If
   End Using
  End Using
@@ -154,7 +160,7 @@ End Sub
 
 Private Function GetJobDetails(startDate As DateTime,endDate As DateTime) As DataTable
  Dim data As New DataTable()
- Dim sql="SELECT TOP(100) j.JobId,j.OperationType,j.TriggerSource,j.CutoffThAkdk,j.StudentNim,j.RestoreThAkdkList,j.SelectedTables,j.Status,j.ProcessedStudents,j.TotalStudents,j.RequestedBy,j.CreatedAt,j.StartedAt,j.CompletedAt,j.ErrorMessage FROM dbo.BackupTransferJob j WHERE " & FilterSql() & " ORDER BY j.CreatedAt DESC"
+ Dim sql="SELECT TOP(100) j.JobId,j.OperationType,j.TriggerSource,j.CutoffThAkdk,j.StudentNim,j.RestoreThAkdkList,j.SelectedTables,j.Status,j.ProcessedStudents,j.TotalStudents,j.RequestedBy,j.CreatedAt,j.StartedAt,j.CompletedAt,j.ErrorMessage FROM dbo.BackupTransferJob j WHERE " & FilterSql() & " ORDER BY j.CreatedAt DESC,j.JobId DESC"
  Using cmd As New SqlCommand(sql,cnsr)
   AddReportParameters(cmd,startDate,endDate)
   Using ad As New SqlDataAdapter(cmd):ad.Fill(data):End Using
@@ -168,7 +174,7 @@ Private Function GetJobDetails(startDate As DateTime,endDate As DateTime) As Dat
   row("OperationLabel")=OperationText(row("OperationType").ToString())
   row("StatusLabel")=StatusText(row("Status").ToString(),If(row.IsNull("ErrorMessage"),"",row("ErrorMessage").ToString()))
   row("ScopeLabel")=ScopeText(row)
-  row("TableLabel")=TableText(row("SelectedTables").ToString())
+  row("TableLabel")=BackupTableLabels(row("SelectedTables").ToString())
  row("DurationLabel")=If(row.IsNull("StartedAt") OrElse row.IsNull("CompletedAt"),"-",FormatDuration(CLng((CType(row("CompletedAt"),DateTime)-CType(row("StartedAt"),DateTime)).TotalSeconds)))
  Next
  Return data
@@ -183,7 +189,7 @@ End Sub
 
 Private Function GetInventorySummary() As DataTable
  Dim data As New DataTable()
- Dim sql="SELECT p.ThAkdk,p.StudentCount BackupStudents,p.LatestStudentCount,p.UpdatedAt FROM dbo.BackupAgentPeriodInventory p JOIN dbo.BackupAgentNode a ON a.AgentName=p.AgentName WHERE a.IsPrimary=1 AND a.IsEnabled=1 AND (@ThAkdk='' OR p.ThAkdk=@ThAkdk) ORDER BY p.ThAkdk DESC"
+ Dim sql="SELECT p.ThAkdk,p.StudentCount BackupStudents,p.LatestStudentCount,p.UpdatedAt FROM dbo.BackupAgentPeriodInventory p JOIN dbo.BackupAgentNode a ON a.AgentId=p.AgentId WHERE a.IsPrimary=1 AND a.IsEnabled=1 AND (@ThAkdk='' OR p.ThAkdk=@ThAkdk) ORDER BY p.ThAkdk DESC"
  Using cmd As New SqlCommand(sql,cnsr)
   cmd.Parameters.Add("@ThAkdk",SqlDbType.Char,5).Value=ddlAcademicPeriod.SelectedValue
   Using ad As New SqlDataAdapter(cmd):ad.Fill(data):End Using
@@ -210,10 +216,6 @@ Private Function NumberValue(value As Object) As String
  Return Convert.ToInt64(value).ToString("N0")
 End Function
 
-Private Function NumericLong(value As Object) As Long
- If value Is Nothing OrElse IsDBNull(value) Then Return 0
- Return Convert.ToInt64(value)
-End Function
 
 Private Function OperationText(value As String) As String
  Select Case value.Trim().ToUpperInvariant()
@@ -254,18 +256,6 @@ Private Function ScopeText(row As DataRow) As String
  Return "Database Backup"
 End Function
 
-Private Function TableText(value As String) As String
- Dim labels As New System.Collections.Generic.List(Of String)()
- For Each tableName In value.Split(","c)
-  Select Case tableName.Trim().ToLowerInvariant()
-   Case "tbio01":labels.Add("Biodata")
-   Case "treg":labels.Add("Registrasi")
-   Case "tkrs06":labels.Add("KRS")
-   Case "t_absensi14":labels.Add("Absensi")
-  End Select
- Next
- Return If(labels.Count=0,"-",String.Join(", ",labels.ToArray()))
-End Function
 
 Private Function FormatDuration(totalSeconds As Long) As String
  If totalSeconds<0 Then Return "-"
@@ -310,10 +300,8 @@ End Function
   <div class="summary-card summary-card-success"><span class="summary-card-icon"><i class="fa fa-check-circle"></i></span><div class="summary-card-content"><span>Berhasil</span><strong><asp:Literal ID="litSuccessJobs" runat="server" /></strong></div></div>
   <div class="summary-card summary-card-danger"><span class="summary-card-icon"><i class="fa fa-times-circle"></i></span><div class="summary-card-content"><span>Gagal</span><strong><asp:Literal ID="litFailedJobs" runat="server" /></strong></div></div>
   <div class="summary-card summary-card-warning"><span class="summary-card-icon"><i class="fa fa-ban"></i></span><div class="summary-card-content"><span>Dibatalkan</span><strong><asp:Literal ID="litCancelledJobs" runat="server" /></strong></div></div>
-  <div class="summary-card summary-card-info"><span class="summary-card-icon"><i class="fa fa-spinner"></i></span><div class="summary-card-content"><span>Sedang Diproses</span><strong><asp:Literal ID="litActiveJobs" runat="server" /></strong></div></div>
   <div class="summary-card summary-card-primary"><span class="summary-card-icon"><i class="fa fa-users"></i></span><div class="summary-card-content"><span>Mahasiswa Diproses</span><strong><asp:Literal ID="litProcessedStudents" runat="server" /></strong></div></div>
   <div class="summary-card summary-card-neutral"><span class="summary-card-icon"><i class="fa fa-clock-o"></i></span><div class="summary-card-content"><span>Rata-rata Durasi</span><strong><asp:Literal ID="litAverageDuration" runat="server" /></strong></div></div>
-  <div class="summary-card summary-card-neutral"><span class="summary-card-icon"><i class="fa fa-calendar-check-o"></i></span><div class="summary-card-content"><span>Selesai Terakhir</span><strong class="summary-card-date"><asp:Literal ID="litLastCompleted" runat="server" /></strong></div></div>
  </div>
 
  <div class="panel panel-default">

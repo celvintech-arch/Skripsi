@@ -28,9 +28,9 @@ BEGIN
  IF @SelectionMode NOT IN('SINGLE','RANGE','UP_TO') THROW 51145,'Cakupan backup tidak valid.',1;
  IF @SelectionMode='RANGE' AND (@StartThAkdk IS NULL OR @StartThAkdk NOT LIKE '[0-9][0-9][0-9][0-9][0-9]') THROW 51146,'TA awal rentang harus lima digit.',1;
  IF @SelectionMode='RANGE' AND @StartThAkdk>@CutoffThAkdk BEGIN DECLARE @swap CHAR(5)=@StartThAkdk;SET @StartThAkdk=@CutoffThAkdk;SET @CutoffThAkdk=@swap;END;
- DECLARE @agent NVARCHAR(128),@job UNIQUEIDENTIFIER=NEWID(),@target NVARCHAR(30);
+ DECLARE @agent UNIQUEIDENTIFIER,@job UNIQUEIDENTIFIER=NEWID(),@target NVARCHAR(30);
  SET @target=CASE @SelectionMode WHEN 'SINGLE' THEN CONCAT('SINGLE:',@CutoffThAkdk) WHEN 'RANGE' THEN CONCAT('RANGE:',@StartThAkdk,'-',@CutoffThAkdk) ELSE CONCAT('UP_TO:',@CutoffThAkdk) END;
- SELECT @agent=AgentName FROM dbo.BackupAgentNode WHERE IsPrimary=1 AND IsEnabled=1;
+ SELECT @agent=AgentId FROM dbo.BackupAgentNode WHERE IsPrimary=1 AND IsEnabled=1;
  IF @agent IS NULL THROW 51103,'Node backup utama belum didaftarkan.',1;
  BEGIN TRAN;
  IF EXISTS(SELECT 1 FROM dbo.BackupTransferJob WITH(UPDLOCK,HOLDLOCK) WHERE OperationType='BACKUP' AND Status IN('WAITING','CLAIMED','TRANSFERRING'))
@@ -38,7 +38,7 @@ BEGIN
   ROLLBACK;
   THROW 51122,'Masih ada job backup aktif atau menunggu. Tunggu job tersebut selesai sebelum membuat job baru.',1;
  END;
- INSERT dbo.BackupTransferJob(JobId,AgentName,OperationType,TriggerSource,CutoffThAkdk,RestoreThAkdkList,SelectedTables,RequestedBy,Status)
+ INSERT dbo.BackupTransferJob(JobId,AgentId,OperationType,TriggerSource,CutoffThAkdk,RestoreThAkdkList,SelectedTables,RequestedBy,Status)
  VALUES(@job,@agent,'BACKUP',@TriggerSource,@CutoffThAkdk,@target,@SelectedTables,@RequestedBy,'WAITING');
  INSERT dbo.BackupTransferJobStudent(JobId,Nim1)
  SELECT DISTINCT @job,b.nim1
@@ -70,8 +70,8 @@ BEGIN
  IF EXISTS(SELECT 1 FROM @tables WHERE TableName<>'tbio01') AND NOT EXISTS(SELECT 1 FROM @tables WHERE TableName='tbio01') INSERT @tables VALUES('tbio01');
  SET @SelectedTables='tbio01'+CASE WHEN EXISTS(SELECT 1 FROM @tables WHERE TableName='treg') THEN ',treg' ELSE '' END+CASE WHEN EXISTS(SELECT 1 FROM @tables WHERE TableName='tkrs06') THEN ',tkrs06' ELSE '' END+CASE WHEN EXISTS(SELECT 1 FROM @tables WHERE TableName='t_absensi14') THEN ',t_absensi14' ELSE '' END;
  IF @StudentNim IS NULL OR LEN(@StudentNim)<>9 OR @StudentNim LIKE '%[^0-9A-Za-z]%' THROW 51142,'NIM harus tepat 9 karakter alfanumerik.',1;
- DECLARE @agent NVARCHAR(128),@job UNIQUEIDENTIFIER=NEWID(),@latestTa CHAR(5);
- SELECT @agent=AgentName FROM dbo.BackupAgentNode WHERE IsPrimary=1 AND IsEnabled=1;
+ DECLARE @agent UNIQUEIDENTIFIER,@job UNIQUEIDENTIFIER=NEWID(),@latestTa CHAR(5);
+ SELECT @agent=AgentId FROM dbo.BackupAgentNode WHERE IsPrimary=1 AND IsEnabled=1;
  IF @agent IS NULL THROW 51103,'Node backup utama belum didaftarkan.',1;
  SELECT TOP(1) @latestTa=LTRIM(RTRIM(r.th_akdk))
  FROM dbo.tbio01 b JOIN dbo.treg r ON r.nim1=b.nim1
@@ -83,7 +83,7 @@ BEGIN
   ROLLBACK;
   THROW 51122,'Masih ada job backup aktif atau menunggu. Tunggu job tersebut selesai sebelum membuat job baru.',1;
  END;
- INSERT dbo.BackupTransferJob(JobId,AgentName,OperationType,TriggerSource,CutoffThAkdk,StudentNim,SelectedTables,RequestedBy,Status,TotalStudents,ProgressMessage)
+ INSERT dbo.BackupTransferJob(JobId,AgentId,OperationType,TriggerSource,CutoffThAkdk,StudentNim,SelectedTables,RequestedBy,Status,TotalStudents,ProgressMessage)
  VALUES(@job,@agent,'BACKUP','MANUAL',@latestTa,@StudentNim,@SelectedTables,@RequestedBy,'WAITING',1,'Menunggu Database Backup');
  INSERT dbo.BackupTransferJobStudent(JobId,Nim1) VALUES(@job,@StudentNim);
  COMMIT;
