@@ -60,7 +60,7 @@ Private Sub LoadHistory()
   Dim lastPage=If(totalRows=0,0L,(totalRows-1) \ HistoryPageSize)
   HistoryPageIndex=Math.Min(HistoryPageIndex,lastPage)
   ViewState("HistoryLastPage")=lastPage
-  Dim historySql="SELECT j.JobId,j.OperationType,j.TriggerSource,j.CutoffThAkdk,j.StudentNim,j.RestoreThAkdkList,j.SelectedTables,j.Status,j.ProcessedStudents,j.CreatedAt,j.CompletedAt,j.ProgressMessage,j.ResultMessage,j.ErrorMessage,j.TotalStudents,j.VerificationStatus,j.VerificationSummary,j.VerifiedAt,(SELECT COUNT(*) FROM dbo.BackupTransferJobStudent s WHERE s.JobId=j.JobId) TrackedStudents FROM dbo.BackupTransferJob j" & HistoryWhereSql() & " ORDER BY j.CreatedAt DESC,j.JobId DESC OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY"
+  Dim historySql="SELECT j.JobId,j.OperationType,j.TriggerSource,j.CutoffThAkdk,j.StudentNim,j.RestoreThAkdkList,j.SelectedTables,j.Status,j.ProcessedStudents,j.CreatedAt,j.CompletedAt,j.ProgressMessage,j.ResultMessage,j.ErrorMessage,j.TotalStudents,(SELECT COUNT(*) FROM dbo.BackupTransferJobStudent s WHERE s.JobId=j.JobId) TrackedStudents FROM dbo.BackupTransferJob j" & HistoryWhereSql() & " ORDER BY j.CreatedAt DESC,j.JobId DESC OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY"
   Using cmd As New SqlCommand(historySql,cnsr)
    AddHistoryParameters(cmd)
    cmd.Parameters.Add("@Offset",SqlDbType.BigInt).Value=HistoryPageIndex*HistoryPageSize
@@ -78,8 +78,6 @@ Private Sub LoadHistory()
   data.Columns.Add("ProgressLabel",GetType(String))
   data.Columns.Add("TableLabel",GetType(String))
   data.Columns.Add("DetailLabel",GetType(String))
-  data.Columns.Add("VerificationBadgeHtml",GetType(String))
-  data.Columns.Add("CanResync",GetType(Boolean))
   For Each row As DataRow In data.Rows
    Dim operation=row("OperationType").ToString().Trim().ToUpperInvariant()
    Dim status=row("Status").ToString().Trim().ToUpperInvariant()
@@ -91,22 +89,6 @@ Private Sub LoadHistory()
    Dim processed=Convert.ToInt32(row("ProcessedStudents")),tracked=Convert.ToInt32(row("TrackedStudents")),storedTotal=If(row.IsNull("TotalStudents"),-1,Convert.ToInt32(row("TotalStudents"))),total=GetProgressTotal(storedTotal,tracked,operation,status,processed)
    row("ProgressLabel")=String.Format("{0:N0}",processed) & "/" & If(total>=0,String.Format("{0:N0}",total),"-")
    row("DetailLabel")=CleanProgressDetail(detail,operation,status,processed)
-   Dim vStatus=If(row.IsNull("VerificationStatus"),"UNVERIFIED",row("VerificationStatus").ToString().Trim().ToUpperInvariant())
-   Dim vSummary=If(row.IsNull("VerificationSummary"),"",row("VerificationSummary").ToString().Trim())
-   Dim isBackup=operation.Equals("BACKUP",StringComparison.OrdinalIgnoreCase)
-   Dim isSuccess=status.Equals("SUCCESS",StringComparison.OrdinalIgnoreCase)
-   row("CanResync")=(isBackup AndAlso isSuccess AndAlso vStatus="MISMATCH")
-   If isBackup AndAlso isSuccess Then
-    If vStatus="VERIFIED" Then
-     row("VerificationBadgeHtml")="<span class='label label-success' title='" & Server.HtmlEncode(vSummary) & "'><i class='fa fa-check' aria-hidden='true'></i> 100% Cocok</span>"
-    ElseIf vStatus="MISMATCH" Then
-     row("VerificationBadgeHtml")="<span class='label label-warning' title='" & Server.HtmlEncode(vSummary) & "'><i class='fa fa-exclamation-triangle' aria-hidden='true'></i> Selisih</span>"
-    Else
-     row("VerificationBadgeHtml")="<span class='label label-default' title='Belum diverifikasi'><i class='fa fa-clock-o' aria-hidden='true'></i> Belum diverifikasi</span>"
-    End If
-   Else
-    row("VerificationBadgeHtml")="<span class='text-muted'>-</span>"
-   End If
   Next
   gvProcessHistory.DataSource=data:gvProcessHistory.DataBind()
  Catch ex As Exception
@@ -183,82 +165,6 @@ Protected Sub HistoryPage_Command(sender As Object,e As CommandEventArgs)
   Case Else:Return
  End Select
  LoadHistory()
-End Sub
-
-Protected Sub gvProcessHistory_RowCommand(sender As Object,e As GridViewCommandEventArgs)
- If e.CommandName="ResyncJob" Then
-  Dim jobId As Guid
-  If Guid.TryParse(Convert.ToString(e.CommandArgument),jobId) Then
-   ResyncJob(jobId)
-  End If
- End If
-End Sub
-
-Private Sub ResyncJob(jobId As Guid)
- Try
-  Dim cutoffTa As String="",startTa As String="",mode As String="UP_TO",tables As String="",studentNim As String=""
-  Using cmd As New SqlCommand("SELECT CutoffThAkdk,StudentNim,RestoreThAkdkList,SelectedTables FROM dbo.BackupTransferJob WHERE JobId=@JobId AND OperationType='BACKUP'",cnsr)
-   cmd.Parameters.Add("@JobId",SqlDbType.UniqueIdentifier).Value=jobId
-   If cnsr.State=ConnectionState.Closed Then cnsr.Open()
-   Using rd=cmd.ExecuteReader()
-    If Not rd.Read() Then Throw New ApplicationException("Job backup tidak ditemukan.")
-    cutoffTa=If(rd.IsDBNull(0),"",rd(0).ToString().Trim())
-    studentNim=If(rd.IsDBNull(1),"",rd(1).ToString().Trim())
-    Dim scope=If(rd.IsDBNull(2),"",rd(2).ToString().Trim())
-    tables=If(rd.IsDBNull(3),"tbio01,treg,tkrs06,t_absensi14",rd(3).ToString().Trim())
-    If scope.StartsWith("SINGLE:",StringComparison.OrdinalIgnoreCase) Then
-     mode="SINGLE":cutoffTa=scope.Substring(7).Trim()
-    ElseIf scope.StartsWith("RANGE:",StringComparison.OrdinalIgnoreCase) Then
-     mode="RANGE"
-     Dim parts=scope.Substring(6).Split("-"c)
-     If parts.Length=2 Then startTa=parts(0).Trim():cutoffTa=parts(1).Trim()
-    ElseIf scope.StartsWith("UP_TO:",StringComparison.OrdinalIgnoreCase) Then
-     mode="UP_TO":cutoffTa=scope.Substring(6).Trim()
-    End If
-   End Using
-  End Using
-
-  If Not String.IsNullOrWhiteSpace(studentNim) Then
-   Using cmd As New SqlCommand("dbo.sp_CreateBackupNimTransferJob",cnsr)
-    cmd.CommandType=CommandType.StoredProcedure
-    cmd.Parameters.Add("@StudentNim",SqlDbType.Char,9).Value=studentNim
-    cmd.Parameters.Add("@RequestedBy",SqlDbType.VarChar,50).Value=BackupRequestedBy()
-    cmd.Parameters.Add("@SelectedTables",SqlDbType.VarChar,100).Value=tables
-    If cnsr.State=ConnectionState.Closed Then cnsr.Open()
-    cmd.ExecuteNonQuery()
-   End Using
-  Else
-   Using cmd As New SqlCommand("dbo.sp_CreateBackupTransferJob",cnsr)
-    cmd.CommandType=CommandType.StoredProcedure
-    cmd.Parameters.Add("@CutoffThAkdk",SqlDbType.Char,5).Value=cutoffTa
-    cmd.Parameters.Add("@RequestedBy",SqlDbType.VarChar,50).Value=BackupRequestedBy()
-    cmd.Parameters.Add("@TriggerSource",SqlDbType.VarChar,10).Value="MANUAL"
-    cmd.Parameters.Add("@SelectionMode",SqlDbType.VarChar,10).Value=mode
-    cmd.Parameters.Add("@StartThAkdk",SqlDbType.Char,5).Value=If(mode="RANGE",CObj(startTa),DBNull.Value)
-    cmd.Parameters.Add("@SelectedTables",SqlDbType.VarChar,100).Value=tables
-    If cnsr.State=ConnectionState.Closed Then cnsr.Open()
-    cmd.ExecuteNonQuery()
-   End Using
-  End If
-  ShowHistoryAlert("success","Sinkronisasi Ulang Didaftarkan","Job sinkronisasi ulang berhasil dibuat dan akan diproses otomatis oleh Database Backup.")
- Catch ex As Exception
-  ShowHistoryAlert("error","Gagal Mendaftarkan Sinkronisasi",BackupErrorMessage(ex))
- Finally
-  tutupsr()
- End Try
- LoadHistory()
-End Sub
-
-Private Sub ShowHistoryAlert(kind As String,title As String,msg As String)
- msg=BackupFriendlyText(msg)
- Dim alertType As String=If(kind="error","danger",kind)
- litHistoryMessage.Text="<div class='alert alert-" & alertType & "'><strong>" & Server.HtmlEncode(title) & "</strong> " & Server.HtmlEncode(msg) & "</div>"
- Dim safeTitle As String=HttpUtility.JavaScriptStringEncode(title,True)
- Dim safeMessage As String=HttpUtility.JavaScriptStringEncode(msg,True)
- Dim swalIcon As String=If(kind="error","error",kind)
- Dim confirmColor As String=If(kind="success","#00a65a","#dd4b39")
- Dim script As String="if (typeof Swal !== 'undefined') { Swal.fire({title: " & safeTitle & ", text: " & safeMessage & ", icon: '" & swalIcon & "', confirmButtonText: 'OK', confirmButtonColor: '" & confirmColor & "', width: '480px'}); }"
- ScriptManager.RegisterStartupScript(Me,Me.GetType(),"HistoryAlert_" & Guid.NewGuid().ToString("N"),script,True)
 End Sub
 
 Private Function GetTargetLabel(row As DataRow,operation As String,inventoryByYear As System.Collections.Generic.Dictionary(Of String,System.Collections.Generic.HashSet(Of String))) As String
@@ -367,19 +273,13 @@ End Function
  <div class="panel history-card">
   <div class="panel-heading"><i class="fa fa-history"></i> Riwayat Proses</div>
   <div class="table-responsive">
-   <asp:GridView ID="gvProcessHistory" runat="server" AutoGenerateColumns="false" AllowPaging="false" CssClass="table table-striped table-hover history-table" EmptyDataText="Belum ada riwayat proses selesai." GridLines="None" OnRowCommand="gvProcessHistory_RowCommand">
+   <asp:GridView ID="gvProcessHistory" runat="server" AutoGenerateColumns="false" AllowPaging="false" CssClass="table table-striped table-hover history-table" EmptyDataText="Belum ada riwayat proses selesai." GridLines="None">
     <Columns>
      <asp:BoundField DataField="CreatedAt" HeaderText="Dibuat" DataFormatString="{0:dd MMM yyyy HH:mm}" ItemStyle-Width="115px" HeaderStyle-Width="115px" />
-     <asp:BoundField DataField="OperationLabel" HeaderText="Operasi" ItemStyle-Width="250px" HeaderStyle-Width="250px" />
-     <asp:BoundField DataField="TableLabel" HeaderText="Tabel" ItemStyle-Width="190px" HeaderStyle-Width="190px" />
-     <asp:BoundField DataField="StatusLabel" HeaderText="Status" ItemStyle-CssClass="history-status" ItemStyle-Width="95px" HeaderStyle-Width="95px" />
-     <asp:BoundField DataField="ProgressLabel" HeaderText="Diproses" ItemStyle-HorizontalAlign="Right" ItemStyle-Width="90px" HeaderStyle-Width="90px" />
-     <asp:TemplateField HeaderText="Verifikasi" ItemStyle-Width="140px" HeaderStyle-Width="140px">
-      <ItemTemplate>
-       <%# Eval("VerificationBadgeHtml") %>
-       <asp:LinkButton ID="btnResync" runat="server" CssClass="btn btn-xs btn-danger" CommandName="ResyncJob" CommandArgument='<%# Eval("JobId") %>' Visible='<%# Eval("CanResync") %>' ToolTip="Sinkronkan ulang data untuk cakupan ini" OnClientClick="return backupConfirm(this, 'Jalankan sinkronisasi ulang untuk cakupan data ini sekarang? Hanya data tahun/cakupan ini yang akan disinkronkan kembali.', {title: 'Konfirmasi Sinkronisasi Ulang', confirmText: 'Ya, Sinkronkan'});"><i class="fa fa-refresh"></i> Sinkronkan</asp:LinkButton>
-      </ItemTemplate>
-     </asp:TemplateField>
+     <asp:BoundField DataField="OperationLabel" HeaderText="Operasi" ItemStyle-Width="270px" HeaderStyle-Width="270px" />
+     <asp:BoundField DataField="TableLabel" HeaderText="Tabel" ItemStyle-Width="210px" HeaderStyle-Width="210px" />
+     <asp:BoundField DataField="StatusLabel" HeaderText="Status" ItemStyle-CssClass="history-status" ItemStyle-Width="105px" HeaderStyle-Width="105px" />
+     <asp:BoundField DataField="ProgressLabel" HeaderText="Diproses" ItemStyle-HorizontalAlign="Right" ItemStyle-Width="95px" HeaderStyle-Width="95px" />
      <asp:BoundField DataField="CompletedAt" HeaderText="Selesai" DataFormatString="{0:dd MMM yyyy HH:mm}" NullDisplayText="-" ItemStyle-Width="115px" HeaderStyle-Width="115px" />
      <asp:BoundField DataField="DetailLabel" HeaderText="Keterangan" NullDisplayText="-" ItemStyle-CssClass="history-note" />
     </Columns>

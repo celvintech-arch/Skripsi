@@ -113,30 +113,15 @@ BEGIN
         ProgressMessage NVARCHAR(2000) NULL,
         ResultMessage NVARCHAR(2000) NULL,
         ErrorMessage NVARCHAR(2000) NULL,
-        VerificationStatus VARCHAR(20) NOT NULL CONSTRAINT DF_BackupTransferJob_VerificationStatus DEFAULT('UNVERIFIED'),
-        VerificationSummary NVARCHAR(2000) NULL,
-        VerifiedAt DATETIME2(0) NULL,
         CreatedAt DATETIME2(0) NOT NULL CONSTRAINT DF_BackupTransferJob_CreatedAt DEFAULT SYSDATETIME(),
         StartedAt DATETIME2(0) NULL,
         CompletedAt DATETIME2(0) NULL,
         CONSTRAINT FK_BackupTransferJob_Agent FOREIGN KEY(AgentId) REFERENCES dbo.BackupAgentNode(AgentId),
         CONSTRAINT CK_BackupTransferJob_Operation CHECK(OperationType IN('BACKUP','RESTORE','EXPORT')),
         CONSTRAINT CK_BackupTransferJob_Trigger CHECK(TriggerSource IN('MANUAL','SCHEDULED')),
-        CONSTRAINT CK_BackupTransferJob_Status CHECK(Status IN('WAITING','CLAIMED','TRANSFERRING','SUCCESS','FAILED')),
-        CONSTRAINT CK_BackupTransferJob_VerificationStatus CHECK(VerificationStatus IN('UNVERIFIED','VERIFIED','MISMATCH'))
+        CONSTRAINT CK_BackupTransferJob_Status CHECK(Status IN('WAITING','CLAIMED','TRANSFERRING','SUCCESS','FAILED'))
     );
 END;
-GO
-
-/* Migrasi kolom verifikasi integritas backup */
-IF COL_LENGTH(N'dbo.BackupTransferJob',N'VerificationStatus') IS NULL
-    ALTER TABLE dbo.BackupTransferJob ADD VerificationStatus VARCHAR(20) NOT NULL CONSTRAINT DF_BackupTransferJob_VerificationStatus DEFAULT('UNVERIFIED');
-GO
-IF COL_LENGTH(N'dbo.BackupTransferJob',N'VerificationSummary') IS NULL
-    ALTER TABLE dbo.BackupTransferJob ADD VerificationSummary NVARCHAR(2000) NULL;
-GO
-IF COL_LENGTH(N'dbo.BackupTransferJob',N'VerifiedAt') IS NULL
-    ALTER TABLE dbo.BackupTransferJob ADD VerifiedAt DATETIME2(0) NULL;
 GO
 
 /* Migrasi instalasi lama: petakan AgentName ke AgentId sebelum mengganti FK. */

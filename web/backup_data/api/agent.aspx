@@ -435,87 +435,7 @@
   End Using
  End Sub
 
-  Private Function VerifyLiveBackupData(cn As SqlConnection, jobId As Guid, verifyDict As Dictionary(Of String, Object)) As Object()
-   Dim selectedTables As List(Of String)
-   Dim scope As String = ""
-   Dim studentNim As String = ""
-   Using cmd As New SqlCommand("SELECT ISNULL(RestoreThAkdkList,''), SelectedTables, ISNULL(StudentNim,'') FROM dbo.BackupTransferJob WHERE JobId=@j", cn)
-    cmd.Parameters.Add("@j", SqlDbType.UniqueIdentifier).Value = jobId
-    Using rd = cmd.ExecuteReader()
-     If Not rd.Read() Then Return New Object() { "UNVERIFIED", "Job tidak ditemukan.", False }
-     scope = rd(0).ToString().Trim().ToUpperInvariant()
-     selectedTables = NormalizeSelectedTables(rd(1).ToString())
-     studentNim = rd(2).ToString().Trim()
-    End Using
-   End Using
-
-   Dim allMatched As Boolean = True
-   Dim summaries As New List(Of String)()
-   Dim mismatches As New List(Of String)()
-
-   For Each tableName In selectedTables
-    Dim liveCount As Long = 0
-    Dim liveChecksum As Long = 0
-    Using cmd As New SqlCommand("", cn)
-     Dim sql As String = ""
-     If Not String.IsNullOrWhiteSpace(studentNim) Then
-      cmd.Parameters.Add("@nim", SqlDbType.Char, 9).Value = studentNim
-      sql = "SELECT COUNT(*) AS RowCnt, ISNULL(CHECKSUM_AGG(BINARY_CHECKSUM(*)), 0) AS ChkSum FROM dbo." & tableName & " WHERE nim1=@nim"
-     ElseIf tableName = "tbio01" Then
-      cmd.Parameters.Add("@j", SqlDbType.UniqueIdentifier).Value = jobId
-      sql = "SELECT COUNT(*) AS RowCnt, ISNULL(CHECKSUM_AGG(BINARY_CHECKSUM(*)), 0) AS ChkSum FROM dbo.tbio01 WHERE nim1 IN (SELECT Nim1 FROM dbo.BackupTransferJobStudent WHERE JobId=@j AND Status='COPIED')"
-     Else
-      cmd.Parameters.Add("@j", SqlDbType.UniqueIdentifier).Value = jobId
-      sql = "SELECT COUNT(*) AS RowCnt, ISNULL(CHECKSUM_AGG(BINARY_CHECKSUM(*)), 0) AS ChkSum FROM dbo." & tableName & " WHERE nim1 IN (SELECT Nim1 FROM dbo.BackupTransferJobStudent WHERE JobId=@j AND Status='COPIED')"
-      AddBackupScopeFilter(cmd, tableName, scope, sql)
-     End If
-     cmd.CommandText = sql
-     Using rd = cmd.ExecuteReader()
-      If rd.Read() Then
-       liveCount = Convert.ToInt64(rd("RowCnt"))
-       liveChecksum = Convert.ToInt64(rd("ChkSum"))
-      End If
-     End Using
-    End Using
-
-    Dim tableKey = tableName.ToLowerInvariant()
-    If Not verifyDict.ContainsKey(tableKey) Then
-     allMatched = False
-     mismatches.Add(tableName & ": Data metrik backup tidak tersedia")
-     Continue For
-    End If
-
-    Dim backupTableData = TryCast(verifyDict(tableKey), Dictionary(Of String, Object))
-    If backupTableData Is Nothing Then
-     allMatched = False
-     mismatches.Add(tableName & ": Format metrik backup tidak valid")
-     Continue For
-    End If
-
-    Dim backupCount As Long = 0
-    Dim backupChecksum As Long = 0
-    If backupTableData.ContainsKey("rowCount") Then Long.TryParse(backupTableData("rowCount").ToString(), backupCount)
-    If backupTableData.ContainsKey("checksum") Then Long.TryParse(backupTableData("checksum").ToString(), backupChecksum)
-
-    If liveCount = backupCount AndAlso liveChecksum = backupChecksum Then
-     summaries.Add(tableName & ": " & liveCount.ToString("N0") & " baris (Cocok)")
-    Else
-     allMatched = False
-     Dim diff As String = tableName & " berbeda (Live: " & liveCount.ToString("N0") & " vs Backup: " & backupCount.ToString("N0")
-     If liveChecksum <> backupChecksum Then diff &= ", Checksum beda"
-     diff &= ")"
-     mismatches.Add(diff)
-    End If
-   Next
-
-   If allMatched Then
-    Return New Object() { "VERIFIED", "Terverifikasi 100% Cocok (" & String.Join(", ", summaries.ToArray()) & ")", False }
-   Else
-    Return New Object() { "MISMATCH", "Selisih terdeteksi pada " & String.Join("; ", mismatches.ToArray()), True }
-   End If
-  End Function
-
-  Private Function BackupMetrics(cn As SqlConnection,apiKey As String,jobText As String,body As Dictionary(Of String,Object)) As Object
+ Private Function BackupMetrics(cn As SqlConnection,apiKey As String,jobText As String,body As Dictionary(Of String,Object)) As Object
   Dim jobId As Guid : If Not Guid.TryParse(jobText,jobId) Then Throw New HttpException(400,"Job tidak valid.")
   Dim phase=GetValue(body,"phase").Trim().ToLowerInvariant()
   If phase="baseline" Then
@@ -525,30 +445,10 @@
    End Using
   End If
   If phase<>"complete" Then Throw New HttpException(400,"Fase metrik backup tidak valid.")
-  Dim vStatus As String = "UNVERIFIED"
-  Dim vSummary As String = ""
-  If body.ContainsKey("verifyMetrics") AndAlso body("verifyMetrics") IsNot Nothing Then
-   Dim verifyDict = TryCast(body("verifyMetrics"), Dictionary(Of String, Object))
-   If verifyDict IsNot Nothing AndAlso verifyDict.Count > 0 Then
-    Dim vRes = VerifyLiveBackupData(cn, jobId, verifyDict)
-    vStatus = Convert.ToString(vRes(0))
-    vSummary = Convert.ToString(vRes(1))
-   End If
-  End If
-  Dim msgSuffix As String = ""
-  If vStatus = "VERIFIED" Then
-   msgSuffix = " & Terverifikasi (100% Cocok)"
-  ElseIf vStatus = "MISMATCH" Then
-   msgSuffix = " (Perhatian: Selisih data terdeteksi)"
-  End If
-  Using cmd As New SqlCommand("SET NOCOUNT ON; DECLARE @processed int=(SELECT ProcessedStudents FROM dbo.BackupTransferJob WHERE JobId=@j),@m nvarchar(2000); SET @m=CONCAT(ISNULL(@processed,0),' Data Mahasiswa Berhasil Dibackup',@suffix); UPDATE j SET ProgressMessage=NULL,ResultMessage=@m,ErrorMessage=NULL,VerificationStatus=@vStatus,VerificationSummary=@vSummary,VerifiedAt=CASE WHEN @vStatus<>'UNVERIFIED' THEN SYSDATETIME() ELSE VerifiedAt END FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentId=j.AgentId WHERE j.JobId=@j AND j.OperationType='BACKUP' AND j.Status='SUCCESS' AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t); IF @@ROWCOUNT<>1 THROW 51104,'Snapshot job atau token tidak valid.',1; SELECT @m Message;",cn)
-   cmd.Parameters.Add("@j",SqlDbType.UniqueIdentifier).Value=jobId
-   cmd.Parameters.Add("@t",SqlDbType.NVarChar,256).Value=apiKey
-   cmd.Parameters.Add("@suffix",SqlDbType.NVarChar,100).Value=msgSuffix
-   cmd.Parameters.Add("@vStatus",SqlDbType.VarChar,20).Value=vStatus
-   cmd.Parameters.Add("@vSummary",SqlDbType.NVarChar,2000).Value=If(String.IsNullOrWhiteSpace(vSummary),CObj(DBNull.Value),vSummary)
-   Dim finalMsg = Convert.ToString(cmd.ExecuteScalar())
-   Return New With {.ok=True,.message=finalMsg,.verificationStatus=vStatus,.verificationSummary=vSummary}
+  ' Payload metrik lama tetap diterima; riwayat hanya menyimpan ringkasan proses.
+  Using cmd As New SqlCommand("SET NOCOUNT ON; DECLARE @processed int=(SELECT ProcessedStudents FROM dbo.BackupTransferJob WHERE JobId=@j),@m nvarchar(2000); SET @m=CONCAT(ISNULL(@processed,0),' Data Mahasiswa Berhasil Dibackup'); UPDATE j SET ProgressMessage=NULL,ResultMessage=@m,ErrorMessage=NULL FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentId=j.AgentId WHERE j.JobId=@j AND j.OperationType='BACKUP' AND j.Status='SUCCESS' AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t); IF @@ROWCOUNT<>1 THROW 51104,'Snapshot job atau token tidak valid.',1; SELECT @m Message;",cn)
+   cmd.Parameters.Add("@j",SqlDbType.UniqueIdentifier).Value=jobId:cmd.Parameters.Add("@t",SqlDbType.NVarChar,256).Value=apiKey
+   Return New With {.ok=True,.message=Convert.ToString(cmd.ExecuteScalar())}
   End Using
  End Function
 
