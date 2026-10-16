@@ -67,8 +67,9 @@ Private Sub LoadHistory()
    cmd.Parameters.Add("@PageSize",SqlDbType.Int).Value=HistoryPageSize
    Using ad As New SqlDataAdapter(cmd):ad.Fill(data):End Using
   End Using
-  pnlHistoryPager.Visible=(totalRows>0)
-  lblHistoryPage.Text="Halaman " & (HistoryPageIndex+1).ToString("N0") & " dari " & (lastPage+1).ToString("N0") & " (" & totalRows.ToString("N0") & " proses)"
+  pnlHistoryPager.Visible=(lastPage>0)
+  lblHistoryPage.Text=(HistoryPageIndex+1).ToString("N0") & " / " & (lastPage+1).ToString("N0")
+  lblHistoryPage.ToolTip=totalRows.ToString("N0") & " proses"
   btnHistoryFirst.Enabled=(HistoryPageIndex>0):btnHistoryPrevious.Enabled=(HistoryPageIndex>0)
   btnHistoryNext.Enabled=(HistoryPageIndex<lastPage):btnHistoryLast.Enabled=(HistoryPageIndex<lastPage)
   Dim inventoryByYear=LoadInventoryPeriodsByYear()
@@ -92,7 +93,7 @@ Private Sub LoadHistory()
   gvProcessHistory.DataSource=data:gvProcessHistory.DataBind()
  Catch ex As Exception
   pnlHistoryPager.Visible=False
-  litHistoryMessage.Text="<div class='alert alert-danger'><strong>Gagal memuat riwayat.</strong> " & Server.HtmlEncode(ex.Message) & "</div>"
+  litHistoryMessage.Text="<div class='alert alert-danger'><strong>Gagal memuat riwayat.</strong> " & Server.HtmlEncode(BackupErrorMessage(ex)) & "</div>"
  Finally
   tutupsr()
  End Try
@@ -139,7 +140,7 @@ Private Function CleanProgressDetail(detail As String,operation As String,status
   End If
   Return restoredMessage
  End If
- If operation="BACKUP" AndAlso (cleaned.StartsWith("Menyalin batch backup",StringComparison.OrdinalIgnoreCase) OrElse cleaned.StartsWith("Mengonfirmasi batch backup",StringComparison.OrdinalIgnoreCase) OrElse cleaned.StartsWith("Proses Backup",StringComparison.OrdinalIgnoreCase) OrElse cleaned.StartsWith("Proses Backup",StringComparison.OrdinalIgnoreCase)) Then
+ If operation="BACKUP" AndAlso (cleaned.StartsWith("Menyalin batch backup",StringComparison.OrdinalIgnoreCase) OrElse cleaned.StartsWith("Mengonfirmasi batch backup",StringComparison.OrdinalIgnoreCase) OrElse cleaned.StartsWith("Proses Backup",StringComparison.OrdinalIgnoreCase)) Then
   Return "Proses Backup"
  End If
  If operation="RESTORE" AndAlso (cleaned.StartsWith("Menyiapkan pemulihan",StringComparison.OrdinalIgnoreCase) OrElse cleaned.StartsWith("Mengirim batch pemulihan",StringComparison.OrdinalIgnoreCase) OrElse cleaned.StartsWith("Menyelesaikan pemulihan",StringComparison.OrdinalIgnoreCase) OrElse cleaned.StartsWith("Proses Pemulihan",StringComparison.OrdinalIgnoreCase)) Then
@@ -283,12 +284,12 @@ End Function
      <asp:BoundField DataField="DetailLabel" HeaderText="Keterangan" NullDisplayText="-" ItemStyle-CssClass="history-note" />
     </Columns>
    </asp:GridView>
-   <asp:Panel ID="pnlHistoryPager" runat="server" CssClass="panel-footer text-center" Visible="false">
-    <asp:Button ID="btnHistoryFirst" runat="server" Text="Awal" CssClass="btn btn-default btn-sm" CommandArgument="first" OnCommand="HistoryPage_Command" CausesValidation="false" />
-    <asp:Button ID="btnHistoryPrevious" runat="server" Text="Sebelumnya" CssClass="btn btn-default btn-sm" CommandArgument="previous" OnCommand="HistoryPage_Command" CausesValidation="false" />
-    <asp:Label ID="lblHistoryPage" runat="server" />
-    <asp:Button ID="btnHistoryNext" runat="server" Text="Berikutnya" CssClass="btn btn-default btn-sm" CommandArgument="next" OnCommand="HistoryPage_Command" CausesValidation="false" />
-    <asp:Button ID="btnHistoryLast" runat="server" Text="Akhir" CssClass="btn btn-default btn-sm" CommandArgument="last" OnCommand="HistoryPage_Command" CausesValidation="false" />
+   <asp:Panel ID="pnlHistoryPager" runat="server" CssClass="panel-footer history-pager" Visible="false">
+    <asp:Button ID="btnHistoryFirst" runat="server" Text="«" CssClass="history-pager-button" CommandArgument="first" OnCommand="HistoryPage_Command" CausesValidation="false" ToolTip="Halaman pertama" aria-label="Halaman pertama" />
+    <asp:Button ID="btnHistoryPrevious" runat="server" Text="‹" CssClass="history-pager-button" CommandArgument="previous" OnCommand="HistoryPage_Command" CausesValidation="false" ToolTip="Halaman sebelumnya" aria-label="Halaman sebelumnya" />
+    <asp:Label ID="lblHistoryPage" runat="server" CssClass="history-pager-label" />
+    <asp:Button ID="btnHistoryNext" runat="server" Text="›" CssClass="history-pager-button" CommandArgument="next" OnCommand="HistoryPage_Command" CausesValidation="false" ToolTip="Halaman berikutnya" aria-label="Halaman berikutnya" />
+    <asp:Button ID="btnHistoryLast" runat="server" Text="»" CssClass="history-pager-button" CommandArgument="last" OnCommand="HistoryPage_Command" CausesValidation="false" ToolTip="Halaman terakhir" aria-label="Halaman terakhir" />
    </asp:Panel>
   </div>
  </div>

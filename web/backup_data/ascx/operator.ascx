@@ -28,7 +28,7 @@ Private Sub LoadOperators()
   gvOperators.DataSource=data:gvOperators.DataBind()
   lblOperatorCount.Text=data.Rows.Count.ToString("N0") & " pengguna terdaftar"
  Catch ex As Exception
-  ShowOperatorAlert("danger","Gagal memuat operator",ex.Message)
+  ShowOperatorAlert("danger","Gagal memuat operator",BackupErrorMessage(ex))
  Finally:tutupsr():End Try
 End Sub
 
@@ -43,7 +43,7 @@ Protected Sub btnAddOperator_Click(sender As Object,e As EventArgs)
   txtOperatorId.Text=""
   ShowOperatorAlert("success","Pengguna tersimpan","ID " & userId & " terdaftar sebagai " & RoleText(accessRole) & ".")
  Catch ex As Exception
-  ShowOperatorAlert("danger","Gagal menyimpan operator",ex.Message)
+  ShowOperatorAlert("danger","Gagal menyimpan operator",BackupErrorMessage(ex))
  Finally:tutupsr():End Try
  LoadOperators()
 End Sub
@@ -65,7 +65,7 @@ Protected Sub gvOperators_RowCommand(sender As Object,e As GridViewCommandEventA
    ShowOperatorAlert("success","Peran diperbarui","Pengguna " & userId & " sekarang menjadi " & RoleText(accessRole) & ".")
   End If
  Catch ex As Exception
-  ShowOperatorAlert("danger","Gagal memperbarui operator",ex.Message)
+  ShowOperatorAlert("danger","Gagal memperbarui operator",BackupErrorMessage(ex))
  Finally:tutupsr():End Try
  LoadOperators()
 End Sub

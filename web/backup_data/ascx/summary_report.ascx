@@ -47,7 +47,7 @@ Protected Sub btnExportPdf_Click(sender As Object,e As EventArgs)
   Response.SuppressContent=True
   HttpContext.Current.ApplicationInstance.CompleteRequest()
  Catch ex As Exception
-  litReportMessage.Text="<div class='alert alert-danger'><strong>PDF gagal dibuat.</strong> " & Server.HtmlEncode(ex.Message) & "</div>"
+  litReportMessage.Text="<div class='alert alert-danger'><strong>PDF gagal dibuat.</strong> " & Server.HtmlEncode(BackupErrorMessage(ex)) & "</div>"
  Finally
   tutupsr()
  End Try
@@ -67,7 +67,7 @@ Private Sub LoadAcademicPeriods()
    End Using
   End Using
  Catch ex As Exception
-  litReportMessage.Text="<div class='alert alert-warning'><strong>Daftar Tahun Akademik belum tersedia.</strong> " & Server.HtmlEncode(ex.Message) & "</div>"
+  litReportMessage.Text="<div class='alert alert-warning'><strong>Daftar Tahun Akademik belum tersedia.</strong> " & Server.HtmlEncode(BackupErrorMessage(ex)) & "</div>"
  Finally
   tutupsr()
  End Try
@@ -128,7 +128,7 @@ Private Sub LoadReport()
   LoadInventorySummary()
   litReportPeriod.Text=startDate.ToString("dd MMM yyyy") & " - " & endDate.ToString("dd MMM yyyy")
  Catch ex As Exception
-  litReportMessage.Text="<div class='alert alert-danger'><strong>Laporan gagal dimuat.</strong> " & Server.HtmlEncode(ex.Message) & "</div>"
+  litReportMessage.Text="<div class='alert alert-danger'><strong>Laporan gagal dimuat.</strong> " & Server.HtmlEncode(BackupErrorMessage(ex)) & "</div>"
  Finally
   tutupsr()
  End Try

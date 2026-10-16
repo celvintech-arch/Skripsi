@@ -41,12 +41,22 @@
    Dim apiKey=If(context.Request.Headers("X-Backup-Agent-Key"),"").Trim()
    If apiKey.Length<32 OrElse apiKey.Length>256 Then Throw New HttpException(401,"Token agent tidak tersedia atau tidak valid.")
 
-   Dim body=TryCast(CreateJsonSerializer().DeserializeObject(New StreamReader(context.Request.InputStream).ReadToEnd()),Dictionary(Of String,Object))
-   If body Is Nothing Then body=New Dictionary(Of String,Object)()
+   Dim payload As String
+   Using reader As New StreamReader(context.Request.InputStream)
+    payload=reader.ReadToEnd()
+   End Using
+   If payload.Length>104857600 Then Throw New HttpException(413,"Payload melebihi batas 100 MB.")
+   Dim body As Dictionary(Of String,Object)
+   Try
+    body=TryCast(CreateJsonSerializer().DeserializeObject(payload),Dictionary(Of String,Object))
+   Catch ex As ArgumentException
+    Throw New HttpException(400,"Payload JSON tidak valid.")
+   End Try
+   If body Is Nothing Then Throw New HttpException(400,"Payload JSON harus berupa objek.")
    Dim ready=String.Equals(GetValue(body,"databaseReady"),"true",StringComparison.OrdinalIgnoreCase),msg=GetValue(body,"message")
    Using cn As New SqlConnection(GetBackupLiveSqlConnectionString())
     cn.Open()
-    Dim agentName=Authenticate(cn,apiKey,ready,msg)
+    Dim agentName=Authenticate(cn,apiKey,ready,msg,String.Equals(action,"heartbeat",StringComparison.OrdinalIgnoreCase))
     Select Case action
      Case "heartbeat" : WriteJson(context,200,New With {.ok=True,.agentName=agentName,.serverTime=DateTime.Now.ToString("o"),.databaseReady=ready,.backupStatsReceived=msg.TrimStart().StartsWith("{")})
      Case "schema" : WriteJson(context,200,New With {.ok=True,.tables=GetSchema(cn)})
@@ -74,7 +84,16 @@
   End Try
  End Sub
 
- Private Function Authenticate(cn As SqlConnection,apiKey As String,ready As Boolean,message As String) As String
+ Private Function Authenticate(cn As SqlConnection,apiKey As String,ready As Boolean,message As String,updateStatusMessage As Boolean) As String
+  If Not updateStatusMessage Then
+   ' Aktivitas agent memperbarui waktu kontak tanpa menimpa status kesiapan atau statistik heartbeat.
+   Using authCommand As New SqlCommand("UPDATE dbo.BackupAgentNode SET LastSeenAt=SYSDATETIME() OUTPUT INSERTED.AgentName WHERE IsPrimary=1 AND IsEnabled=1 AND ApiKeyHash=HASHBYTES('SHA2_256',@ApiKey)",cn)
+    authCommand.Parameters.Add("@ApiKey",SqlDbType.NVarChar,256).Value=apiKey
+    Dim agentName=authCommand.ExecuteScalar()
+    If agentName Is Nothing OrElse agentName Is DBNull.Value Then Throw New HttpException(403,"Token agent tidak valid.")
+    Return Convert.ToString(agentName)
+   End Using
+  End If
   Using cmd As New SqlCommand("dbo.sp_AgentHeartbeat",cn)
    cmd.CommandType=CommandType.StoredProcedure
    cmd.Parameters.Add("@ApiKey",SqlDbType.NVarChar,256).Value=apiKey
@@ -89,7 +108,8 @@
 
  Private Function UpdateJobProgress(cn As SqlConnection,apiKey As String,jobText As String,body As Dictionary(Of String,Object)) As Object
   Dim jobId As Guid : If Not Guid.TryParse(jobText,jobId) Then Throw New HttpException(400,"Job tidak valid.")
-  Dim message=GetValue(body,"message"),totalStudents As Integer
+  Dim message=GetValue(body,"message"),totalStudents As Integer=0,totalText=GetValue(body,"totalStudents")
+  If Not String.IsNullOrWhiteSpace(totalText) AndAlso (Not Integer.TryParse(totalText,totalStudents) OrElse totalStudents<0) Then Throw New HttpException(400,"Total mahasiswa tidak valid.")
   If message.Length>500 Then message=message.Substring(0,500)
   Using cmd As New SqlCommand("SET NOCOUNT ON; UPDATE j SET LeaseExpiresAt=DATEADD(MINUTE,10,SYSDATETIME()),ProgressMessage=@m,TotalStudents=CASE WHEN @total>0 THEN @total ELSE TotalStudents END,ErrorMessage=NULL FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentId=j.AgentId WHERE j.JobId=@j AND j.Status IN('CLAIMED','TRANSFERRING') AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t); SELECT j.Status,j.ProcessedStudents,j.ProgressMessage,j.ErrorMessage FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentId=j.AgentId WHERE j.JobId=@j AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t);",cn)
    cmd.Parameters.Add("@j",SqlDbType.UniqueIdentifier).Value=jobId
@@ -152,7 +172,7 @@
   If body.ContainsKey("result") AndAlso body("result") IsNot Nothing Then resultJson=CreateJsonSerializer().Serialize(body("result"))
   If resultJson IsNot Nothing AndAlso resultJson.Length>2000000 Then Throw New HttpException(400,"Hasil lookup terlalu besar.")
   If errorMessage.Length>1000 Then errorMessage=errorMessage.Substring(0,1000)
-  Dim sql="SET NOCOUNT ON; UPDATE q SET Status=CASE WHEN @ok=1 THEN 'SUCCESS' ELSE 'FAILED' END,ResultJson=CASE WHEN @ok=1 THEN @json ELSE NULL END,ErrorMessage=CASE WHEN @ok=1 THEN NULL ELSE @error END,CompletedAt=SYSDATETIME(),LeaseExpiresAt=NULL,ExpiresAt=DATEADD(MINUTE,15,SYSDATETIME()) FROM dbo.BackupLookupRequest q JOIN dbo.BackupAgentNode a ON a.AgentId=q.AgentId WHERE q.LookupId=@id AND q.Status='CLAIMED' AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t); SELECT Status FROM dbo.BackupLookupRequest WHERE LookupId=@id;"
+  Dim sql="SET NOCOUNT ON; UPDATE q SET Status=CASE WHEN @ok=1 THEN 'SUCCESS' ELSE 'FAILED' END,ResultJson=CASE WHEN @ok=1 THEN @json ELSE NULL END,ErrorMessage=CASE WHEN @ok=1 THEN NULL ELSE @error END,CompletedAt=SYSDATETIME(),LeaseExpiresAt=NULL,ExpiresAt=DATEADD(MINUTE,15,SYSDATETIME()) FROM dbo.BackupLookupRequest q JOIN dbo.BackupAgentNode a ON a.AgentId=q.AgentId WHERE q.LookupId=@id AND q.Status='CLAIMED' AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t); SELECT q.Status FROM dbo.BackupLookupRequest q JOIN dbo.BackupAgentNode a ON a.AgentId=q.AgentId WHERE q.LookupId=@id AND q.Status IN('SUCCESS','FAILED') AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t);"
   Using cmd As New SqlCommand(sql,cn)
    cmd.Parameters.Add("@id",SqlDbType.UniqueIdentifier).Value=lookupId:cmd.Parameters.Add("@t",SqlDbType.NVarChar,256).Value=apiKey:cmd.Parameters.Add("@ok",SqlDbType.Bit).Value=succeeded
    cmd.Parameters.Add("@json",SqlDbType.NVarChar,-1).Value=If(resultJson Is Nothing,CObj(DBNull.Value),resultJson)
@@ -168,7 +188,9 @@
   If values Is Nothing OrElse values.Count=0 OrElse values.Count>500 Then Throw New HttpException(400,"Daftar NIM pemeriksaan tidak valid.")
   Dim unique As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
   For Each value In values
-   Dim nim=Convert.ToString(value).Trim():If nim.Length=9 Then unique.Add(nim)
+   Dim nim=Convert.ToString(value).Trim()
+   If Not IsStudentNim(nim) Then Throw New HttpException(400,"Daftar NIM pemeriksaan berisi NIM tidak valid.")
+   unique.Add(nim)
   Next
   If unique.Count=0 Then Throw New HttpException(400,"Daftar NIM pemeriksaan tidak berisi NIM valid.")
   Dim existing As New List(Of String)(),parameters As New List(Of String)()
@@ -363,10 +385,13 @@
   If Not Guid.TryParse(jobText,jobId) OrElse Not body.ContainsKey("tables") OrElse Not body.ContainsKey("nims") Then Throw New HttpException(400,"Payload pemulihan tidak valid.")
   Dim nims=TryCast(body("nims"),System.Collections.IList),tables=TryCast(body("tables"),Dictionary(Of String,Object))
   If nims Is Nothing OrElse tables Is Nothing OrElse nims.Count=0 OrElse nims.Count>500 Then Throw New HttpException(400,"Batch pemulihan tidak valid.")
+  For Each value In nims
+   If Not IsStudentNim(Convert.ToString(value).Trim()) Then Throw New HttpException(400,"Batch pemulihan berisi NIM tidak valid.")
+  Next
   ValidateRestoreJob(cn,apiKey,jobId)
   Dim selectedTables=GetSelectedJobTables(cn,apiKey,jobId,"RESTORE")
   Dim newNims=GetUnrestoredNims(cn,jobId,nims)
-  Dim tx=cn.BeginTransaction()
+  Using tx=cn.BeginTransaction()
   Try
    Dim insertedNims As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
    If newNims.Count>0 Then
@@ -399,16 +424,16 @@
    If tx.Connection IsNot Nothing Then tx.Rollback()
    Throw
   End Try
+  End Using
  End Function
 
- Private Function ValidateRestoreJob(cn As SqlConnection,apiKey As String,jobId As Guid) As Boolean
+ Private Sub ValidateRestoreJob(cn As SqlConnection,apiKey As String,jobId As Guid)
   Using cmd As New SqlCommand("SELECT j.StudentNim FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentId=j.AgentId WHERE j.JobId=@j AND j.OperationType='RESTORE' AND j.Status IN('CLAIMED','TRANSFERRING') AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t)",cn)
    cmd.Parameters.Add("@j",SqlDbType.UniqueIdentifier).Value=jobId : cmd.Parameters.Add("@t",SqlDbType.NVarChar,256).Value=apiKey
    Dim value=cmd.ExecuteScalar()
    If value Is Nothing Then Throw New HttpException(403,"Job pemulihan atau token tidak valid.")
-   Return value IsNot DBNull.Value AndAlso Not String.IsNullOrWhiteSpace(Convert.ToString(value))
   End Using
- End Function
+ End Sub
 
  Private Function BackupMetrics(cn As SqlConnection,apiKey As String,jobText As String,body As Dictionary(Of String,Object)) As Object
   Dim jobId As Guid : If Not Guid.TryParse(jobText,jobId) Then Throw New HttpException(400,"Job tidak valid.")
@@ -420,37 +445,15 @@
    End Using
   End If
   If phase<>"complete" Then Throw New HttpException(400,"Fase metrik backup tidak valid.")
-  Dim liveBioBefore=BodyLong(body,"liveBioBefore"),liveRegBefore=BodyLong(body,"liveRegBefore"),liveKrsBefore=BodyLong(body,"liveKrsBefore"),liveAbsBefore=BodyLong(body,"liveAbsBefore")
-  Dim liveSizeBefore=BodyDouble(body,"liveSizeBefore")
-  Dim arcBioBefore=BodyLong(body,"arcBioBefore"),arcRegBefore=BodyLong(body,"arcRegBefore"),arcKrsBefore=BodyLong(body,"arcKrsBefore"),arcAbsBefore=BodyLong(body,"arcAbsBefore"),arcBioAfter=BodyLong(body,"arcBioAfter"),arcRegAfter=BodyLong(body,"arcRegAfter"),arcKrsAfter=BodyLong(body,"arcKrsAfter"),arcAbsAfter=BodyLong(body,"arcAbsAfter")
-  Dim arcSizeBefore=BodyDouble(body,"arcSizeBefore"),arcSizeAfter=BodyDouble(body,"arcSizeAfter")
+  ' Payload metrik lama tetap diterima; riwayat hanya menyimpan ringkasan proses.
   Using cmd As New SqlCommand("SET NOCOUNT ON; DECLARE @processed int=(SELECT ProcessedStudents FROM dbo.BackupTransferJob WHERE JobId=@j),@m nvarchar(2000); SET @m=CONCAT(ISNULL(@processed,0),' Data Mahasiswa Berhasil Dibackup'); UPDATE j SET ProgressMessage=NULL,ResultMessage=@m,ErrorMessage=NULL FROM dbo.BackupTransferJob j JOIN dbo.BackupAgentNode a ON a.AgentId=j.AgentId WHERE j.JobId=@j AND j.OperationType='BACKUP' AND j.Status='SUCCESS' AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t); IF @@ROWCOUNT<>1 THROW 51104,'Snapshot job atau token tidak valid.',1; SELECT @m Message;",cn)
    cmd.Parameters.Add("@j",SqlDbType.UniqueIdentifier).Value=jobId:cmd.Parameters.Add("@t",SqlDbType.NVarChar,256).Value=apiKey
-   cmd.Parameters.Add("@lbb",SqlDbType.BigInt).Value=liveBioBefore:cmd.Parameters.Add("@lrb",SqlDbType.BigInt).Value=liveRegBefore:cmd.Parameters.Add("@lkb",SqlDbType.BigInt).Value=liveKrsBefore:cmd.Parameters.Add("@lab",SqlDbType.BigInt).Value=liveAbsBefore
-   cmd.Parameters.Add("@lsb",SqlDbType.Decimal).Value=liveSizeBefore
-   cmd.Parameters.Add("@abb",SqlDbType.BigInt).Value=arcBioBefore:cmd.Parameters.Add("@arb",SqlDbType.BigInt).Value=arcRegBefore:cmd.Parameters.Add("@akb",SqlDbType.BigInt).Value=arcKrsBefore:cmd.Parameters.Add("@aab",SqlDbType.BigInt).Value=arcAbsBefore:cmd.Parameters.Add("@aba",SqlDbType.BigInt).Value=arcBioAfter:cmd.Parameters.Add("@ara",SqlDbType.BigInt).Value=arcRegAfter:cmd.Parameters.Add("@aka",SqlDbType.BigInt).Value=arcKrsAfter:cmd.Parameters.Add("@aaa",SqlDbType.BigInt).Value=arcAbsAfter
-   cmd.Parameters.Add("@asb",SqlDbType.Decimal).Value=arcSizeBefore:cmd.Parameters.Add("@asa",SqlDbType.Decimal).Value=arcSizeAfter
    Return New With {.ok=True,.message=Convert.ToString(cmd.ExecuteScalar())}
   End Using
  End Function
 
- Private Function BodyLong(body As Dictionary(Of String,Object),name As String) As Long
-  Try
-   If Not body.ContainsKey(name) OrElse body(name) Is Nothing Then Throw New Exception()
-   Dim value=Convert.ToInt64(body(name),CultureInfo.InvariantCulture):If value<0 Then Throw New Exception()
-   Return value
-  Catch
-   Throw New HttpException(400,"Metrik " & name & " tidak valid.")
-  End Try
- End Function
- Private Function BodyDouble(body As Dictionary(Of String,Object),name As String) As Double
-  Try
-   If Not body.ContainsKey(name) OrElse body(name) Is Nothing Then Throw New Exception()
-   Dim value=Convert.ToDouble(body(name),CultureInfo.InvariantCulture):If value<0 Then Throw New Exception()
-   Return value
-  Catch
-   Throw New HttpException(400,"Metrik " & name & " tidak valid.")
-  End Try
+ Private Function IsStudentNim(value As String) As Boolean
+  Return value IsNot Nothing AndAlso System.Text.RegularExpressions.Regex.IsMatch(value,"^[0-9]{9}$")
  End Function
 
  Private Sub RunScheduledBackup(cn As SqlConnection)
@@ -536,11 +539,11 @@
   Using cmd As New SqlCommand("",cn,tx)
    cmd.Parameters.Add("@j",SqlDbType.UniqueIdentifier).Value=jobId
    If conflicts.Count>0 Then
-    Dim ps As New List(Of String)(),i As Integer=0
+    Dim rows As New List(Of String)(),i As Integer=0
     For Each nim In conflicts
-     Dim pn="@s" & i.ToString() : ps.Add(pn) : cmd.Parameters.Add(pn,SqlDbType.Char,9).Value=nim : i+=1
+     Dim pn="@s" & i.ToString() : rows.Add("(" & pn & ")") : cmd.Parameters.Add(pn,SqlDbType.Char,9).Value=nim : i+=1
     Next
-    cmd.CommandText="UPDATE dbo.BackupTransferJobStudent SET Status='SKIPPED' WHERE JobId=@j AND Nim1 IN (" & String.Join(",",ps.ToArray()) & ");"
+    cmd.CommandText="MERGE dbo.BackupTransferJobStudent AS target USING(SELECT CONVERT(char(9),Nim1) Nim1 FROM (VALUES " & String.Join(",",rows.ToArray()) & ") source(Nim1)) AS incoming ON target.JobId=@j AND target.Nim1=incoming.Nim1 WHEN MATCHED THEN UPDATE SET Status='SKIPPED' WHEN NOT MATCHED THEN INSERT(JobId,Nim1,Status) VALUES(@j,incoming.Nim1,'SKIPPED');"
    End If
    cmd.CommandText &= "DECLARE @restored int=(SELECT COUNT(*) FROM dbo.BackupTransferJobStudent WHERE JobId=@j AND Status='RESTORED'),@skipped int=(SELECT COUNT(*) FROM dbo.BackupTransferJobStudent WHERE JobId=@j AND Status='SKIPPED'); UPDATE dbo.BackupTransferJob SET ProcessedStudents=@restored WHERE JobId=@j; SELECT @restored RestoredStudents,@skipped SkippedStudents;"
    Using rd=cmd.ExecuteReader()
@@ -706,7 +709,7 @@
  End Sub
  Private Function CreateJsonSerializer() As JavaScriptSerializer
   Dim serializer As New JavaScriptSerializer()
-  serializer.MaxJsonLength=Integer.MaxValue
+  serializer.MaxJsonLength=104857600
   serializer.RecursionLimit=200
   Return serializer
  End Function

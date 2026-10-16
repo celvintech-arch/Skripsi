@@ -5,8 +5,11 @@
 <%@ Import Namespace="System.Web.Script.Serialization" %>
 
 <script runat="server">
+    Protected IsStaffDashboard As Boolean = False
+
     Protected Sub Page_Load(ByVal sender As Object, ByVal e As EventArgs)
         RequireBackupReportAccess()
+        IsStaffDashboard = IsBackupStaff()
         If Not IsPostBack Then
             LoadMonitoringOverview()
             LoadDatabaseStats()
@@ -65,12 +68,14 @@
             End If
             gvActiveDashboard.DataSource=active:gvActiveDashboard.DataBind()
             litActiveProcessCount.Text=active.Rows.Count.ToString("N0")
+            If active.Rows.Count>0 Then litDashboardRefresh.Text="<script>window.setTimeout(function(){window.location.replace('index.aspx?tab=dashboard&poll='+Date.now());},10000);</" & "script>"
         Catch ex As Exception
-            litMonitoringMessage.Text="<div class='alert alert-warning'><strong>Ringkasan pemantauan belum dapat dimuat.</strong> " & Server.HtmlEncode(ex.Message) & "</div>"
+            litMonitoringMessage.Text="<div class='alert alert-warning'><strong>Ringkasan pemantauan belum dapat dimuat.</strong> " & Server.HtmlEncode(BackupErrorMessage(ex)) & "</div>"
             litServiceStatus.Text="<span class='monitor-status monitor-status-danger'>Belum siap</span>"
             litAgentName.Text="-":litLastHeartbeat.Text="-":litAgentMessage.Text="Status belum tersedia.":pnlAgentMessage.Visible=True
             litAutomaticStatus.Text="<span class='monitor-status monitor-status-neutral'>-</span>":litAutomaticFrequency.Text="-":litAutomaticScope.Text="-":litNextSchedule.Text="-"
             litLastBackup.Text="-":litLastRestore.Text="-":litLastExport.Text="-":litActiveProcessCount.Text="0"
+            litDashboardRefresh.Text=""
         End Try
     End Sub
 
@@ -109,11 +114,15 @@
 
     Private Sub LoadDatabaseStats()
         Try
-            Dim qryStat As String = "SELECT " & _
-                "(SELECT COUNT(*) FROM dbo.tbio01) AS LiveBio, " & _
-                "(SELECT COUNT(*) FROM dbo.treg) AS LiveReg, " & _
-                "(SELECT COUNT(*) FROM dbo.tkrs06) AS LiveKrs, " & _
-                "(SELECT COUNT(*) FROM dbo.t_absensi14) AS LiveAbs, " & _
+            ' Statistik fisik memakai metadata partisi, tanpa scan seluruh tabel pada setiap polling.
+            Dim qryStat As String = ";WITH PhysicalRows AS (" & _
+                "SELECT o.name,SUM(CONVERT(bigint,p.rows)) [RowCount] FROM sys.partitions p " & _
+                "JOIN sys.objects o ON o.object_id=p.object_id WHERE o.schema_id=SCHEMA_ID('dbo') " & _
+                "AND o.type='U' AND p.index_id IN(0,1) AND o.name IN('tbio01','treg','tkrs06','t_absensi14') GROUP BY o.name) SELECT " & _
+                "COALESCE((SELECT [RowCount] FROM PhysicalRows WHERE name='tbio01'),0) AS LiveBio, " & _
+                "COALESCE((SELECT [RowCount] FROM PhysicalRows WHERE name='treg'),0) AS LiveReg, " & _
+                "COALESCE((SELECT [RowCount] FROM PhysicalRows WHERE name='tkrs06'),0) AS LiveKrs, " & _
+                "COALESCE((SELECT [RowCount] FROM PhysicalRows WHERE name='t_absensi14'),0) AS LiveAbs, " & _
                 "(SELECT SUM(size * 8.0 / 1024.0) FROM sys.database_files WHERE type=0) AS SizeLive, " & _
                 "(SELECT TOP(1) LastMessage FROM dbo.BackupAgentNode WHERE IsPrimary=1 AND IsEnabled=1) AS BackupStatsJson"
             Dim stats As New DataTable()
@@ -138,8 +147,13 @@
             litBackupCount.Text=If(hasBackupStats,String.Format("{0:N0}",totalBackup),"-")
             litTotalCount.Text=If(hasBackupStats,String.Format("{0:N0}",totalLive+totalBackup),"-")
         Catch ex As Exception
-            If cnsr.State=ConnectionState.Open Then tutupsr()
-            litSizeBackup.Text="Status layanan backup belum tersedia"
+            System.Diagnostics.Trace.TraceError("Backup Data dashboard statistics: {0}",ex)
+            litSizeLive.Text="-":litSizeBackup.Text="-"
+            litLiveBio.Text="-":litLiveReg.Text="-":litLiveKrs.Text="-":litLiveAbs.Text="-"
+            litArcBio.Text="-":litArcReg.Text="-":litArcKrs.Text="-":litArcAbs.Text="-"
+            litTotalBio.Text="-":litTotalReg.Text="-":litTotalKrs.Text="-":litTotalAbs.Text="-"
+            litLiveCount.Text="-":litBackupCount.Text="-":litTotalCount.Text="-"
+            litMonitoringMessage.Text &= "<div class='alert alert-warning'>Statistik database belum dapat dimuat. Silakan muat ulang halaman.</div>"
         End Try
     End Sub
 
@@ -171,6 +185,77 @@
         </div>
     </div>
     <asp:Literal ID="litMonitoringMessage" runat="server" />
+    <asp:Literal ID="litDashboardRefresh" runat="server" />
+
+    <% If IsStaffDashboard Then %>
+    <section class="dashboard-menu-section" aria-labelledby="dashboardOperationalTitle">
+        <h2 id="dashboardOperationalTitle">Operasional</h2>
+        <nav class="dashboard-quick-menu dashboard-quick-menu-operational" aria-label="Menu operasional Backup Data">
+        <a class="dashboard-quick-card dashboard-quick-card-backup" href="index.aspx?tab=backup">
+            <span class="dashboard-quick-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false"><ellipse cx="12" cy="5" rx="7" ry="3"></ellipse><path d="M5 5v5c0 1.7 3.1 3 7 3s7-1.3 7-3V5"></path><path d="M5 10v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5"></path><path d="M5 15v4c0 1.7 3.1 3 7 3s7-1.3 7-3v-4"></path></svg>
+            </span>
+            <span class="dashboard-quick-content">
+                <strong>Backup Data</strong>
+            </span>
+            <svg class="dashboard-quick-arrow" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m9 18 6-6-6-6"></path></svg>
+        </a>
+        <a class="dashboard-quick-card dashboard-quick-card-restore" href="index.aspx?tab=pemulihan">
+            <span class="dashboard-quick-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false"><path d="M3 7v6h6"></path><path d="M5.5 17a8 8 0 1 0 .5-10L3 10"></path></svg>
+            </span>
+            <span class="dashboard-quick-content">
+                <strong>Pemulihan Data</strong>
+            </span>
+            <svg class="dashboard-quick-arrow" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m9 18 6-6-6-6"></path></svg>
+        </a>
+        <a class="dashboard-quick-card dashboard-quick-card-export" href="index.aspx?tab=ekspor">
+            <span class="dashboard-quick-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false"><ellipse cx="12" cy="5" rx="7" ry="3"></ellipse><path d="M5 5v5c0 1.7 3.1 3 7 3 1.1 0 2.2-.1 3.1-.3"></path><path d="M5 10v5c0 1.7 3.1 3 7 3"></path><path d="M16 15v6"></path><path d="m13.5 18.5 2.5 2.5 2.5-2.5"></path></svg>
+            </span>
+            <span class="dashboard-quick-content">
+                <strong>Ekspor Database</strong>
+            </span>
+            <svg class="dashboard-quick-arrow" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m9 18 6-6-6-6"></path></svg>
+        </a>
+        <a class="dashboard-quick-card dashboard-quick-card-users" href="index.aspx?tab=operator">
+            <span class="dashboard-quick-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false"><circle cx="9" cy="8" r="3"></circle><path d="M3.5 19c.5-3.2 2.4-5 5.5-5s5 1.8 5.5 5"></path><circle cx="17" cy="9" r="2.5"></circle><path d="M15.5 14.5c2.8-.7 5 .9 5.5 3.5"></path></svg>
+            </span>
+            <span class="dashboard-quick-content">
+                <strong>Pengelola Pengguna</strong>
+            </span>
+            <svg class="dashboard-quick-arrow" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m9 18 6-6-6-6"></path></svg>
+        </a>
+        </nav>
+    </section>
+    <% End If %>
+
+    <section class="dashboard-menu-section dashboard-monitoring-menu-section" aria-labelledby="dashboardMonitoringTitle">
+        <h2 id="dashboardMonitoringTitle">Pemantauan</h2>
+        <nav class="dashboard-quick-menu dashboard-quick-menu-monitoring" aria-label="Menu pemantauan Backup Data">
+        <a class="dashboard-quick-card" href="index.aspx?tab=summary">
+            <span class="dashboard-quick-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false"><path d="M4 20V10"></path><path d="M10 20V4"></path><path d="M16 20v-7"></path><path d="M22 20H2"></path></svg>
+            </span>
+            <span class="dashboard-quick-content">
+                <strong>Laporan</strong>
+            </span>
+            <svg class="dashboard-quick-arrow" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m9 18 6-6-6-6"></path></svg>
+        </a>
+        <% If IsStaffDashboard Then %>
+        <a class="dashboard-quick-card" href="index.aspx?tab=riwayat">
+            <span class="dashboard-quick-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path><path d="M3 3v5h5"></path><path d="M12 7v5l3 2"></path></svg>
+            </span>
+            <span class="dashboard-quick-content">
+                <strong>Riwayat Proses</strong>
+            </span>
+            <svg class="dashboard-quick-arrow" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m9 18 6-6-6-6"></path></svg>
+        </a>
+        <% End If %>
+        </nav>
+    </section>
 
     <div class="monitor-overview-grid">
         <section class="monitor-panel monitor-service-panel">
@@ -260,7 +345,7 @@
                 </thead>
                 <tbody>
                     <tr>
-                        <td class="backup-u-040"><i class="fa fa-user-circle text-primary me-2"></i> Biodata</td>
+                        <td class="backup-u-040"><i class="fa fa-user text-primary me-2"></i> Biodata</td>
                         <td class="text-center font-bold backup-u-020"><asp:Literal ID="litLiveBio" runat="server" /></td>
                         <td class="text-center backup-u-022"><asp:Literal ID="litArcBio" runat="server" /></td>
                         <td class="text-center backup-u-048"><asp:Literal ID="litTotalBio" runat="server" /></td>

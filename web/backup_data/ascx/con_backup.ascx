@@ -49,7 +49,16 @@
         End Get
     End Property
     Sub tutupsr()
-        If cnsr.State <> ConnectionState.Closed Then cnsr.Close()
+        If _backupSqlConnection IsNot Nothing AndAlso _backupSqlConnection.State <> ConnectionState.Closed Then _backupSqlConnection.Close()
+    End Sub
+
+    Protected Overrides Sub OnUnload(ByVal e As EventArgs)
+        Try
+            If _backupSqlConnection IsNot Nothing Then _backupSqlConnection.Dispose()
+            cndec.Dispose()
+        Finally
+            MyBase.OnUnload(e)
+        End Try
     End Sub
 
     Public Function ReadBackupServiceState() As BackupServiceState
@@ -89,7 +98,8 @@
     End Function
 
     Public Function BackupServiceAlertHtml(state As BackupServiceState,activityName As String) As String
-        If state IsNot Nothing AndAlso state.IsReady Then Return ""
+        If state Is Nothing Then state = New BackupServiceState()
+        If state.IsReady Then Return ""
         Dim detail=state.Description
         If state.LastSeenAt.HasValue Then detail &= " Koneksi terakhir: " & state.LastSeenAt.Value.ToString("dd MMM yyyy HH:mm:ss") & "."
         If Not state.IsReady Then detail &= " " & activityName & " belum dapat dijalankan."
@@ -100,12 +110,20 @@
         If state Is Nothing OrElse Not state.IsReady Then Throw New ApplicationException(activityName & " tidak dapat dijalankan karena Database Backup belum siap. Periksa Dashboard untuk status layanan terbaru.")
     End Sub
 
+    Public Function BackupErrorMessage(ex As Exception) As String
+        System.Diagnostics.Trace.TraceError("Backup Data: {0}", ex)
+        If TypeOf ex Is ApplicationException Then Return ex.Message
+        Dim sqlError = TryCast(ex, SqlException)
+        If sqlError IsNot Nothing AndAlso sqlError.Number >= 50000 Then Return sqlError.Message
+        Return "Terjadi kendala pada layanan. Silakan muat ulang halaman; hubungi administrator jika kendala berulang."
+    End Function
+
     Private Function NormalizeBackupRole(ByVal value As Object) As String
         If value Is Nothing Then Return ""
         Dim roleValue As String = value.ToString().Trim().ToUpperInvariant()
         If roleValue = "DENIED_BACKUP" Then Return "DENIED_BACKUP"
         If roleValue = "MANAGER_BACKUP" Then Return "MANAGER_BACKUP"
-        If roleValue = "STAFF_BACKUP" OrElse roleValue = "ADMIN_BACKUP" OrElse roleValue = "ADMIN" OrElse roleValue = "SUPERADMIN" Then Return "STAFF_BACKUP"
+        If roleValue = "STAFF_BACKUP" OrElse roleValue = "ADMIN_BACKUP" Then Return "STAFF_BACKUP"
         Return ""
     End Function
 
@@ -120,6 +138,11 @@
         End If
 
         Dim userId As String = Session("idlintar").ToString().Trim()
+        Dim cacheKey As String = "BackupAccessRole|" & userId
+        If Context.Items.Contains(cacheKey) Then
+            _backupRole = Convert.ToString(Context.Items(cacheKey))
+            Return _backupRole
+        End If
         Try
             Using cn As New SqlConnection(connstringLive)
                 Using cmd As New SqlCommand("dbo.sp_GetBackupOperatorRole", cn)
@@ -130,31 +153,31 @@
                 End Using
             End Using
         Catch ex As SqlException
-            ' Kompatibilitas sementara sebelum migration role dijalankan.
-            Try
-                Using cn As New SqlConnection(connstringLive)
-                    Using cmd As New SqlCommand("SELECT TOP(1) CASE WHEN IsEnabled=0 THEN 'DENIED_BACKUP' WHEN AccessRole='MANAGER_BACKUP' THEN 'MANAGER_BACKUP' ELSE 'STAFF_BACKUP' END FROM dbo.BackupOperatorAccess WHERE UserId=@UserId", cn)
-                        cmd.Parameters.Add("@UserId", SqlDbType.NVarChar, 50).Value = userId
-                        cn.Open()
-                        _backupRole = NormalizeBackupRole(cmd.ExecuteScalar())
+            ' Fallback hanya untuk stored procedure yang belum terpasang.
+            If ex.Number = 2812 Then
+                Try
+                    Using cn As New SqlConnection(connstringLive)
+                        Using cmd As New SqlCommand("SELECT TOP(1) CASE WHEN IsEnabled=0 THEN 'DENIED_BACKUP' ELSE AccessRole END FROM dbo.BackupOperatorAccess WHERE UserId=@UserId", cn)
+                            cmd.Parameters.Add("@UserId", SqlDbType.NVarChar, 50).Value = userId
+                            cn.Open()
+                            _backupRole = NormalizeBackupRole(cmd.ExecuteScalar())
+                        End Using
                     End Using
-                End Using
-            Catch
-                _backupRole = ""
-            End Try
+                Catch fallbackError As SqlException
+                    System.Diagnostics.Trace.TraceError("Backup Data role lookup: {0}", fallbackError)
+                    _backupRole = ""
+                End Try
+            Else
+                System.Diagnostics.Trace.TraceError("Backup Data role lookup: {0}", ex)
+            End If
         End Try
 
-        ' Role modul pada database lebih spesifik daripada role pada session LINTAR.
-        If String.IsNullOrWhiteSpace(_backupRole) AndAlso Session("role_backup") IsNot Nothing Then
-            _backupRole = NormalizeBackupRole(Session("role_backup"))
-        End If
-        If String.IsNullOrWhiteSpace(_backupRole) AndAlso Session("role") IsNot Nothing Then
-            _backupRole = NormalizeBackupRole(Session("role"))
-        End If
+        ' Akses modul wajib terdaftar di database; role session tidak memberi akses tambahan.
+        Context.Items(cacheKey) = _backupRole
         Return _backupRole
     End Function
 
-    Sub cekauthlintarNew()
+    Public Sub EnsureBackupAccess()
         If Session("userid_lintar") Is Nothing OrElse String.IsNullOrWhiteSpace(Session("userid_lintar").ToString()) OrElse
            Session("idlintar") Is Nothing OrElse String.IsNullOrWhiteSpace(Session("idlintar").ToString()) Then
             DenyBackupAccess(401)
@@ -173,12 +196,12 @@
     End Function
 
     Public Sub RequireBackupStaff()
-        cekauthlintarNew()
+        EnsureBackupAccess()
         If Not IsBackupStaff() Then Response.Redirect("index.aspx?tab=dashboard&access=denied")
     End Sub
 
     Public Sub RequireBackupReportAccess()
-        cekauthlintarNew()
+        EnsureBackupAccess()
         If Not IsBackupStaff() AndAlso Not IsBackupManager() Then DenyBackupAccess(403)
     End Sub
     Private Sub DenyBackupAccess(ByVal statusCode As Integer)

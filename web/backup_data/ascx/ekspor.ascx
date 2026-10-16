@@ -6,10 +6,17 @@ Protected Sub Page_Load(sender As Object,e As EventArgs)
  RequireBackupStaff()
  Response.Cache.SetCacheability(HttpCacheability.NoCache):Response.Cache.SetNoStore()
  If Not IsPostBack Then LoadExports()
+ btnCreateExport.Enabled=False
+ Try
+  btnCreateExport.Enabled=ReadBackupServiceState().IsReady
+ Catch ex As Exception
+  System.Diagnostics.Trace.TraceError("Backup Data export service status: {0}",ex)
+ End Try
 End Sub
 
 Protected Sub btnCreateExport_Click(sender As Object,e As EventArgs)
  Try
+  EnsureBackupServiceReady(ReadBackupServiceState(),"Ekspor database")
   Using cmd As New SqlCommand("dbo.sp_CreateBackupExportJob",cnsr)
    cmd.CommandType=CommandType.StoredProcedure
    cmd.Parameters.Add("@RequestedBy",SqlDbType.VarChar,50).Value=BackupRequestedBy()
@@ -18,7 +25,7 @@ Protected Sub btnCreateExport_Click(sender As Object,e As EventArgs)
    ShowAlert("success","Permintaan ekspor dibuat","Proses " & jobId & " menunggu layanan Database Backup.")
   End Using
  Catch ex As Exception
-  ShowAlert("danger","Ekspor gagal dibuat",ex.Message)
+  ShowAlert("danger","Ekspor gagal dibuat",BackupErrorMessage(ex))
  Finally:tutupsr():End Try
  LoadExports()
 End Sub
@@ -42,7 +49,7 @@ Private Sub LoadExports()
   End If
   If data.Select("Status='WAITING' OR Status='CLAIMED' OR Status='TRANSFERRING'").Length>0 Then litExportRefresh.Text="<script>window.setTimeout(function(){window.location.replace('index.aspx?tab=ekspor&poll='+Date.now());},10000);</" & "script>"
  Catch ex As Exception
-  ShowAlert("danger","Gagal memuat riwayat ekspor",ex.Message)
+  ShowAlert("danger","Gagal memuat riwayat ekspor",BackupErrorMessage(ex))
  Finally:tutupsr():End Try
 End Sub
 

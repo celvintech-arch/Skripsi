@@ -6,6 +6,7 @@
 <script runat="server">
 Protected CurrentBackupSection As String="otomatis"
 Protected BackupServiceReady As Boolean=False
+Protected AutomaticSettingsOpen As Boolean=False
 Private CurrentBackupService As BackupServiceState
 Protected Sub Page_Load(sender As Object,e As EventArgs)
  RequireBackupStaff()
@@ -14,6 +15,7 @@ Protected Sub Page_Load(sender As Object,e As EventArgs)
  Response.Cache.SetExpires(DateTime.UtcNow.AddYears(-1))
  Dim requested=If(Request.QueryString("section"),"").Trim().ToLowerInvariant()
  If requested="tahun" Then CurrentBackupSection=requested
+ AutomaticSettingsOpen=IsPostBack AndAlso CurrentBackupSection="otomatis"
  LoadBackupServiceStatus()
  If Not IsPostBack Then
   PopulateSourceDatabases()
@@ -34,7 +36,7 @@ Private Sub LoadBackupServiceStatus()
   litBackupServiceStatus.Text=BackupServiceAlertHtml(CurrentBackupService,"Permintaan backup")
  Catch ex As Exception
   CurrentBackupService=New BackupServiceState()
-  litBackupServiceStatus.Text="<div class='alert alert-danger backup-service-alert'><i class='fa fa-exclamation-triangle'></i><div><strong>Status Database Backup tidak dapat diperiksa</strong><span>" & Server.HtmlEncode(ex.Message) & "</span></div></div>"
+  litBackupServiceStatus.Text="<div class='alert alert-danger backup-service-alert'><i class='fa fa-exclamation-triangle'></i><div><strong>Status Database Backup tidak dapat diperiksa</strong><span>" & Server.HtmlEncode(BackupErrorMessage(ex)) & "</span></div></div>"
  End Try
  btnJalankanBackup.Enabled=BackupServiceReady
 End Sub
@@ -90,7 +92,6 @@ Private Sub PopulateTAByYear(list As DropDownList,prompt As String,tahun As Stri
 End Sub
 Protected Sub ddlTahunJadwal_SelectedIndexChanged(sender As Object,e As EventArgs)
  PopulateTAByYear(ddlBatasThAkdk,"- Pilih detail Tahun Akademik -",ddlTahunJadwal.SelectedValue)
- ScriptManager.RegisterStartupScript(Me, Me.GetType(), "KeepScheduleTabAfterYear", "$(""a[href='#subtab-otomatis']"").tab('show');", True)
 End Sub
 Private Sub SetValue(list As DropDownList,value As String)
  If list.Items.FindByValue(value) IsNot Nothing Then list.SelectedValue=value
@@ -122,6 +123,7 @@ Private Sub Summary(onOff As Boolean,nextRun As Nullable(Of DateTime))
  End If
 End Sub
 Protected Sub btnSimpanJadwal_Click(sender As Object,e As EventArgs)
+ Dim savedSuccessfully As Boolean=False
  Try
   ValidateSelectedSourceDatabase(ddlSourceDatabaseSchedule.SelectedValue)
   If ddlBatasThAkdk.SelectedValue="" Then Throw New ApplicationException("Pilih Tahun Akademik.")
@@ -129,9 +131,16 @@ Protected Sub btnSimpanJadwal_Click(sender As Object,e As EventArgs)
   Using cmd As New SqlCommand("dbo.sp_SaveBackupJobConfiguration",cnsr)
    Dim nowTime As DateTime=DateTime.Now:Dim scheduledTime As TimeSpan=If(ddlJamEksekusi.SelectedValue="NEXT_1_MINUTE",nowTime.AddMinutes(1).TimeOfDay,TimeSpan.Parse(ddlJamEksekusi.SelectedValue))
    cmd.CommandType=CommandType.StoredProcedure:cmd.Parameters.Add("@IsEnabled",SqlDbType.Bit).Value=(hdnJobActive.Value="1"):cmd.Parameters.Add("@Frequency",SqlDbType.VarChar,10).Value=ddlFrekuensi.SelectedValue:cmd.Parameters.Add("@ExecutionTime",SqlDbType.Time).Value=scheduledTime:cmd.Parameters.Add("@CutoffThAkdk",SqlDbType.Char,5).Value=ddlBatasThAkdk.SelectedValue:cmd.Parameters.Add("@AdminUser",SqlDbType.VarChar,50).Value=BackupRequestedBy():cmd.Parameters.Add("@SelectedTables",SqlDbType.VarChar,100).Value=selectedTableCsv:cnsr.Open():cmd.ExecuteNonQuery()
-  End Using:ShowAlert(litAlertSchedule,"success","Konfigurasi tersimpan","Konfigurasi penjadwalan tersimpan di database.")
- Catch ex As Exception:ShowAlert(litAlertSchedule,"error","Gagal menyimpan konfigurasi",ex.Message)
- Finally:tutupsr():End Try:LoadConfig()
+  End Using
+  savedSuccessfully=True
+ Catch ex As Exception:ShowAlert(litAlertSchedule,"error","Gagal menyimpan konfigurasi",BackupErrorMessage(ex))
+ Finally:tutupsr():End Try
+ If savedSuccessfully Then
+  Response.Redirect("index.aspx?tab=dashboard",False)
+  Context.ApplicationInstance.CompleteRequest()
+  Return
+ End If
+ LoadConfig()
 End Sub
 Protected Sub btnDisableSchedule_Click(sender As Object,e As EventArgs)
  hdnJobActive.Value="0"
@@ -139,6 +148,7 @@ Protected Sub btnDisableSchedule_Click(sender As Object,e As EventArgs)
  btnSimpanJadwal_Click(sender,e)
 End Sub
 Protected Sub btnJalankanBackup_Click(sender As Object,e As EventArgs)
+ Dim requestAccepted As Boolean=False
  Try
   EnsureBackupServiceReady(CurrentBackupService,"Backup")
   ValidateSelectedSourceDatabase(ddlSourceDatabase.SelectedValue)
@@ -159,33 +169,30 @@ Protected Sub btnJalankanBackup_Click(sender As Object,e As EventArgs)
    cnsr.Open()
    Using rd=cmd.ExecuteReader()
     If Not rd.Read() Then Throw New ApplicationException("Pembuatan antrean tidak menghasilkan status.")
-    Dim count=Convert.ToInt32(rd("CandidateStudents"))
-    ShowAlert(litAlertBackup,"success","PERMINTAAN DITERIMA",If(count=0,"Tidak ada data yang perlu dibackup.",count.ToString("N0") & " mahasiswa masuk antrean Database Backup."))
+    requestAccepted=True
    End Using
   End Using
  Catch ex As Exception
-  ShowAlert(litAlertBackup,"error","Backup gagal",ex.Message)
+  ShowAlert(litAlertBackup,"error","Backup gagal",BackupErrorMessage(ex))
  Finally
   tutupsr()
  End Try
+ If requestAccepted Then
+  Response.Redirect("index.aspx?tab=dashboard",False)
+  Context.ApplicationInstance.CompleteRequest()
+  Return
+ End If
 End Sub
 Private Sub ShowAlert(lit As Literal,kind As String,title As String,msg As String)
  msg=BackupFriendlyText(msg)
  Dim alertType As String = If(kind = "error", "danger", kind)
- If kind = "success" AndAlso Object.ReferenceEquals(lit, litAlertBackup) Then
-  lit.Text = "<div class='alert alert-success backup-u-001'><div class='backup-u-036'><i class='fa fa-check-circle'></i> " & Server.HtmlEncode(title) & "</div><div class='backup-u-023'>" & Server.HtmlEncode(msg) & " <a class='alert-link backup-history-link' href='index.aspx?tab=riwayat'>Lihat Riwayat Proses <i class='fa fa-arrow-right'></i></a></div></div>"
- Else
-  lit.Text = "<div class='alert alert-" & alertType & "'><strong>" & Server.HtmlEncode(title) & "</strong> " & Server.HtmlEncode(msg) & "</div>"
- End If
+ lit.Text = "<div class='alert alert-" & alertType & "'><strong>" & Server.HtmlEncode(title) & "</strong> " & Server.HtmlEncode(msg) & "</div>"
 
- Dim safeTitle As String = title.Replace("'", "\'").Replace(vbCr, " ").Replace(vbLf, " ")
- Dim safeMessage As String = msg.Replace("'", "\'").Replace(vbCr, " ").Replace(vbLf, " ")
+ Dim safeTitle As String = HttpUtility.JavaScriptStringEncode(title,True)
+ Dim safeMessage As String = HttpUtility.JavaScriptStringEncode(msg,True)
  Dim swalIcon As String = If(kind = "error", "error", kind)
  Dim confirmColor As String = If(kind = "success", "#00a65a", "#dd4b39")
- Dim script As String = "if (typeof Swal !== 'undefined') { Swal.fire({title: '" & safeTitle & "', text: '" & safeMessage & "', icon: '" & swalIcon & "', confirmButtonText: 'OK', confirmButtonColor: '" & confirmColor & "', width: '480px'}); }"
- If kind = "error" AndAlso Object.ReferenceEquals(lit, litAlertBackup) Then
-  script &= " $(""a[href='#subtab-manual']"").tab('show');"
- End If
+ Dim script As String = "if (typeof Swal !== 'undefined') { Swal.fire({title: " & safeTitle & ", text: " & safeMessage & ", icon: '" & swalIcon & "', confirmButtonText: 'OK', confirmButtonColor: '" & confirmColor & "', width: '480px'}); }"
  ScriptManager.RegisterStartupScript(Me, Me.GetType(), "BackupAlert_" & Guid.NewGuid().ToString("N"), script, True)
 End Sub
 </script>
@@ -326,8 +333,8 @@ End Sub
             <!-- PANEL CONFIG PENJADWALAN OTOMATIS WITH CLIENT-SIDE SLIDE ANIMATION -->
             <div class="panel panel-default backup-u-012">
                 <div class="panel-heading backup-u-006">
-                    <a class="backup-collapse-toggle collapsed" data-toggle="collapse" href="#pnlAutomaticSettings" aria-expanded="false" aria-controls="pnlAutomaticSettings">
-                        <i class="fa fa-clock-o text-primary backup-u-067"></i> Pengaturan Backup Otomatis <span class="backup-collapse-hint">Buka pengaturan <i class="fa fa-chevron-down"></i></span>
+                    <a class="backup-collapse-toggle<%= If(AutomaticSettingsOpen,""," collapsed") %>" data-toggle="collapse" href="#pnlAutomaticSettings" aria-expanded="<%= If(AutomaticSettingsOpen,"true","false") %>" aria-controls="pnlAutomaticSettings">
+                        <i class="fa fa-clock-o text-primary backup-u-067"></i> Pengaturan Backup Otomatis <span class="backup-collapse-hint"><%= If(AutomaticSettingsOpen,"Tutup pengaturan","Buka pengaturan") %> <i class="fa fa-chevron-down"></i></span>
                     </a>
 
                     <div class="backup-u-025">
@@ -341,7 +348,7 @@ End Sub
                     </div>
                 </div>
 
-                <div id="pnlAutomaticSettings" class="panel-collapse collapse">
+                <div id="pnlAutomaticSettings" class="panel-collapse collapse<%= If(AutomaticSettingsOpen," in","") %>">
                 <div id="pnlScheduleFormContainer" class="panel-body backup-u-072">
                     <asp:Literal ID="litAlertSchedule" runat="server" />
                             <p class="backup-mode-help"><i class="fa fa-info-circle"></i>Gunakan menu ini untuk menjalankan backup berkala secara otomatis sesuai jadwal, Tahun Akademik, dan tabel yang dipilih.</p>

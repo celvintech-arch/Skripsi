@@ -35,7 +35,7 @@ Private Sub LoadBackupConnectionStatus()
   litBackupConnectionStatus.Text=BackupServiceAlertHtml(CurrentBackupService,"Pemulihan data")
  Catch ex As Exception
   CurrentBackupService=New BackupServiceState()
-  ShowBackupConnectionWarning("Status Database Backup tidak dapat diperiksa.",ex.Message,"danger")
+  ShowBackupConnectionWarning("Status Database Backup tidak dapat diperiksa.",BackupErrorMessage(ex),"danger")
  Finally
   tutupsr()
  End Try
@@ -118,7 +118,7 @@ Private Sub LoadBackedUpStudents()
   gvBackedUpStudents.DataSource=data:gvBackedUpStudents.DataBind()
   lblStudentSearchInfo.Text=If(data.Rows.Count=0,"Data tidak ditemukan.","Ditemukan " & data.Rows.Count.ToString("N0") & " data.")
  Catch ex As Exception
-  gvBackedUpStudents.DataSource=Nothing:gvBackedUpStudents.DataBind():lblStudentSearchInfo.Text="Database Backup tidak dapat dibaca: " & Server.HtmlEncode(ex.Message)
+  gvBackedUpStudents.DataSource=Nothing:gvBackedUpStudents.DataBind():lblStudentSearchInfo.Text="Database Backup tidak dapat dibaca: " & Server.HtmlEncode(BackupErrorMessage(ex))
  Finally:tutupsr():End Try
 End Sub
 
@@ -132,11 +132,10 @@ Protected Sub btnSearchBackupNim_Click(sender As Object,e As EventArgs)
   Session.Remove("BackupStudentLookupId")
   Try
    Dim id=CreateLookup("SEARCH",txtSearchBackupNim.Text.Trim(),ddlStudentRestoreYear.SelectedValue):Session("BackupStudentLookupId")=id.ToString()
-  Catch ex As Exception:ShowAlert("error","Pencarian gagal dibuat",ex.Message)
+  Catch ex As Exception:ShowAlert("error","Pencarian gagal dibuat",BackupErrorMessage(ex))
   Finally:tutupsr():End Try
   LoadBackedUpStudents()
  End If
- ScriptManager.RegisterStartupScript(Me,Me.GetType(),"KeepRestoreNimSearchTab","$(""a[href='#subtab-restore-nim']"").tab('show');",True)
 End Sub
 
 Protected Sub ddlStudentRestoreYear_SelectedIndexChanged(sender As Object,e As EventArgs)
@@ -148,11 +147,10 @@ Protected Sub ddlStudentRestoreYear_SelectedIndexChanged(sender As Object,e As E
   Session.Remove("BackupStudentLookupId")
   Try
    Dim id=CreateLookup("SEARCH",txtSearchBackupNim.Text.Trim(),ddlStudentRestoreYear.SelectedValue):Session("BackupStudentLookupId")=id.ToString()
-  Catch ex As Exception:ShowAlert("error","Filter gagal dibuat",ex.Message)
+  Catch ex As Exception:ShowAlert("error","Filter gagal dibuat",BackupErrorMessage(ex))
   Finally:tutupsr():End Try
   LoadBackedUpStudents()
  End If
- ScriptManager.RegisterStartupScript(Me,Me.GetType(),"KeepRestoreNimYearTab","$(""a[href='#subtab-restore-nim']"").tab('show');",True)
 End Sub
 
 Protected Sub gvBackedUpStudents_PageIndexChanging(sender As Object,e As GridViewPageEventArgs)
@@ -164,13 +162,12 @@ Protected Sub gvBackedUpStudents_RowCommand(sender As Object,e As GridViewComman
  If e.CommandName<>"RestoreStudent" Then Return
  Try
   Dim nim=e.CommandArgument.ToString().Trim()
-  If nim.Length<>9 Then Throw New ApplicationException("NIM hasil pencarian tidak valid.")
+  If Not System.Text.RegularExpressions.Regex.IsMatch(nim,"^[0-9]{9}$") Then Throw New ApplicationException("NIM hasil pencarian tidak valid.")
   CreateRestoreJob(nim,Nothing,1,SelectedTables(cblRestoreNimTables,True))
  Catch ex As Exception
-  ShowAlert("error","Pemulihan gagal",ex.Message)
+  ShowAlert("error","Pemulihan gagal",BackupErrorMessage(ex))
  Finally:tutupsr():End Try
  LoadBackedUpStudents()
- ScriptManager.RegisterStartupScript(Me,Me.GetType(),"KeepRestoreNimGridTab","$(""a[href='#subtab-restore-nim']"").tab('show');",True)
 End Sub
 
 Private Sub PopulateRestorePeriods()
@@ -203,7 +200,7 @@ Private Sub PopulateRestorePeriods()
    ShowBackupConnectionWarning("Belum ada Tahun Akademik pada Database Backup.","Database Backup terhubung, tetapi inventaris masih kosong. Tunggu pembaruan data atau pastikan database backup berisi data.","warning")
   End If
  Catch ex As Exception
-  ShowBackupConnectionWarning("Daftar Tahun Akademik tidak dapat dimuat.",ex.Message,"warning")
+  ShowBackupConnectionWarning("Daftar Tahun Akademik tidak dapat dimuat.",BackupErrorMessage(ex),"warning")
  Finally
   tutupsr()
  End Try
@@ -238,12 +235,11 @@ Protected Sub btnRestorePeriods_Click(sender As Object,e As EventArgs)
   If periods.Count=0 Then Throw New ApplicationException("Pilih minimal satu Tahun Akademik.")
   CreateRestoreJob(Nothing,String.Join(",",periods.ToArray()),GetSelectedRestoreStudentTotal(),SelectedTables(cblRestorePeriodTables,True))
  Catch ex As Exception
-  ShowAlert("error","Pemulihan gagal",ex.Message)
+  ShowAlert("error","Pemulihan gagal",BackupErrorMessage(ex))
  Finally
   tutupsr()
  End Try
  PopulateRestorePeriods()
- ScriptManager.RegisterStartupScript(Me,Me.GetType(),"KeepRestorePeriodTab","$(""a[href='#subtab-restore-period']"").tab('show');",True)
 End Sub
 
 Private Sub CreateRestoreJob(nim As String,periods As String,expectedStudents As Integer,selectedTablesCsv As String)
@@ -281,7 +277,7 @@ function armBackupLookupRefresh(){
  backupLookupRefreshTimer=window.setTimeout(function(){
   backupLookupRefreshTimer=null;
   if(document.hidden||!backupLookupRefreshUrl){return;}
-  var checkUrl=backupLookupRefreshUrl+'&lookup='+Date.now();
+  var checkUrl=backupLookupRefreshUrl+'&poll='+Date.now();
   fetch(checkUrl,{credentials:'same-origin',cache:'no-store',headers:{'X-Requested-With':'BackupLookupPoll'}})
    .then(function(response){if(!response.ok){throw new Error('Status HTTP '+response.status);}return response.text();})
    .then(function(html){
