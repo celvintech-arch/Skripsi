@@ -418,8 +418,80 @@ function Process-ExportJob($claim,$database) {
  }finally{$cn.Close()}
  $file=[IO.FileInfo]::new($backupPath)
  if(-not $file.Exists -or $file.Length -le 0){throw 'File ekspor tidak terbentuk.'}
- $confirm=Invoke-AgentApi 'exportconfirm' @{databaseReady=$database.Ready;message='Ekspor database selesai';jobId=[string]$claim.jobId;fileName=$file.Name;sizeBytes=$file.Length}
- Write-AgentLog ('Ekspor job '+$claim.jobId+' selesai: '+$backupPath+' | '+$file.Length+' bytes | RESTORE VERIFYONLY berhasil')
+  $confirm=Invoke-AgentApi 'exportconfirm' @{databaseReady=$database.Ready;message='Ekspor database selesai';jobId=[string]$claim.jobId;fileName=$file.Name;sizeBytes=$file.Length}
+  Write-AgentLog ('Ekspor job '+$claim.jobId+' selesai: '+$backupPath+' | '+$file.Length+' bytes | RESTORE VERIFYONLY berhasil')
+}
+function Get-SqlScopeCondition([string]$scope,[string]$columnName,$cmd) {
+ if([string]::IsNullOrWhiteSpace($scope)){return ''}
+ $col="LTRIM(RTRIM($columnName))"
+ if($scope.StartsWith("SINGLE:",[StringComparison]::Ordinal)){
+  $ta=$scope.Substring(7).Trim()
+  $p='@sc_'+($cmd.Parameters.Count)
+  $param=$cmd.Parameters.Add($p,[System.Data.SqlDbType]::Char,5)
+  $param.Value=$ta
+  return "$col = $p"
+ }elseif($scope.StartsWith("RANGE:",[StringComparison]::Ordinal)){
+  $parts=$scope.Substring(6).Split('-')
+  if($parts.Length -eq 2){
+   $p1='@sc_'+($cmd.Parameters.Count)
+   $param1=$cmd.Parameters.Add($p1,[System.Data.SqlDbType]::Char,5)
+   $param1.Value=$parts[0].Trim()
+   $p2='@sc_'+($cmd.Parameters.Count)
+   $param2=$cmd.Parameters.Add($p2,[System.Data.SqlDbType]::Char,5)
+   $param2.Value=$parts[1].Trim()
+   return "$col BETWEEN $p1 AND $p2"
+  }
+ }elseif($scope.StartsWith("UP_TO:",[StringComparison]::Ordinal)){
+  $ta=$scope.Substring(6).Trim()
+  $p='@sc_'+($cmd.Parameters.Count)
+  $param=$cmd.Parameters.Add($p,[System.Data.SqlDbType]::Char,5)
+  $param.Value=$ta
+  return "$col <= $p"
+ }
+ return ''
+}
+function Get-BackupVerificationMetrics($claim) {
+ $metrics=[ordered]@{}
+ $scope=[string]$claim.restoreThAkdkList
+ $studentNim=[string]$claim.studentNim
+ $selectedTables=@(Get-SelectedTableNames ([string]$claim.selectedTables))
+ $cn=[System.Data.SqlClient.SqlConnection]::new((Get-LocalConnectionString))
+ $cn.Open()
+ try{
+  foreach($sourceTable in $selectedTables){
+   $targetTable=$sourceTable+'_backup'
+   $cmd=$cn.CreateCommand()
+   $cmd.CommandTimeout=300
+   $where=''
+   if(-not [string]::IsNullOrWhiteSpace($studentNim)){
+    $where='WHERE nim1 = @nim'
+    $param=$cmd.Parameters.Add('@nim',[System.Data.SqlDbType]::Char,9)
+    $param.Value=$studentNim
+   }elseif($sourceTable -eq 'tbio01'){
+    $academicScopeWhere=Get-SqlScopeCondition $scope 'th_akdk' $cmd
+    if($academicScopeWhere -ne ''){
+     $where='WHERE nim1 IN (SELECT DISTINCT nim1 FROM dbo.treg_backup WHERE '+$academicScopeWhere+')'
+    }
+   }else{
+    $academicScopeWhere=Get-SqlScopeCondition $scope 'th_akdk' $cmd
+    if($academicScopeWhere -ne ''){
+     $where='WHERE '+$academicScopeWhere
+    }
+   }
+   $cmd.CommandText="SELECT COUNT(*) AS RowCnt, ISNULL(CHECKSUM_AGG(BINARY_CHECKSUM(*)), 0) AS ChkSum FROM dbo.$(Quote-Id $targetTable) $where"
+   $rd=$cmd.ExecuteReader()
+   if($rd.Read()){
+    $metrics[$sourceTable]=[ordered]@{
+     rowCount=[int64]$rd['RowCnt']
+     checksum=[int64]$rd['ChkSum']
+    }
+   }
+   $rd.Close()
+  }
+ }finally{
+  $cn.Close()
+ }
+ return $metrics
 }
 function Process-BackupJobs($schema,$database) {
  $claim=Invoke-AgentApi 'claim' @{databaseReady=$database.Ready;message=$database.Message};if(-not $claim.hasJob){return}
@@ -442,8 +514,32 @@ function Process-BackupJobs($schema,$database) {
   if([string]$confirm.status -eq 'SUCCESS' -and $null -ne $baseline){
    try{
     $after=Test-BackupDatabase
-     [void](Invoke-AgentApi 'backupmetrics' @{databaseReady=$after.Ready;message='Menyimpan perbandingan sebelum dan sesudah backup';phase='complete';jobId=[string]$claim.jobId;liveBioBefore=[int64]$baseline.bioRows;liveRegBefore=[int64]$baseline.regRows;liveKrsBefore=[int64]$baseline.krsRows;liveAbsBefore=[int64]$baseline.absRows;liveSizeBefore=[double]$baseline.sizeMb;arcBioBefore=[int64]$database.BioRows;arcRegBefore=[int64]$database.RegRows;arcKrsBefore=[int64]$database.KrsRows;arcAbsBefore=[int64]$database.AbsRows;arcSizeBefore=[double]$database.SizeMb;arcBioAfter=[int64]$after.BioRows;arcRegAfter=[int64]$after.RegRows;arcKrsAfter=[int64]$after.KrsRows;arcAbsAfter=[int64]$after.AbsRows;arcSizeAfter=[double]$after.SizeMb})
-   }catch{Write-AgentLog ('Peringatan: snapshot job '+$claim.jobId+' tidak tersimpan: '+$_.Exception.Message)}
+    $verifyMetrics=Get-BackupVerificationMetrics $claim
+    $metricsPayload=@{
+     databaseReady=$after.Ready;
+     message='Menyimpan perbandingan sebelum dan sesudah backup serta verifikasi integritas';
+     phase='complete';
+     jobId=[string]$claim.jobId;
+     liveBioBefore=[int64]$baseline.bioRows;
+     liveRegBefore=[int64]$baseline.regRows;
+     liveKrsBefore=[int64]$baseline.krsRows;
+     liveAbsBefore=[int64]$baseline.absRows;
+     liveSizeBefore=[double]$baseline.sizeMb;
+     arcBioBefore=[int64]$database.BioRows;
+     arcRegBefore=[int64]$database.RegRows;
+     arcKrsBefore=[int64]$database.KrsRows;
+     arcAbsBefore=[int64]$database.AbsRows;
+     arcSizeBefore=[double]$database.SizeMb;
+     arcBioAfter=[int64]$after.BioRows;
+     arcRegAfter=[int64]$after.RegRows;
+     arcKrsAfter=[int64]$after.KrsRows;
+     arcAbsAfter=[int64]$after.AbsRows;
+     arcSizeAfter=[double]$after.SizeMb;
+     verifyMetrics=$verifyMetrics
+    }
+    $metricsResult=Invoke-AgentApi 'backupmetrics' $metricsPayload
+    Write-AgentLog ('Verifikasi otomatis job '+$claim.jobId+': '+$metricsResult.verificationStatus+' | '+$metricsResult.verificationSummary)
+   }catch{Write-AgentLog ('Peringatan: snapshot/verifikasi job '+$claim.jobId+' gagal: '+$_.Exception.Message)}
   }
  }catch{
   $reason=[string]$_.Exception.Message

@@ -1,4 +1,4 @@
-﻿<!-- #INCLUDE file ="con_backup.ascx" -->
+<!-- #INCLUDE file ="con_backup.ascx" -->
 <%@ Import Namespace="System.Data" %>
 <%@ Import Namespace="System.Data.SqlClient" %>
 <%@ Import Namespace="System.Collections.Generic" %>
@@ -27,7 +27,7 @@
 
             Dim ds As New DataSet()
             Dim sql="SELECT TOP(1) IsEnabled,Frequency,CutoffThAkdk,NextRunAt FROM dbo.BackupJobConfiguration WHERE ConfigurationId=1;" & _
-                "WITH Latest AS(SELECT OperationType,Status,CreatedAt,CompletedAt,ROW_NUMBER() OVER(PARTITION BY OperationType ORDER BY CreatedAt DESC) rn FROM dbo.BackupTransferJob) SELECT OperationType,Status,CreatedAt,CompletedAt FROM Latest WHERE rn=1;" & _
+                "WITH Latest AS(SELECT OperationType,Status,CreatedAt,CompletedAt,VerificationStatus,VerificationSummary,ROW_NUMBER() OVER(PARTITION BY OperationType ORDER BY CreatedAt DESC) rn FROM dbo.BackupTransferJob) SELECT OperationType,Status,CreatedAt,CompletedAt,VerificationStatus,VerificationSummary FROM Latest WHERE rn=1;" & _
                 "SELECT TOP(5) OperationType,Status,ProcessedStudents,TotalStudents,CreatedAt,ProgressMessage FROM dbo.BackupTransferJob WHERE Status IN('WAITING','CLAIMED','TRANSFERRING') ORDER BY CreatedAt;"
             Using cn As New SqlConnection(connstringLive),ad As New SqlDataAdapter(sql,cn)
                 ad.Fill(ds)
@@ -109,7 +109,16 @@
 
     Private Function RecentProcessText(row As DataRow) As String
         Dim whenValue=If(row.IsNull("CompletedAt"),Convert.ToDateTime(row("CreatedAt")),Convert.ToDateTime(row("CompletedAt")))
-        Return whenValue.ToString("dd MMM yyyy HH:mm") & " · " & JobStatusText(row("Status").ToString())
+        Dim baseText = whenValue.ToString("dd MMM yyyy HH:mm") & " · " & JobStatusText(row("Status").ToString())
+        If row.Table.Columns.Contains("VerificationStatus") AndAlso Not row.IsNull("VerificationStatus") Then
+            Dim vStatus = row("VerificationStatus").ToString().Trim().ToUpperInvariant()
+            If vStatus = "VERIFIED" Then
+                baseText &= " · <span class='label label-success'><i class='fa fa-check'></i> 100% Cocok</span>"
+            ElseIf vStatus = "MISMATCH" Then
+                baseText &= " · <span class='label label-warning'><i class='fa fa-exclamation-triangle'></i> Selisih</span>"
+            End If
+        End If
+        Return baseText
     End Function
 
     Private Sub LoadDatabaseStats()
