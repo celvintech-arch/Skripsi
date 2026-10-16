@@ -1,6 +1,5 @@
 <%@ Page Language="VB" MasterPageFile="Site.master" MaintainScrollPositionOnPostback="True" EnableViewStateMac="True" EnableEventValidation="True" Title="Backup Data Mahasiswa" %>
 <%@ Register TagPrefix="uc" TagName="BackupSection" Src="index.ascx" %>
-<!-- #INCLUDE virtual="/con_ascx2022/conlintar2022.ascx" -->
 
 <script runat="server">
     Protected Overrides Sub OnPreInit(ByVal e As EventArgs)
@@ -10,7 +9,6 @@
             Response.Redirect("/index.aspx")
             Return
         End If
-        cekauthlintarNew()
         ViewStateUserKey = Session.SessionID & "|" & Convert.ToString(Session("idlintar"))
         Response.Cache.SetCacheability(HttpCacheability.NoCache)
         Response.Cache.SetNoStore()
