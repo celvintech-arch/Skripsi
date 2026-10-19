@@ -2,17 +2,12 @@
 <%@ Register TagPrefix="uc" TagName="BackupSection" Src="index.ascx" %>
 
 <script runat="server">
-    Protected Overrides Sub OnPreInit(ByVal e As EventArgs)
-        ' Autentikasi portal menggunakan fungsi bersama LINTAR.
-        If String.IsNullOrWhiteSpace(Convert.ToString(Session("userid_lintar"))) Then
-            Session.RemoveAll()
-            Response.Redirect("/index.aspx")
-            Return
-        End If
+    Protected Overrides Sub OnInit(ByVal e As EventArgs)
+        MyBase.OnInit(e)
+        cekauthlintarNew()
         ViewStateUserKey = Session.SessionID & "|" & Convert.ToString(Session("idlintar"))
         Response.Cache.SetCacheability(HttpCacheability.NoCache)
         Response.Cache.SetNoStore()
-        MyBase.OnPreInit(e)
     End Sub
 
     Protected Overrides Sub OnPreLoad(ByVal e As EventArgs)
@@ -36,5 +31,6 @@
 </asp:Content>
 
 <asp:Content ID="MainContent" ContentPlaceHolderID="MainContent" runat="server">
+    <!-- #INCLUDE virtual="/con_ascx2022/conlintar2022.ascx" -->
     <uc:BackupSection ID="secBackup" runat="server" />
 </asp:Content>
