@@ -1,4 +1,4 @@
-﻿<!-- #INCLUDE file ="con_backup.ascx" -->
+<!-- #INCLUDE file ="con_backup.ascx" -->
 <%@ Import Namespace="System.Data" %>
 <%@ Import Namespace="System.Data.SqlClient" %>
 <%@ Import Namespace="System.Collections.Generic" %>
@@ -136,8 +136,8 @@
             Dim arcBio As Long=StatLong(backupStats,"bioRows"),arcReg As Long=StatLong(backupStats,"regRows"),arcKrs As Long=StatLong(backupStats,"krsRows"),arcAbs As Long=StatLong(backupStats,"absRows")
             Dim backupSize As Double=StatDouble(backupStats,"sizeMb")
             Dim hasBackupStats As Boolean=backupStats IsNot Nothing AndAlso backupStats.ContainsKey("bioRows")
-            litSizeLive.Text=String.Format("{0:N1} MB",sizeLive)
-            litSizeBackup.Text=If(hasBackupStats,String.Format("{0:N1} MB",backupSize),"-")
+            litSizeLive.Text=FormatDatabaseSize(sizeLive)
+            litSizeBackup.Text=If(hasBackupStats AndAlso backupSize >= 0, FormatDatabaseSize(backupSize), "-")
             litLiveBio.Text=String.Format("{0:N0}",liveBio):litLiveReg.Text=String.Format("{0:N0}",liveReg):litLiveKrs.Text=String.Format("{0:N0}",liveKrs):litLiveAbs.Text=String.Format("{0:N0}",liveAbs)
             litArcBio.Text=If(hasBackupStats,String.Format("{0:N0}",arcBio),"-"):litArcReg.Text=If(hasBackupStats,String.Format("{0:N0}",arcReg),"-"):litArcKrs.Text=If(hasBackupStats,String.Format("{0:N0}",arcKrs),"-"):litArcAbs.Text=If(hasBackupStats,String.Format("{0:N0}",arcAbs),"-")
             litTotalBio.Text=If(hasBackupStats,String.Format("{0:N0}",liveBio+arcBio),"-"):litTotalReg.Text=If(hasBackupStats,String.Format("{0:N0}",liveReg+arcReg),"-"):litTotalKrs.Text=If(hasBackupStats,String.Format("{0:N0}",liveKrs+arcKrs),"-"):litTotalAbs.Text=If(hasBackupStats,String.Format("{0:N0}",liveAbs+arcAbs),"-")
@@ -174,6 +174,15 @@
     Private Function StatDouble(stats As Dictionary(Of String,Object),key As String) As Double
         If stats Is Nothing OrElse Not stats.ContainsKey(key) OrElse stats(key) Is Nothing Then Return -1
         Try:Return Convert.ToDouble(stats(key),System.Globalization.CultureInfo.InvariantCulture):Catch:Return -1:End Try
+    End Function
+
+    Private Function FormatDatabaseSize(sizeMb As Double) As String
+        If sizeMb < 0 Then Return "-"
+        If sizeMb >= 1000.0 Then
+            Return String.Format("{0:N2} GB", sizeMb / 1024.0)
+        Else
+            Return String.Format("{0:N1} MB", sizeMb)
+        End If
     End Function
 </script>
 
