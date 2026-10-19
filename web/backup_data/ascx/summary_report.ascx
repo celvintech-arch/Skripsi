@@ -17,6 +17,7 @@ Protected Sub Page_Load(sender As Object,e As EventArgs)
 End Sub
 
 Protected Sub btnApplyReport_Click(sender As Object,e As EventArgs)
+ gvReportJobs.PageIndex = 0
  LoadReport()
 End Sub
 
@@ -182,9 +183,27 @@ End Function
 
 Private Sub LoadJobDetails(startDate As DateTime,endDate As DateTime)
  Dim data=GetJobDetails(startDate,endDate)
+ If gvReportJobs.AllowPaging AndAlso data.Rows.Count > 0 Then
+  Dim maxPage = (data.Rows.Count - 1) \ gvReportJobs.PageSize
+  If gvReportJobs.PageIndex > maxPage Then
+   gvReportJobs.PageIndex = maxPage
+  End If
+ End If
  gvReportJobs.DataSource=data
  gvReportJobs.DataBind()
  lblResultCount.Text=data.Rows.Count.ToString("N0") & " proses terbaru"
+End Sub
+
+Protected Sub gvReportJobs_PageIndexChanging(sender As Object, e As GridViewPageEventArgs)
+ gvReportJobs.PageIndex = e.NewPageIndex
+ Dim startDate As DateTime, endDate As DateTime
+ If ReadDateRange(startDate, endDate) Then
+  Try
+   LoadJobDetails(startDate, endDate)
+  Finally
+   tutupsr()
+  End Try
+ End If
 End Sub
 
 Private Function GetInventorySummary() As DataTable
@@ -449,7 +468,14 @@ End Function
  <div class="panel panel-default">
   <div class="panel-heading backup-u-043"><span><i class="fa fa-list"></i> Detail Proses</span><asp:Label ID="lblResultCount" runat="server" CssClass="text-muted" /></div>
   <div class="table-responsive">
-   <asp:GridView ID="gvReportJobs" runat="server" AutoGenerateColumns="false" CssClass="table table-striped table-hover" GridLines="None" EmptyDataText="Tidak ada proses pada filter yang dipilih.">
+   <asp:GridView ID="gvReportJobs" runat="server" AutoGenerateColumns="false" CssClass="table table-striped table-hover" GridLines="None" EmptyDataText="Tidak ada proses pada filter yang dipilih."
+    AllowPaging="true" PageSize="5"
+    OnPageIndexChanging="gvReportJobs_PageIndexChanging"
+    PagerSettings-Mode="NumericFirstLast"
+    PagerSettings-FirstPageText="Awal"
+    PagerSettings-LastPageText="Akhir"
+    PagerStyle-CssClass="customPager"
+    PagerStyle-HorizontalAlign="Center">
     <Columns>
      <asp:BoundField DataField="CreatedAt" HeaderText="Dibuat" DataFormatString="{0:dd MMM yyyy HH:mm}" />
      <asp:BoundField DataField="OperationLabel" HeaderText="Operasi" />

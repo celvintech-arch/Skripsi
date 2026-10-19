@@ -1,4 +1,4 @@
-﻿/* ==========================================================================
+/* ==========================================================================
    BACKUP DATA MAHASISWA - GLOBAL DESIGN SYSTEM
    Diselaraskan penuh dengan z:\lintar2022\portofolio_fakultas Design System
    ========================================================================== */
@@ -284,7 +284,7 @@ html body .table tbody tr:hover {
     .customPager, .customPager tr, .customPager td, .customPager table { border: 0 !important; background: transparent !important; box-shadow: none !important; }
     .customPager td { padding: 5px !important; text-align: center; }
     .customPager table { margin: 0 auto; border-spacing: 2px; }
-    .customPager a, .customPager span { color: #000; background-color: #fff; text-decoration: none; padding: 6px 10px; border-radius: 3px; display: block; text-align: center; transition: background-color .3s; }
+    .customPager a, .customPager span { color: #334155; background-color: #fff; border: 1px solid #cbd5e1; text-decoration: none; padding: 6px 12px; border-radius: 4px; display: block; text-align: center; min-width: 32px; font-size: 13px; font-weight: 500; transition: all .2s ease; }
     .customPager a:hover { background-color: #A01626; color: #fff; }
     .customPager span { background-color: #A01626; color: #fff; font-weight: bold; }
     .scope-summary { margin-top: 18px; margin-bottom: 20px; }
@@ -435,7 +435,7 @@ html body .table tbody tr:hover {
 @media (max-width:575px) { .summary-filter-row { grid-template-columns:1fr !important; } .summary-filter-action { flex-direction:column !important; text-align:left !important; white-space:normal !important; } .summary-filter-action .btn { display:block !important; width:100% !important; } .summary-export-button { margin-left:0 !important; margin-top:0 !important; } .summary-card { flex-basis:100% !important; min-width:0 !important; } .backup-collapse-hint { font-size:0 !important; } .backup-collapse-hint i { font-size:12px !important; } }
 
 /* ========================================================================== 
-   Content refresh 2026 — sengaja dibatasi ke .backup-page.
+   Content refresh 2026 � sengaja dibatasi ke .backup-page.
    Navbar utama dan navigasi modul memakai aturan lama tanpa perubahan.
    ========================================================================== */
 .backup-page {
