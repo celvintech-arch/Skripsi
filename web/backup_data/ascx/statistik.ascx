@@ -209,7 +209,6 @@
         End If
         gvPeriodInventory.DataSource = data
         gvPeriodInventory.DataBind()
-        lblInventoryCount.Text = data.Rows.Count.ToString("N0") & " periode TA"
     End Sub
 
     Protected Sub gvPeriodInventory_PageIndexChanging(sender As Object, e As GridViewPageEventArgs)
@@ -580,7 +579,6 @@
             <div>
                 <i class="fa fa-balance-scale text-primary backup-u-067"></i>
                 <span class="font-bold">Pusat Rekonsiliasi &amp; Sinkronisasi Data per Periode</span>
-                <asp:Label ID="lblInventoryCount" runat="server" CssClass="text-muted" />
             </div>
             <div>
                 <asp:LinkButton ID="btnCheckVerification" runat="server" CssClass="btn btn-default btn-xs" OnClick="btnCheckVerification_Click" ToolTip="Cek ulang kesesuaian data backup terhadap data aktif saat ini">
