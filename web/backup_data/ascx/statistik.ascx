@@ -13,6 +13,7 @@
         If Not IsPostBack Then
             LoadMonitoringOverview()
             LoadDatabaseStats()
+            LoadInventorySummary()
         End If
     End Sub
 
@@ -183,6 +184,174 @@
         Else
             Return String.Format("{0:N1} MB", sizeMb)
         End If
+    End Function
+
+    Private Function GetInventorySummary() As DataTable
+        Dim data As New DataTable()
+        Dim sql As String = "SELECT p.ThAkdk, p.StudentCount AS BackupStudents, ISNULL(p.LiveStudentCount,0) AS LiveStudentCount, p.LatestStudentCount, ISNULL(p.VerificationStatus,'UNVERIFIED') AS VerificationStatus, p.VerifiedAt, p.UpdatedAt FROM dbo.BackupAgentPeriodInventory p JOIN dbo.BackupAgentNode a ON a.AgentId=p.AgentId WHERE a.IsPrimary=1 AND a.IsEnabled=1 ORDER BY p.ThAkdk DESC"
+        Using cn As New SqlConnection(connstringLive)
+            Using cmd As New SqlCommand(sql, cn)
+                Using ad As New SqlDataAdapter(cmd)
+                    ad.Fill(data)
+                End Using
+            End Using
+        End Using
+        Return data
+    End Function
+
+    Private Sub LoadInventorySummary()
+        Dim data = GetInventorySummary()
+        If gvPeriodInventory.AllowPaging AndAlso data.Rows.Count > 0 Then
+            Dim maxPage = (data.Rows.Count - 1) \ gvPeriodInventory.PageSize
+            If gvPeriodInventory.PageIndex > maxPage Then
+                gvPeriodInventory.PageIndex = maxPage
+            End If
+        End If
+        gvPeriodInventory.DataSource = data
+        gvPeriodInventory.DataBind()
+        lblInventoryCount.Text = data.Rows.Count.ToString("N0") & " periode TA"
+    End Sub
+
+    Protected Sub gvPeriodInventory_PageIndexChanging(sender As Object, e As GridViewPageEventArgs)
+        gvPeriodInventory.PageIndex = e.NewPageIndex
+        LoadInventorySummary()
+    End Sub
+
+    Protected Sub btnCheckVerification_Click(sender As Object, e As EventArgs)
+        Try
+            Using cn As New SqlConnection(connstringLive)
+                Using cmd As New SqlCommand("dbo.sp_VerifyBackupPeriodInventory", cn)
+                    cmd.CommandType = CommandType.StoredProcedure
+                    cmd.Parameters.Add("@ThAkdk", SqlDbType.Char, 5).Value = DBNull.Value
+                    cn.Open()
+                    cmd.ExecuteNonQuery()
+                End Using
+            End Using
+            LoadInventorySummary()
+            litMonitoringMessage.Text = "<div class='alert alert-info alert-dismissible'><button type='button' class='close' data-dismiss='alert' aria-label='Close'><span aria-hidden='true'>&times;</span></button><i class='fa fa-check-circle'></i> <strong>Verifikasi Selesai.</strong> Data inventaris per periode telah diperiksa terhadap data aktif database saat ini.</div>"
+        Catch ex As Exception
+            litMonitoringMessage.Text = "<div class='alert alert-danger alert-dismissible'><button type='button' class='close' data-dismiss='alert' aria-label='Close'><span aria-hidden='true'>&times;</span></button><strong>Gagal verifikasi data:</strong> " & Server.HtmlEncode(BackupErrorMessage(ex)) & "</div>"
+        End Try
+    End Sub
+
+    Protected Sub gvPeriodInventory_RowCommand(sender As Object, e As GridViewCommandEventArgs)
+        Dim targetTa As String = Convert.ToString(e.CommandArgument).Trim()
+        If String.IsNullOrWhiteSpace(targetTa) Then Return
+
+        If e.CommandName = "SyncPeriod" Then
+            Try
+                If Not IsBackupStaff() Then
+                    Throw New ApplicationException("Hanya staf operator backup yang berhak menjalankan sinkronisasi data.")
+                End If
+                EnsureBackupServiceReady(ReadBackupServiceState(), "Sinkronisasi backup")
+                Using cn As New SqlConnection(connstringLive)
+                    Using cmd As New SqlCommand("dbo.sp_CreateBackupTransferJob", cn)
+                        cmd.CommandType = CommandType.StoredProcedure
+                        cmd.Parameters.Add("@CutoffThAkdk", SqlDbType.Char, 5).Value = targetTa
+                        cmd.Parameters.Add("@RequestedBy", SqlDbType.VarChar, 50).Value = BackupRequestedBy()
+                        cmd.Parameters.Add("@TriggerSource", SqlDbType.VarChar, 10).Value = "MANUAL"
+                        cmd.Parameters.Add("@SelectionMode", SqlDbType.VarChar, 10).Value = "SINGLE"
+                        cmd.Parameters.Add("@StartThAkdk", SqlDbType.Char, 5).Value = DBNull.Value
+                        cmd.Parameters.Add("@SelectedTables", SqlDbType.VarChar, 100).Value = "tbio01,treg,tkrs06,t_absensi14"
+                        cn.Open()
+                        Using rd = cmd.ExecuteReader()
+                            If Not rd.Read() Then Throw New ApplicationException("Pembuatan job sinkronisasi tidak menghasilkan status.")
+                        End Using
+                    End Using
+                End Using
+                LoadMonitoringOverview()
+                LoadInventorySummary()
+                litMonitoringMessage.Text = "<div class='alert alert-success alert-dismissible'><button type='button' class='close' data-dismiss='alert' aria-label='Close'><span aria-hidden='true'>&times;</span></button><i class='fa fa-check-circle'></i> <strong>Job Sinkronisasi Backup Berhasil Dibuat!</strong> Antrean backup untuk Tahun Akademik <strong>" & Server.HtmlEncode(targetTa) & "</strong> telah berhasil dibuat. Agent akan memproses data.</div>"
+            Catch ex As Exception
+                litMonitoringMessage.Text = "<div class='alert alert-danger alert-dismissible'><button type='button' class='close' data-dismiss='alert' aria-label='Close'><span aria-hidden='true'>&times;</span></button><strong>Sinkronisasi Gagal:</strong> " & Server.HtmlEncode(BackupErrorMessage(ex)) & "</div>"
+            End Try
+        ElseIf e.CommandName = "RestorePeriod" Then
+            Try
+                If Not IsBackupStaff() Then
+                    Throw New ApplicationException("Hanya staf operator backup yang berhak menjalankan pemulihan data.")
+                End If
+                EnsureBackupServiceReady(ReadBackupServiceState(), "Pemulihan data")
+                Using cn As New SqlConnection(connstringLive)
+                    Using cmd As New SqlCommand("dbo.sp_CreateRestoreTransferJob", cn)
+                        cmd.CommandType = CommandType.StoredProcedure
+                        cmd.Parameters.Add("@StudentNim", SqlDbType.Char, 9).Value = DBNull.Value
+                        cmd.Parameters.Add("@ThAkdkList", SqlDbType.NVarChar, -1).Value = targetTa
+                        cmd.Parameters.Add("@RequestedBy", SqlDbType.VarChar, 50).Value = BackupRequestedBy()
+                        cmd.Parameters.Add("@ExpectedStudents", SqlDbType.Int).Value = DBNull.Value
+                        cmd.Parameters.Add("@SelectedTables", SqlDbType.VarChar, 100).Value = "tbio01,treg,tkrs06,t_absensi14"
+                        cn.Open()
+                        Using rd = cmd.ExecuteReader()
+                            If Not rd.Read() Then Throw New ApplicationException("Pembuatan job pemulihan tidak menghasilkan status.")
+                        End Using
+                    End Using
+                End Using
+                LoadMonitoringOverview()
+                LoadInventorySummary()
+                litMonitoringMessage.Text = "<div class='alert alert-success alert-dismissible'><button type='button' class='close' data-dismiss='alert' aria-label='Close'><span aria-hidden='true'>&times;</span></button><i class='fa fa-check-circle'></i> <strong>Job Pemulihan Berhasil Dibuat!</strong> Antrean pemulihan data untuk Tahun Akademik <strong>" & Server.HtmlEncode(targetTa) & "</strong> telah berhasil dibuat. Agent akan memulihkan data ke database aktif.</div>"
+            Catch ex As Exception
+                litMonitoringMessage.Text = "<div class='alert alert-danger alert-dismissible'><button type='button' class='close' data-dismiss='alert' aria-label='Close'><span aria-hidden='true'>&times;</span></button><strong>Pemulihan Gagal:</strong> " & Server.HtmlEncode(BackupErrorMessage(ex)) & "</div>"
+            End Try
+        End If
+    End Sub
+
+    Private Function VerificationBadge(statusObj As Object, verifiedAtObj As Object) As String
+        Dim status As String = If(statusObj Is Nothing OrElse IsDBNull(statusObj), "UNVERIFIED", statusObj.ToString().Trim().ToUpperInvariant())
+        Dim tooltip As String = ""
+        If verifiedAtObj IsNot Nothing AndAlso Not IsDBNull(verifiedAtObj) Then
+            tooltip = " title='Diverifikasi: " & CDate(verifiedAtObj).ToString("dd MMM yyyy HH:mm") & "'"
+        End If
+        Select Case status
+            Case "VERIFIED"
+                Return "<span class='label label-success'" & tooltip & "><i class='fa fa-check-circle'></i> Sesuai</span>"
+            Case "ARCHIVED"
+                Return "<span class='label label-info'" & tooltip & "><i class='fa fa-archive'></i> Terarsip</span>"
+            Case "MISMATCH"
+                Return "<span class='label label-danger'" & tooltip & "><i class='fa fa-exclamation-triangle'></i> Selisih</span>"
+            Case Else
+                Return "<span class='label label-default'" & tooltip & "><i class='fa fa-clock-o'></i> Belum Dicek</span>"
+        End Select
+    End Function
+
+    Private Function CanSyncBackup(statusObj As Object, liveObj As Object, backupObj As Object) As Boolean
+        If Not IsStaffDashboard Then Return False
+        Dim status = If(statusObj Is Nothing OrElse IsDBNull(statusObj), "", statusObj.ToString().Trim().ToUpperInvariant())
+        Dim liveCount = If(liveObj Is Nothing OrElse IsDBNull(liveObj), 0, Convert.ToInt32(liveObj))
+        Dim backupCount = If(backupObj Is Nothing OrElse IsDBNull(backupObj), 0, Convert.ToInt32(backupObj))
+        Return (status = "MISMATCH" AndAlso liveCount > backupCount)
+    End Function
+
+    Private Function CanRestorePeriod(statusObj As Object, liveObj As Object, backupObj As Object) As Boolean
+        If Not IsStaffDashboard Then Return False
+        Dim status = If(statusObj Is Nothing OrElse IsDBNull(statusObj), "", statusObj.ToString().Trim().ToUpperInvariant())
+        Dim liveCount = If(liveObj Is Nothing OrElse IsDBNull(liveObj), 0, Convert.ToInt32(liveObj))
+        Dim backupCount = If(backupObj Is Nothing OrElse IsDBNull(backupObj), 0, Convert.ToInt32(backupObj))
+        Return (status = "ARCHIVED") OrElse (status = "MISMATCH" AndAlso backupCount > liveCount)
+    End Function
+
+    Private Function RestoreButtonText(liveObj As Object) As String
+        Dim liveCount = If(liveObj Is Nothing OrElse IsDBNull(liveObj), 0, Convert.ToInt32(liveObj))
+        If liveCount = 0 Then
+            Return "<i class='fa fa-history'></i> Pulihkan ke Aktif"
+        Else
+            Return "<i class='fa fa-history'></i> Pulihkan Selisih"
+        End If
+    End Function
+
+    Private Function ManagerActionLabel(statusObj As Object, liveObj As Object, backupObj As Object) As String
+        If IsStaffDashboard Then Return ""
+        Dim status = If(statusObj Is Nothing OrElse IsDBNull(statusObj), "", statusObj.ToString().Trim().ToUpperInvariant())
+        Dim liveCount = If(liveObj Is Nothing OrElse IsDBNull(liveObj), 0, Convert.ToInt32(liveObj))
+        Dim backupCount = If(backupObj Is Nothing OrElse IsDBNull(backupObj), 0, Convert.ToInt32(backupObj))
+        If status = "ARCHIVED" Then
+            Return "<span class='text-info small'><i class='fa fa-archive'></i> Data Terarsip</span>"
+        ElseIf status = "MISMATCH" Then
+            If liveCount > backupCount Then
+                Return "<span class='text-danger small'><i class='fa fa-exclamation-triangle'></i> Perlu Backup</span>"
+            Else
+                Return "<span class='text-danger small'><i class='fa fa-exclamation-triangle'></i> Perlu Pulihkan</span>"
+            End If
+        End If
+        Return ""
     End Function
 </script>
 
@@ -405,4 +574,98 @@
 
     </div>
 
+    <!-- PUSAT REKONSILIASI & SINKRONISASI DATA PER PERIODE -->
+    <div class="panel panel-default">
+        <div class="panel-heading backup-u-043">
+            <div>
+                <i class="fa fa-balance-scale text-primary backup-u-067"></i>
+                <span class="font-bold">Pusat Rekonsiliasi &amp; Sinkronisasi Data per Periode</span>
+                <asp:Label ID="lblInventoryCount" runat="server" CssClass="text-muted" />
+            </div>
+            <div>
+                <asp:LinkButton ID="btnCheckVerification" runat="server" CssClass="btn btn-default btn-xs" OnClick="btnCheckVerification_Click" ToolTip="Cek ulang kesesuaian data backup terhadap data aktif saat ini">
+                    <i class="fa fa-refresh"></i> Cek Verifikasi Sekarang
+                </asp:LinkButton>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <asp:GridView ID="gvPeriodInventory" runat="server" AutoGenerateColumns="false" CssClass="table table-striped table-hover" GridLines="None" EmptyDataText="Data inventaris per periode belum tersedia."
+                AllowPaging="true" PageSize="10"
+                OnPageIndexChanging="gvPeriodInventory_PageIndexChanging"
+                OnRowCommand="gvPeriodInventory_RowCommand"
+                PagerSettings-Mode="NumericFirstLast"
+                PagerSettings-FirstPageText="Awal"
+                PagerSettings-LastPageText="Akhir"
+                PagerStyle-CssClass="customPager"
+                PagerStyle-HorizontalAlign="Center">
+                <Columns>
+                    <asp:BoundField DataField="ThAkdk" HeaderText="Tahun Akademik" ItemStyle-Font-Bold="true" />
+                    <asp:BoundField DataField="BackupStudents" HeaderText="Mahasiswa pada Backup" DataFormatString="{0:N0}" ItemStyle-HorizontalAlign="Right" HeaderStyle-CssClass="text-right" />
+                    <asp:BoundField DataField="LiveStudentCount" HeaderText="Mahasiswa Data Aktif" DataFormatString="{0:N0}" ItemStyle-HorizontalAlign="Right" HeaderStyle-CssClass="text-right" />
+                    <asp:TemplateField HeaderText="Status Verifikasi" ItemStyle-HorizontalAlign="Center" HeaderStyle-CssClass="text-center">
+                        <ItemTemplate>
+                            <%# VerificationBadge(Eval("VerificationStatus"), Eval("VerifiedAt")) %>
+                        </ItemTemplate>
+                    </asp:TemplateField>
+                    <asp:BoundField DataField="UpdatedAt" HeaderText="Sinkronisasi Terakhir" DataFormatString="{0:dd MMM yyyy HH:mm:ss}" ItemStyle-HorizontalAlign="Center" HeaderStyle-CssClass="text-center" />
+                    <asp:TemplateField HeaderText="Tindakan" ItemStyle-HorizontalAlign="Center" HeaderStyle-CssClass="text-center">
+                        <ItemTemplate>
+                            <asp:LinkButton ID="btnSyncPeriod" runat="server"
+                                CommandName="SyncPeriod"
+                                CommandArgument='<%# Eval("ThAkdk") %>'
+                                CssClass="btn btn-xs btn-warning"
+                                Visible='<%# CanSyncBackup(Eval("VerificationStatus"), Eval("LiveStudentCount"), Eval("BackupStudents")) %>'
+                                data-ta='<%# Eval("ThAkdk") %>'
+                                OnClientClick="return confirmSyncPeriod(this);"
+                                ToolTip="Jalankan job backup untuk menyalin data aktif baru ke database backup">
+                                <i class="fa fa-refresh"></i> Sinkronkan Backup
+                            </asp:LinkButton>
+                            <asp:LinkButton ID="btnRestorePeriod" runat="server"
+                                CommandName="RestorePeriod"
+                                CommandArgument='<%# Eval("ThAkdk") %>'
+                                CssClass="btn btn-xs btn-success"
+                                Visible='<%# CanRestorePeriod(Eval("VerificationStatus"), Eval("LiveStudentCount"), Eval("BackupStudents")) %>'
+                                data-ta='<%# Eval("ThAkdk") %>'
+                                data-students='<%# Eval("BackupStudents") %>'
+                                OnClientClick="return confirmRestorePeriod(this);"
+                                ToolTip="Pulihkan data mahasiswa dari Database Backup ke Database Aktif">
+                                <%# RestoreButtonText(Eval("LiveStudentCount")) %>
+                            </asp:LinkButton>
+                            <asp:Label ID="lblVerified" runat="server"
+                                CssClass="text-success small"
+                                Visible='<%# Eval("VerificationStatus").ToString() = "VERIFIED" %>'>
+                                <i class="fa fa-check"></i> Sesuai
+                            </asp:Label>
+                            <asp:Literal ID="litManagerStatus" runat="server"
+                                Text='<%# ManagerActionLabel(Eval("VerificationStatus"), Eval("LiveStudentCount"), Eval("BackupStudents")) %>' />
+                        </ItemTemplate>
+                    </asp:TemplateField>
+                </Columns>
+            </asp:GridView>
+        </div>
+    </div>
+
 </div>
+
+<script type="text/javascript">
+function confirmSyncPeriod(button) {
+    var thAkdk = (button && button.getAttribute("data-ta")) || "";
+    return backupConfirm(button, "Jalankan job sinkronisasi backup untuk Tahun Akademik " + thAkdk + "? Sistem akan membuat antrean backup data mahasiswa dari database aktif.", {
+        title: "Konfirmasi Sinkronisasi TA " + thAkdk,
+        confirmText: "Ya, Sinkronkan",
+        confirmColor: "#f39c12",
+        icon: "warning"
+    });
+}
+function confirmRestorePeriod(button) {
+    var thAkdk = (button && button.getAttribute("data-ta")) || "";
+    var students = (button && button.getAttribute("data-students")) || "";
+    var studentInfo = students ? " (" + students + " mahasiswa pada backup)" : "";
+    return backupConfirm(button, "Pulihkan data Tahun Akademik " + thAkdk + studentInfo + " dari Database Backup ke Database Aktif? Data yang sudah ada di database aktif tidak akan ditimpa.", {
+        title: "Konfirmasi Pemulihan TA " + thAkdk,
+        confirmText: "Ya, Pulihkan ke Aktif",
+        confirmColor: "#00a65a",
+        icon: "question"
+    });
+}
+</script>
