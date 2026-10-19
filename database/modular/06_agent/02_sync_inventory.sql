@@ -26,6 +26,18 @@ BEGIN
  WHEN NOT MATCHED THEN INSERT(AgentId,ThAkdk,StudentCount,LatestStudentCount) VALUES(@agent,s.ThAkdk,s.StudentCount,s.LatestStudentCount);
 
  -- Hitung verifikasi data aktif (live) vs data backup untuk periode bersangkutan
+ ;WITH LiveAcademicRows AS (
+  SELECT r.th_akdk, r.nim1 FROM dbo.treg r JOIN @items i ON i.ThAkdk = r.th_akdk
+  UNION
+  SELECT k.th_akdk, k.nim1 FROM dbo.tkrs06 k JOIN @items i ON i.ThAkdk = k.th_akdk
+  UNION
+  SELECT a.th_akdk, a.nim1 FROM dbo.t_absensi14 a JOIN @items i ON i.ThAkdk = a.th_akdk
+ ),
+ LiveCounts AS (
+  SELECT th_akdk, COUNT(DISTINCT nim1) AS LiveCount
+  FROM LiveAcademicRows
+  GROUP BY th_akdk
+ )
  UPDATE p
  SET 
   p.LiveStudentCount = ISNULL(l.LiveCount, 0),
@@ -36,12 +48,7 @@ BEGIN
   END,
   p.VerifiedAt = SYSDATETIME()
  FROM dbo.BackupAgentPeriodInventory p
- LEFT JOIN (
-  SELECT th_akdk, COUNT(DISTINCT nim1) AS LiveCount
-  FROM dbo.treg
-  WHERE th_akdk IN (SELECT ThAkdk FROM @items)
-  GROUP BY th_akdk
- ) l ON l.th_akdk = p.ThAkdk
+ LEFT JOIN LiveCounts l ON l.th_akdk = p.ThAkdk
  WHERE p.AgentId = @agent;
 
  COMMIT;

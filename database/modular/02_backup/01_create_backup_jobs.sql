@@ -40,13 +40,26 @@ BEGIN
  END;
  INSERT dbo.BackupTransferJob(JobId,AgentId,OperationType,TriggerSource,CutoffThAkdk,RestoreThAkdkList,SelectedTables,RequestedBy,Status)
  VALUES(@job,@agent,'BACKUP',@TriggerSource,@CutoffThAkdk,@target,@SelectedTables,@RequestedBy,'WAITING');
+ ;WITH AcademicScope AS (
+  SELECT th_akdk, nim1 FROM dbo.treg
+  WHERE ((@SelectionMode='SINGLE' AND th_akdk=@CutoffThAkdk)
+      OR (@SelectionMode='RANGE' AND th_akdk BETWEEN @StartThAkdk AND @CutoffThAkdk)
+      OR (@SelectionMode='UP_TO' AND th_akdk<=@CutoffThAkdk))
+  UNION
+  SELECT th_akdk, nim1 FROM dbo.tkrs06
+  WHERE ((@SelectionMode='SINGLE' AND th_akdk=@CutoffThAkdk)
+      OR (@SelectionMode='RANGE' AND th_akdk BETWEEN @StartThAkdk AND @CutoffThAkdk)
+      OR (@SelectionMode='UP_TO' AND th_akdk<=@CutoffThAkdk))
+  UNION
+  SELECT th_akdk, nim1 FROM dbo.t_absensi14
+  WHERE ((@SelectionMode='SINGLE' AND th_akdk=@CutoffThAkdk)
+      OR (@SelectionMode='RANGE' AND th_akdk BETWEEN @StartThAkdk AND @CutoffThAkdk)
+      OR (@SelectionMode='UP_TO' AND th_akdk<=@CutoffThAkdk))
+ )
  INSERT dbo.BackupTransferJobStudent(JobId,Nim1)
  SELECT DISTINCT @job,b.nim1
  FROM dbo.tbio01 b
- JOIN dbo.treg r ON r.nim1=b.nim1
- WHERE ((@SelectionMode='SINGLE' AND LTRIM(RTRIM(r.th_akdk))=@CutoffThAkdk)
-     OR (@SelectionMode='RANGE' AND LTRIM(RTRIM(r.th_akdk)) BETWEEN @StartThAkdk AND @CutoffThAkdk)
-     OR (@SelectionMode='UP_TO' AND LTRIM(RTRIM(r.th_akdk))<=@CutoffThAkdk));
+ JOIN AcademicScope a ON a.nim1=b.nim1;
  DECLARE @candidateStudents INT=(SELECT COUNT(*) FROM dbo.BackupTransferJobStudent WHERE JobId=@job);
  UPDATE dbo.BackupTransferJob SET TotalStudents=@candidateStudents,ProgressMessage=CASE WHEN @candidateStudents>0 THEN 'Menunggu Database Backup' END,Status=CASE WHEN @candidateStudents=0 THEN 'SUCCESS' ELSE Status END,CompletedAt=CASE WHEN @candidateStudents=0 THEN SYSDATETIME() ELSE CompletedAt END,ResultMessage=CASE WHEN @candidateStudents=0 THEN '0 Data Mahasiswa Berhasil Dibackup' ELSE ResultMessage END WHERE JobId=@job;
  COMMIT;
@@ -73,10 +86,17 @@ BEGIN
  DECLARE @agent UNIQUEIDENTIFIER,@job UNIQUEIDENTIFIER=NEWID(),@latestTa CHAR(5);
  SELECT @agent=AgentId FROM dbo.BackupAgentNode WHERE IsPrimary=1 AND IsEnabled=1;
  IF @agent IS NULL THROW 51103,'Node backup utama belum didaftarkan.',1;
- SELECT TOP(1) @latestTa=LTRIM(RTRIM(r.th_akdk))
- FROM dbo.tbio01 b JOIN dbo.treg r ON r.nim1=b.nim1
- WHERE b.nim1=@StudentNim ORDER BY r.th_akdk DESC,r.tgl_entry DESC;
- IF @latestTa IS NULL THROW 51143,'NIM tidak ditemukan atau tidak memiliki data registrasi di database aktif.',1;
+ ;WITH AcademicRows AS (
+  SELECT th_akdk, nim1, tgl_entry FROM dbo.treg WHERE nim1=@StudentNim
+  UNION ALL
+  SELECT th_akdk, nim1, NULL FROM dbo.tkrs06 WHERE nim1=@StudentNim
+  UNION ALL
+  SELECT th_akdk, nim1, NULL FROM dbo.t_absensi14 WHERE nim1=@StudentNim
+ )
+ SELECT TOP(1) @latestTa=LTRIM(RTRIM(a.th_akdk))
+ FROM dbo.tbio01 b JOIN AcademicRows a ON a.nim1=b.nim1
+ WHERE b.nim1=@StudentNim ORDER BY a.th_akdk DESC, a.tgl_entry DESC;
+ IF @latestTa IS NULL THROW 51143,'NIM tidak ditemukan atau tidak memiliki data registrasi/akademik di database aktif.',1;
  BEGIN TRAN;
  IF EXISTS(SELECT 1 FROM dbo.BackupTransferJob WITH(UPDLOCK,HOLDLOCK) WHERE OperationType='BACKUP' AND Status IN('WAITING','CLAIMED','TRANSFERRING'))
  BEGIN

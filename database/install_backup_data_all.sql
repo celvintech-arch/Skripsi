@@ -528,13 +528,26 @@ BEGIN
  END;
  INSERT dbo.BackupTransferJob(JobId,AgentId,OperationType,TriggerSource,CutoffThAkdk,RestoreThAkdkList,SelectedTables,RequestedBy,Status)
  VALUES(@job,@agent,'BACKUP',@TriggerSource,@CutoffThAkdk,@target,@SelectedTables,@RequestedBy,'WAITING');
+ ;WITH AcademicScope AS (
+  SELECT th_akdk, nim1 FROM dbo.treg
+  WHERE ((@SelectionMode='SINGLE' AND th_akdk=@CutoffThAkdk)
+      OR (@SelectionMode='RANGE' AND th_akdk BETWEEN @StartThAkdk AND @CutoffThAkdk)
+      OR (@SelectionMode='UP_TO' AND th_akdk<=@CutoffThAkdk))
+  UNION
+  SELECT th_akdk, nim1 FROM dbo.tkrs06
+  WHERE ((@SelectionMode='SINGLE' AND th_akdk=@CutoffThAkdk)
+      OR (@SelectionMode='RANGE' AND th_akdk BETWEEN @StartThAkdk AND @CutoffThAkdk)
+      OR (@SelectionMode='UP_TO' AND th_akdk<=@CutoffThAkdk))
+  UNION
+  SELECT th_akdk, nim1 FROM dbo.t_absensi14
+  WHERE ((@SelectionMode='SINGLE' AND th_akdk=@CutoffThAkdk)
+      OR (@SelectionMode='RANGE' AND th_akdk BETWEEN @StartThAkdk AND @CutoffThAkdk)
+      OR (@SelectionMode='UP_TO' AND th_akdk<=@CutoffThAkdk))
+ )
  INSERT dbo.BackupTransferJobStudent(JobId,Nim1)
  SELECT DISTINCT @job,b.nim1
  FROM dbo.tbio01 b
- JOIN dbo.treg r ON r.nim1=b.nim1
- WHERE ((@SelectionMode='SINGLE' AND LTRIM(RTRIM(r.th_akdk))=@CutoffThAkdk)
-     OR (@SelectionMode='RANGE' AND LTRIM(RTRIM(r.th_akdk)) BETWEEN @StartThAkdk AND @CutoffThAkdk)
-     OR (@SelectionMode='UP_TO' AND LTRIM(RTRIM(r.th_akdk))<=@CutoffThAkdk));
+ JOIN AcademicScope a ON a.nim1=b.nim1;
  DECLARE @candidateStudents INT=(SELECT COUNT(*) FROM dbo.BackupTransferJobStudent WHERE JobId=@job);
  UPDATE dbo.BackupTransferJob SET TotalStudents=@candidateStudents,ProgressMessage=CASE WHEN @candidateStudents>0 THEN 'Menunggu Database Backup' END,Status=CASE WHEN @candidateStudents=0 THEN 'SUCCESS' ELSE Status END,CompletedAt=CASE WHEN @candidateStudents=0 THEN SYSDATETIME() ELSE CompletedAt END,ResultMessage=CASE WHEN @candidateStudents=0 THEN '0 Data Mahasiswa Berhasil Dibackup' ELSE ResultMessage END WHERE JobId=@job;
  COMMIT;
@@ -561,10 +574,17 @@ BEGIN
  DECLARE @agent UNIQUEIDENTIFIER,@job UNIQUEIDENTIFIER=NEWID(),@latestTa CHAR(5);
  SELECT @agent=AgentId FROM dbo.BackupAgentNode WHERE IsPrimary=1 AND IsEnabled=1;
  IF @agent IS NULL THROW 51103,'Node backup utama belum didaftarkan.',1;
- SELECT TOP(1) @latestTa=LTRIM(RTRIM(r.th_akdk))
- FROM dbo.tbio01 b JOIN dbo.treg r ON r.nim1=b.nim1
- WHERE b.nim1=@StudentNim ORDER BY r.th_akdk DESC,r.tgl_entry DESC;
- IF @latestTa IS NULL THROW 51143,'NIM tidak ditemukan atau tidak memiliki data registrasi di database aktif.',1;
+ ;WITH AcademicRows AS (
+  SELECT th_akdk, nim1, tgl_entry FROM dbo.treg WHERE nim1=@StudentNim
+  UNION ALL
+  SELECT th_akdk, nim1, NULL FROM dbo.tkrs06 WHERE nim1=@StudentNim
+  UNION ALL
+  SELECT th_akdk, nim1, NULL FROM dbo.t_absensi14 WHERE nim1=@StudentNim
+ )
+ SELECT TOP(1) @latestTa=LTRIM(RTRIM(a.th_akdk))
+ FROM dbo.tbio01 b JOIN AcademicRows a ON a.nim1=b.nim1
+ WHERE b.nim1=@StudentNim ORDER BY a.th_akdk DESC, a.tgl_entry DESC;
+ IF @latestTa IS NULL THROW 51143,'NIM tidak ditemukan atau tidak memiliki data registrasi/akademik di database aktif.',1;
  BEGIN TRAN;
  IF EXISTS(SELECT 1 FROM dbo.BackupTransferJob WITH(UPDLOCK,HOLDLOCK) WHERE OperationType='BACKUP' AND Status IN('WAITING','CLAIMED','TRANSFERRING'))
  BEGIN
@@ -843,6 +863,18 @@ BEGIN
  WHEN NOT MATCHED THEN INSERT(AgentId,ThAkdk,StudentCount,LatestStudentCount) VALUES(@agent,s.ThAkdk,s.StudentCount,s.LatestStudentCount);
 
  -- Hitung verifikasi data aktif (live) vs data backup untuk periode bersangkutan
+ ;WITH LiveAcademicRows AS (
+  SELECT r.th_akdk, r.nim1 FROM dbo.treg r JOIN @items i ON i.ThAkdk = r.th_akdk
+  UNION
+  SELECT k.th_akdk, k.nim1 FROM dbo.tkrs06 k JOIN @items i ON i.ThAkdk = k.th_akdk
+  UNION
+  SELECT a.th_akdk, a.nim1 FROM dbo.t_absensi14 a JOIN @items i ON i.ThAkdk = a.th_akdk
+ ),
+ LiveCounts AS (
+  SELECT th_akdk, COUNT(DISTINCT nim1) AS LiveCount
+  FROM LiveAcademicRows
+  GROUP BY th_akdk
+ )
  UPDATE p
  SET 
   p.LiveStudentCount = ISNULL(l.LiveCount, 0),
@@ -853,12 +885,7 @@ BEGIN
   END,
   p.VerifiedAt = SYSDATETIME()
  FROM dbo.BackupAgentPeriodInventory p
- LEFT JOIN (
-  SELECT th_akdk, COUNT(DISTINCT nim1) AS LiveCount
-  FROM dbo.treg
-  WHERE th_akdk IN (SELECT ThAkdk FROM @items)
-  GROUP BY th_akdk
- ) l ON l.th_akdk = p.ThAkdk
+ LEFT JOIN LiveCounts l ON l.th_akdk = p.ThAkdk
  WHERE p.AgentId = @agent;
 
  COMMIT;
@@ -869,6 +896,25 @@ CREATE OR ALTER PROCEDURE dbo.sp_VerifyBackupPeriodInventory @ThAkdk CHAR(5) = N
 AS
 BEGIN
  SET NOCOUNT ON;
+
+ DECLARE @targets TABLE(ThAkdk CHAR(5) PRIMARY KEY);
+ IF @ThAkdk IS NOT NULL AND @ThAkdk <> ''
+  INSERT @targets(ThAkdk) VALUES(@ThAkdk);
+ ELSE
+  INSERT @targets(ThAkdk) SELECT DISTINCT ThAkdk FROM dbo.BackupAgentPeriodInventory;
+
+ ;WITH LiveAcademicRows AS (
+  SELECT r.th_akdk, r.nim1 FROM dbo.treg r JOIN @targets t ON t.ThAkdk = r.th_akdk
+  UNION
+  SELECT k.th_akdk, k.nim1 FROM dbo.tkrs06 k JOIN @targets t ON t.ThAkdk = k.th_akdk
+  UNION
+  SELECT a.th_akdk, a.nim1 FROM dbo.t_absensi14 a JOIN @targets t ON t.ThAkdk = a.th_akdk
+ ),
+ LiveCounts AS (
+  SELECT th_akdk, COUNT(DISTINCT nim1) AS LiveCount
+  FROM LiveAcademicRows
+  GROUP BY th_akdk
+ )
  UPDATE p
  SET 
   p.LiveStudentCount = ISNULL(l.LiveCount, 0),
@@ -879,14 +925,8 @@ BEGIN
   END,
   p.VerifiedAt = SYSDATETIME()
  FROM dbo.BackupAgentPeriodInventory p
- LEFT JOIN (
-  SELECT th_akdk, COUNT(DISTINCT nim1) AS LiveCount
-  FROM dbo.treg
-  WHERE (@ThAkdk IS NULL OR @ThAkdk = '' OR th_akdk = @ThAkdk)
-    AND th_akdk IN (SELECT ThAkdk FROM dbo.BackupAgentPeriodInventory)
-  GROUP BY th_akdk
- ) l ON l.th_akdk = p.ThAkdk
- WHERE (@ThAkdk IS NULL OR @ThAkdk = '' OR p.ThAkdk = @ThAkdk);
+ JOIN @targets t ON t.ThAkdk = p.ThAkdk
+ LEFT JOIN LiveCounts l ON l.th_akdk = p.ThAkdk;
 END;
 GO
 

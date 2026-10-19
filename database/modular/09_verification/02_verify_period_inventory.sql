@@ -1,5 +1,6 @@
 /*
  Fungsi: Memverifikasi kesesuaian jumlah mahasiswa database aktif vs inventaris backup per Tahun Akademik.
+ Mencakup mahasiswa dari tabel Registrasi (treg), KRS (tkrs06), dan Absensi (t_absensi14).
 */
 
 USE [dec_dummy];
@@ -11,6 +12,25 @@ CREATE OR ALTER PROCEDURE dbo.sp_VerifyBackupPeriodInventory @ThAkdk CHAR(5) = N
 AS
 BEGIN
  SET NOCOUNT ON;
+
+ DECLARE @targets TABLE(ThAkdk CHAR(5) PRIMARY KEY);
+ IF @ThAkdk IS NOT NULL AND @ThAkdk <> ''
+  INSERT @targets(ThAkdk) VALUES(@ThAkdk);
+ ELSE
+  INSERT @targets(ThAkdk) SELECT DISTINCT ThAkdk FROM dbo.BackupAgentPeriodInventory;
+
+ ;WITH LiveAcademicRows AS (
+  SELECT r.th_akdk, r.nim1 FROM dbo.treg r JOIN @targets t ON t.ThAkdk = r.th_akdk
+  UNION
+  SELECT k.th_akdk, k.nim1 FROM dbo.tkrs06 k JOIN @targets t ON t.ThAkdk = k.th_akdk
+  UNION
+  SELECT a.th_akdk, a.nim1 FROM dbo.t_absensi14 a JOIN @targets t ON t.ThAkdk = a.th_akdk
+ ),
+ LiveCounts AS (
+  SELECT th_akdk, COUNT(DISTINCT nim1) AS LiveCount
+  FROM LiveAcademicRows
+  GROUP BY th_akdk
+ )
  UPDATE p
  SET 
   p.LiveStudentCount = ISNULL(l.LiveCount, 0),
@@ -21,13 +41,7 @@ BEGIN
   END,
   p.VerifiedAt = SYSDATETIME()
  FROM dbo.BackupAgentPeriodInventory p
- LEFT JOIN (
-  SELECT th_akdk, COUNT(DISTINCT nim1) AS LiveCount
-  FROM dbo.treg
-  WHERE (@ThAkdk IS NULL OR @ThAkdk = '' OR th_akdk = @ThAkdk)
-    AND th_akdk IN (SELECT ThAkdk FROM dbo.BackupAgentPeriodInventory)
-  GROUP BY th_akdk
- ) l ON l.th_akdk = p.ThAkdk
- WHERE (@ThAkdk IS NULL OR @ThAkdk = '' OR p.ThAkdk = @ThAkdk);
+ JOIN @targets t ON t.ThAkdk = p.ThAkdk
+ LEFT JOIN LiveCounts l ON l.th_akdk = p.ThAkdk;
 END;
 GO
