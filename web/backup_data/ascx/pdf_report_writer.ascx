@@ -126,6 +126,8 @@ Private NotInheritable Class BackupSummaryPdfWriter
         Dim status As String = Value(row, "VerificationStatus")
         If status = "VERIFIED" Then
             status = "Sesuai"
+        ElseIf status = "ARCHIVED" Then
+            status = "Terarsip"
         ElseIf status = "MISMATCH" Then
             status = "Selisih"
         Else

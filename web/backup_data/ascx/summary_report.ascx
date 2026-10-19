@@ -226,9 +226,10 @@ Protected Sub btnCheckVerification_Click(sender As Object, e As EventArgs)
 End Sub
 
 Protected Sub gvReportInventory_RowCommand(sender As Object, e As GridViewCommandEventArgs)
+ Dim targetTa As String = Convert.ToString(e.CommandArgument).Trim()
+ If String.IsNullOrWhiteSpace(targetTa) Then Return
+
  If e.CommandName = "SyncPeriod" Then
-  Dim targetTa As String = Convert.ToString(e.CommandArgument).Trim()
-  If String.IsNullOrWhiteSpace(targetTa) Then Return
   Try
    If Not IsBackupStaff() Then
     Throw New ApplicationException("Hanya staf operator backup yang berhak menjalankan sinkronisasi data.")
@@ -249,9 +250,35 @@ Protected Sub gvReportInventory_RowCommand(sender As Object, e As GridViewComman
    End Using
    tutupsr()
    LoadReport()
-   litReportMessage.Text = "<div class='alert alert-success alert-dismissible'><button type='button' class='close' data-dismiss='alert' aria-label='Close'><span aria-hidden='true'>&times;</span></button><i class='fa fa-check-circle'></i> <strong>Job Sinkronisasi Berhasil Dibuat!</strong> Antrean backup untuk Tahun Akademik <strong>" & Server.HtmlEncode(targetTa) & "</strong> telah berhasil dibuat. Agent akan segera memproses sinkronisasi data. <a href='index.aspx?tab=dashboard' class='alert-link'>Pantau di Dashboard &rarr;</a></div>"
+   litReportMessage.Text = "<div class='alert alert-success alert-dismissible'><button type='button' class='close' data-dismiss='alert' aria-label='Close'><span aria-hidden='true'>&times;</span></button><i class='fa fa-check-circle'></i> <strong>Job Sinkronisasi Backup Berhasil Dibuat!</strong> Antrean backup untuk Tahun Akademik <strong>" & Server.HtmlEncode(targetTa) & "</strong> telah berhasil dibuat. Agent akan memproses data. <a href='index.aspx?tab=dashboard' class='alert-link'>Pantau di Dashboard &rarr;</a></div>"
   Catch ex As Exception
    litReportMessage.Text = "<div class='alert alert-danger alert-dismissible'><button type='button' class='close' data-dismiss='alert' aria-label='Close'><span aria-hidden='true'>&times;</span></button><strong>Sinkronisasi Gagal:</strong> " & Server.HtmlEncode(BackupErrorMessage(ex)) & "</div>"
+  Finally
+   tutupsr()
+  End Try
+ ElseIf e.CommandName = "RestorePeriod" Then
+  Try
+   If Not IsBackupStaff() Then
+    Throw New ApplicationException("Hanya staf operator backup yang berhak menjalankan pemulihan data.")
+   End If
+   EnsureBackupServiceReady(ReadBackupServiceState(), "Pemulihan data")
+   Using cmd As New SqlCommand("dbo.sp_CreateRestoreTransferJob", cnsr)
+    cmd.CommandType = CommandType.StoredProcedure
+    cmd.Parameters.Add("@StudentNim", SqlDbType.Char, 9).Value = DBNull.Value
+    cmd.Parameters.Add("@ThAkdkList", SqlDbType.NVarChar, -1).Value = targetTa
+    cmd.Parameters.Add("@RequestedBy", SqlDbType.VarChar, 50).Value = BackupRequestedBy()
+    cmd.Parameters.Add("@ExpectedStudents", SqlDbType.Int).Value = DBNull.Value
+    cmd.Parameters.Add("@SelectedTables", SqlDbType.VarChar, 100).Value = "tbio01,treg,tkrs06,t_absensi14"
+    cnsr.Open()
+    Using rd = cmd.ExecuteReader()
+     If Not rd.Read() Then Throw New ApplicationException("Pembuatan job pemulihan tidak menghasilkan status.")
+    End Using
+   End Using
+   tutupsr()
+   LoadReport()
+   litReportMessage.Text = "<div class='alert alert-success alert-dismissible'><button type='button' class='close' data-dismiss='alert' aria-label='Close'><span aria-hidden='true'>&times;</span></button><i class='fa fa-check-circle'></i> <strong>Job Pemulihan Berhasil Dibuat!</strong> Antrean pemulihan data untuk Tahun Akademik <strong>" & Server.HtmlEncode(targetTa) & "</strong> telah berhasil dibuat. Agent akan memulihkan data ke database aktif. <a href='index.aspx?tab=dashboard' class='alert-link'>Pantau di Dashboard &rarr;</a></div>"
+  Catch ex As Exception
+   litReportMessage.Text = "<div class='alert alert-danger alert-dismissible'><button type='button' class='close' data-dismiss='alert' aria-label='Close'><span aria-hidden='true'>&times;</span></button><strong>Pemulihan Gagal:</strong> " & Server.HtmlEncode(BackupErrorMessage(ex)) & "</div>"
   Finally
    tutupsr()
   End Try
@@ -267,6 +294,8 @@ Private Function VerificationBadge(statusObj As Object, verifiedAtObj As Object)
  Select Case status
   Case "VERIFIED"
    Return "<span class='label label-success'" & tooltip & "><i class='fa fa-check-circle'></i> Sesuai</span>"
+  Case "ARCHIVED"
+   Return "<span class='label label-info'" & tooltip & "><i class='fa fa-archive'></i> Terarsip</span>"
   Case "MISMATCH"
    Return "<span class='label label-danger'" & tooltip & "><i class='fa fa-exclamation-triangle'></i> Selisih</span>"
   Case Else
@@ -274,16 +303,46 @@ Private Function VerificationBadge(statusObj As Object, verifiedAtObj As Object)
  End Select
 End Function
 
-Private Function CanSyncPeriod(statusObj As Object) As Boolean
+Private Function CanSyncBackup(statusObj As Object, liveObj As Object, backupObj As Object) As Boolean
  If Not IsBackupStaff() Then Return False
- Dim status As String = If(statusObj Is Nothing OrElse IsDBNull(statusObj), "", statusObj.ToString().Trim().ToUpperInvariant())
- Return status = "MISMATCH"
+ Dim status = If(statusObj Is Nothing OrElse IsDBNull(statusObj), "", statusObj.ToString().Trim().ToUpperInvariant())
+ Dim liveCount = If(liveObj Is Nothing OrElse IsDBNull(liveObj), 0, Convert.ToInt32(liveObj))
+ Dim backupCount = If(backupObj Is Nothing OrElse IsDBNull(backupObj), 0, Convert.ToInt32(backupObj))
+ Return (status = "MISMATCH" AndAlso liveCount > backupCount)
 End Function
 
-Private Function CanShowMismatchNotice(statusObj As Object) As Boolean
- If IsBackupStaff() Then Return False
- Dim status As String = If(statusObj Is Nothing OrElse IsDBNull(statusObj), "", statusObj.ToString().Trim().ToUpperInvariant())
- Return status = "MISMATCH"
+Private Function CanRestorePeriod(statusObj As Object, liveObj As Object, backupObj As Object) As Boolean
+ If Not IsBackupStaff() Then Return False
+ Dim status = If(statusObj Is Nothing OrElse IsDBNull(statusObj), "", statusObj.ToString().Trim().ToUpperInvariant())
+ Dim liveCount = If(liveObj Is Nothing OrElse IsDBNull(liveObj), 0, Convert.ToInt32(liveObj))
+ Dim backupCount = If(backupObj Is Nothing OrElse IsDBNull(backupObj), 0, Convert.ToInt32(backupObj))
+ Return (status = "ARCHIVED") OrElse (status = "MISMATCH" AndAlso backupCount > liveCount)
+End Function
+
+Private Function RestoreButtonText(liveObj As Object) As String
+ Dim liveCount = If(liveObj Is Nothing OrElse IsDBNull(liveObj), 0, Convert.ToInt32(liveObj))
+ If liveCount = 0 Then
+  Return "<i class='fa fa-history'></i> Pulihkan ke Aktif"
+ Else
+  Return "<i class='fa fa-history'></i> Pulihkan Selisih"
+ End If
+End Function
+
+Private Function ManagerActionLabel(statusObj As Object, liveObj As Object, backupObj As Object) As String
+ If IsBackupStaff() Then Return ""
+ Dim status = If(statusObj Is Nothing OrElse IsDBNull(statusObj), "", statusObj.ToString().Trim().ToUpperInvariant())
+ Dim liveCount = If(liveObj Is Nothing OrElse IsDBNull(liveObj), 0, Convert.ToInt32(liveObj))
+ Dim backupCount = If(backupObj Is Nothing OrElse IsDBNull(backupObj), 0, Convert.ToInt32(backupObj))
+ If status = "ARCHIVED" Then
+  Return "<span class='text-info small'><i class='fa fa-archive'></i> Data Terarsip</span>"
+ ElseIf status = "MISMATCH" Then
+  If liveCount > backupCount Then
+   Return "<span class='text-danger small'><i class='fa fa-exclamation-triangle'></i> Perlu Backup</span>"
+  Else
+   Return "<span class='text-danger small'><i class='fa fa-exclamation-triangle'></i> Perlu Pulihkan</span>"
+  End If
+ End If
+ Return ""
 End Function
 
 Private Function ReportFilterDescription() As String
@@ -430,22 +489,30 @@ End Function
         CommandName="SyncPeriod"
         CommandArgument='<%# Eval("ThAkdk") %>'
         CssClass="btn btn-xs btn-warning"
-        Visible='<%# CanSyncPeriod(Eval("VerificationStatus")) %>'
+        Visible='<%# CanSyncBackup(Eval("VerificationStatus"), Eval("LiveStudentCount"), Eval("BackupStudents")) %>'
         data-ta='<%# Eval("ThAkdk") %>'
         OnClientClick="return confirmSyncPeriod(this);"
-        ToolTip="Jalankan job sinkronisasi untuk Tahun Akademik ini">
-        <i class="fa fa-refresh"></i> Sinkronkan
+        ToolTip="Jalankan job backup untuk menyalin data aktif baru ke database backup">
+        <i class="fa fa-refresh"></i> Sinkronkan Backup
        </asp:LinkButton>
-       <asp:Label ID="lblMismatchStaff" runat="server"
-        CssClass="text-danger small"
-        Visible='<%# CanShowMismatchNotice(Eval("VerificationStatus")) %>'>
-        <i class="fa fa-exclamation-triangle"></i> Perlu Sinkronisasi
-       </asp:Label>
+       <asp:LinkButton ID="btnRestorePeriod" runat="server"
+        CommandName="RestorePeriod"
+        CommandArgument='<%# Eval("ThAkdk") %>'
+        CssClass="btn btn-xs btn-success"
+        Visible='<%# CanRestorePeriod(Eval("VerificationStatus"), Eval("LiveStudentCount"), Eval("BackupStudents")) %>'
+        data-ta='<%# Eval("ThAkdk") %>'
+        data-students='<%# Eval("BackupStudents") %>'
+        OnClientClick="return confirmRestorePeriod(this);"
+        ToolTip="Pulihkan data mahasiswa dari Database Backup ke Database Aktif">
+        <%# RestoreButtonText(Eval("LiveStudentCount")) %>
+       </asp:LinkButton>
        <asp:Label ID="lblVerified" runat="server"
         CssClass="text-success small"
         Visible='<%# Eval("VerificationStatus").ToString() = "VERIFIED" %>'>
         <i class="fa fa-check"></i> Sesuai
        </asp:Label>
+       <asp:Literal ID="litManagerStatus" runat="server"
+        Text='<%# ManagerActionLabel(Eval("VerificationStatus"), Eval("LiveStudentCount"), Eval("BackupStudents")) %>' />
       </ItemTemplate>
      </asp:TemplateField>
     </Columns>
@@ -457,11 +524,22 @@ End Function
 <script type="text/javascript">
 function confirmSyncPeriod(button) {
     var thAkdk = (button && button.getAttribute("data-ta")) || "";
-    return backupConfirm(button, "Jalankan job sinkronisasi backup untuk Tahun Akademik " + thAkdk + "? Sistem akan membuat antrean backup data mahasiswa untuk periode tersebut.", {
+    return backupConfirm(button, "Jalankan job sinkronisasi backup untuk Tahun Akademik " + thAkdk + "? Sistem akan membuat antrean backup data mahasiswa dari database aktif.", {
         title: "Konfirmasi Sinkronisasi TA " + thAkdk,
         confirmText: "Ya, Sinkronkan",
         confirmColor: "#f39c12",
         icon: "warning"
+    });
+}
+function confirmRestorePeriod(button) {
+    var thAkdk = (button && button.getAttribute("data-ta")) || "";
+    var students = (button && button.getAttribute("data-students")) || "";
+    var studentInfo = students ? " (" + students + " mahasiswa pada backup)" : "";
+    return backupConfirm(button, "Pulihkan data Tahun Akademik " + thAkdk + studentInfo + " dari Database Backup ke Database Aktif? Data yang sudah ada di database aktif tidak akan ditimpa.", {
+        title: "Konfirmasi Pemulihan TA " + thAkdk,
+        confirmText: "Ya, Pulihkan ke Aktif",
+        confirmColor: "#00a65a",
+        icon: "question"
     });
 }
 </script>

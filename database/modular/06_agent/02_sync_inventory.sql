@@ -31,6 +31,7 @@ BEGIN
   p.LiveStudentCount = ISNULL(l.LiveCount, 0),
   p.VerificationStatus = CASE 
    WHEN p.StudentCount = ISNULL(l.LiveCount, 0) THEN 'VERIFIED' 
+   WHEN ISNULL(l.LiveCount, 0) = 0 AND p.StudentCount > 0 THEN 'ARCHIVED'
    ELSE 'MISMATCH' 
   END,
   p.VerifiedAt = SYSDATETIME()
