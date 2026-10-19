@@ -14,6 +14,16 @@ Protected Sub Page_Load(sender As Object,e As EventArgs)
   LoadAcademicPeriods()
   LoadReport()
  End If
+ ApplyDateBounds()
+End Sub
+
+Private Sub ApplyDateBounds()
+ If Not String.IsNullOrWhiteSpace(txtStartDate.Text) Then
+  txtEndDate.Attributes("min") = txtStartDate.Text.Trim()
+ End If
+ If Not String.IsNullOrWhiteSpace(txtEndDate.Text) Then
+  txtStartDate.Attributes("max") = txtEndDate.Text.Trim()
+ End If
 End Sub
 
 Protected Sub btnApplyReport_Click(sender As Object,e As EventArgs)
@@ -88,6 +98,7 @@ Private Function ReadDateRange(ByRef startDate As DateTime,ByRef endDate As Date
   litReportMessage.Text="<div class='alert alert-warning'><strong>Periode terlalu panjang.</strong> Pilih rentang maksimum 366 hari agar laporan tetap ringan.</div>"
   Return False
  End If
+ ApplyDateBounds()
  Return True
 End Function
 
@@ -568,4 +579,45 @@ function confirmRestorePeriod(button) {
         icon: "question"
     });
 }
+
+(function() {
+    function setupDateFilterBounds() {
+        var startInput = document.getElementById("<%= txtStartDate.ClientID %>");
+        var endInput = document.getElementById("<%= txtEndDate.ClientID %>");
+        if (!startInput || !endInput) return;
+
+        function updateBounds() {
+            if (startInput.value) {
+                endInput.min = startInput.value;
+                if (endInput.value && endInput.value < startInput.value) {
+                    endInput.value = startInput.value;
+                }
+            } else {
+                endInput.removeAttribute("min");
+            }
+
+            if (endInput.value) {
+                startInput.max = endInput.value;
+                if (startInput.value && startInput.value > endInput.value) {
+                    startInput.value = endInput.value;
+                }
+            } else {
+                startInput.removeAttribute("max");
+            }
+        }
+
+        startInput.addEventListener("change", updateBounds);
+        startInput.addEventListener("input", updateBounds);
+        endInput.addEventListener("change", updateBounds);
+        endInput.addEventListener("input", updateBounds);
+
+        updateBounds();
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", setupDateFilterBounds);
+    } else {
+        setupDateFilterBounds();
+    }
+})();
 </script>
