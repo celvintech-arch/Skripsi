@@ -117,19 +117,28 @@ Private NotInheritable Class BackupSummaryPdfWriter
     End Sub
 
     Private Shared Sub DrawInventoryHeader(ByVal page As PdfPage)
-        Dim labels() As String = {"Tahun Akademik", "Mahasiswa Backup", "Mahasiswa Periode Terakhir", "Sinkronisasi Terakhir"}
-        Dim widths() As Double = {150, 170, 190, 210}
+        Dim labels() As String = {"Tahun Akademik", "Mahasiswa Backup", "Mahasiswa Data Aktif", "Status Verifikasi", "Sinkronisasi Terakhir"}
+        Dim widths() As Double = {120, 150, 150, 130, 170}
         DrawTableRow(page, labels, widths, True)
     End Sub
 
     Private Shared Sub DrawInventoryRow(ByVal page As PdfPage, ByVal row As DataRow)
+        Dim status As String = Value(row, "VerificationStatus")
+        If status = "VERIFIED" Then
+            status = "Sesuai"
+        ElseIf status = "MISMATCH" Then
+            status = "Selisih"
+        Else
+            status = "Belum Dicek"
+        End If
         Dim values() As String = {
             Value(row, "ThAkdk"),
             FormatNumber(row("BackupStudents")),
-            FormatNumber(row("LatestStudentCount")),
+            FormatNumber(row("LiveStudentCount")),
+            status,
             FormatDate(row("UpdatedAt"))
         }
-        Dim widths() As Double = {150, 170, 190, 210}
+        Dim widths() As Double = {120, 150, 150, 130, 170}
         DrawTableRow(page, values, widths, False)
     End Sub
 

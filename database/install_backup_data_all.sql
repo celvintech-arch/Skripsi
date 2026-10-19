@@ -223,6 +223,17 @@ IF NOT EXISTS(SELECT 1 FROM sys.foreign_keys WHERE parent_object_id=OBJECT_ID(N'
         FOREIGN KEY(AgentId) REFERENCES dbo.BackupAgentNode(AgentId);
 GO
 
+/* Kolom verifikasi data aktif vs backup per periode */
+IF COL_LENGTH(N'dbo.BackupAgentPeriodInventory', N'LiveStudentCount') IS NULL
+    ALTER TABLE dbo.BackupAgentPeriodInventory ADD LiveStudentCount INT NULL;
+GO
+IF COL_LENGTH(N'dbo.BackupAgentPeriodInventory', N'VerificationStatus') IS NULL
+    ALTER TABLE dbo.BackupAgentPeriodInventory ADD VerificationStatus VARCHAR(20) NULL CONSTRAINT DF_BackupAgentPeriodInventory_Status DEFAULT 'UNVERIFIED';
+GO
+IF COL_LENGTH(N'dbo.BackupAgentPeriodInventory', N'VerifiedAt') IS NULL
+    ALTER TABLE dbo.BackupAgentPeriodInventory ADD VerifiedAt DATETIME2 NULL;
+GO
+
 /* ========================================================================== 
    BAGIAN 03/17 : 00_core\03_lookup_schema.sql
    ========================================================================== */
@@ -830,7 +841,47 @@ BEGIN
  MERGE dbo.BackupAgentPeriodInventory t USING @items s ON t.AgentId=@agent AND t.ThAkdk=s.ThAkdk
  WHEN MATCHED THEN UPDATE SET StudentCount=s.StudentCount,LatestStudentCount=s.LatestStudentCount,UpdatedAt=SYSDATETIME()
  WHEN NOT MATCHED THEN INSERT(AgentId,ThAkdk,StudentCount,LatestStudentCount) VALUES(@agent,s.ThAkdk,s.StudentCount,s.LatestStudentCount);
+
+ -- Hitung verifikasi data aktif (live) vs data backup untuk periode bersangkutan
+ UPDATE p
+ SET 
+  p.LiveStudentCount = ISNULL(l.LiveCount, 0),
+  p.VerificationStatus = CASE 
+   WHEN p.StudentCount = ISNULL(l.LiveCount, 0) THEN 'VERIFIED' 
+   ELSE 'MISMATCH' 
+  END,
+  p.VerifiedAt = SYSDATETIME()
+ FROM dbo.BackupAgentPeriodInventory p
+ LEFT JOIN (
+  SELECT th_akdk, COUNT(DISTINCT nim1) AS LiveCount
+  FROM dbo.treg
+  WHERE th_akdk IN (SELECT ThAkdk FROM @items)
+  GROUP BY th_akdk
+ ) l ON l.th_akdk = p.ThAkdk
+ WHERE p.AgentId = @agent;
+
  COMMIT;
+END;
+GO
+
+CREATE OR ALTER PROCEDURE dbo.sp_VerifyBackupPeriodInventory @ThAkdk CHAR(5) = NULL
+AS
+BEGIN
+ SET NOCOUNT ON;
+ UPDATE p
+ SET 
+  p.LiveStudentCount = ISNULL(l.LiveCount, 0),
+  p.VerificationStatus = CASE WHEN p.StudentCount = ISNULL(l.LiveCount, 0) THEN 'VERIFIED' ELSE 'MISMATCH' END,
+  p.VerifiedAt = SYSDATETIME()
+ FROM dbo.BackupAgentPeriodInventory p
+ LEFT JOIN (
+  SELECT th_akdk, COUNT(DISTINCT nim1) AS LiveCount
+  FROM dbo.treg
+  WHERE (@ThAkdk IS NULL OR @ThAkdk = '' OR th_akdk = @ThAkdk)
+    AND th_akdk IN (SELECT ThAkdk FROM dbo.BackupAgentPeriodInventory)
+  GROUP BY th_akdk
+ ) l ON l.th_akdk = p.ThAkdk
+ WHERE (@ThAkdk IS NULL OR @ThAkdk = '' OR p.ThAkdk = @ThAkdk);
 END;
 GO
 
@@ -925,6 +976,7 @@ GRANT EXECUTE ON dbo.sp_AgentGetBackupBatch TO [IIS APPPOOL\DefaultAppPool];
 GRANT EXECUTE ON dbo.sp_AgentConfirmBackupBatch TO [IIS APPPOOL\DefaultAppPool];
 GRANT EXECUTE ON dbo.sp_AgentConfirmRestoreBatch TO [IIS APPPOOL\DefaultAppPool];
 GRANT EXECUTE ON dbo.sp_AgentSyncPeriodInventory TO [IIS APPPOOL\DefaultAppPool];
+GRANT EXECUTE ON dbo.sp_VerifyBackupPeriodInventory TO [IIS APPPOOL\DefaultAppPool];
 GRANT EXECUTE ON dbo.sp_SaveBackupJobConfiguration TO [IIS APPPOOL\DefaultAppPool];
 GRANT SELECT ON dbo.BackupAgentNode TO [IIS APPPOOL\DefaultAppPool];
 GRANT SELECT ON dbo.BackupOperatorAccess TO [IIS APPPOOL\DefaultAppPool];

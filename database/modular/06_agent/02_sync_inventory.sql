@@ -1,4 +1,4 @@
-﻿/*
+/*
  Fungsi: Menyinkronkan inventaris backup per Tahun Akademik.
  Script kanonik aktif untuk fungsi ini.
 */
@@ -24,6 +24,25 @@ BEGIN
  MERGE dbo.BackupAgentPeriodInventory t USING @items s ON t.AgentId=@agent AND t.ThAkdk=s.ThAkdk
  WHEN MATCHED THEN UPDATE SET StudentCount=s.StudentCount,LatestStudentCount=s.LatestStudentCount,UpdatedAt=SYSDATETIME()
  WHEN NOT MATCHED THEN INSERT(AgentId,ThAkdk,StudentCount,LatestStudentCount) VALUES(@agent,s.ThAkdk,s.StudentCount,s.LatestStudentCount);
+
+ -- Hitung verifikasi data aktif (live) vs data backup untuk periode bersangkutan
+ UPDATE p
+ SET 
+  p.LiveStudentCount = ISNULL(l.LiveCount, 0),
+  p.VerificationStatus = CASE 
+   WHEN p.StudentCount = ISNULL(l.LiveCount, 0) THEN 'VERIFIED' 
+   ELSE 'MISMATCH' 
+  END,
+  p.VerifiedAt = SYSDATETIME()
+ FROM dbo.BackupAgentPeriodInventory p
+ LEFT JOIN (
+  SELECT th_akdk, COUNT(DISTINCT nim1) AS LiveCount
+  FROM dbo.treg
+  WHERE th_akdk IN (SELECT ThAkdk FROM @items)
+  GROUP BY th_akdk
+ ) l ON l.th_akdk = p.ThAkdk
+ WHERE p.AgentId = @agent;
+
  COMMIT;
 END;
 GO

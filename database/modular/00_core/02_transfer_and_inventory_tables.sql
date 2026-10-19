@@ -140,3 +140,15 @@ IF NOT EXISTS(SELECT 1 FROM sys.foreign_keys WHERE parent_object_id=OBJECT_ID(N'
     ALTER TABLE dbo.BackupAgentPeriodInventory WITH CHECK ADD CONSTRAINT FK_BackupAgentPeriodInventory_Agent
         FOREIGN KEY(AgentId) REFERENCES dbo.BackupAgentNode(AgentId);
 GO
+
+/* Kolom verifikasi data aktif vs backup per periode */
+IF COL_LENGTH(N'dbo.BackupAgentPeriodInventory', N'LiveStudentCount') IS NULL
+    ALTER TABLE dbo.BackupAgentPeriodInventory ADD LiveStudentCount INT NULL;
+GO
+IF COL_LENGTH(N'dbo.BackupAgentPeriodInventory', N'VerificationStatus') IS NULL
+    ALTER TABLE dbo.BackupAgentPeriodInventory ADD VerificationStatus VARCHAR(20) NULL CONSTRAINT DF_BackupAgentPeriodInventory_Status DEFAULT 'UNVERIFIED';
+GO
+IF COL_LENGTH(N'dbo.BackupAgentPeriodInventory', N'VerifiedAt') IS NULL
+    ALTER TABLE dbo.BackupAgentPeriodInventory ADD VerifiedAt DATETIME2 NULL;
+GO
+

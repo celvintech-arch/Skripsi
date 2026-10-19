@@ -1,4 +1,4 @@
-﻿/*
+/*
  Fungsi: Memberikan seluruh hak minimum aplikasi IIS setelah semua objek dibuat.
  Script kanonik aktif untuk fungsi ini.
 */
@@ -23,6 +23,7 @@ GRANT EXECUTE ON dbo.sp_AgentGetBackupBatch TO [IIS APPPOOL\DefaultAppPool];
 GRANT EXECUTE ON dbo.sp_AgentConfirmBackupBatch TO [IIS APPPOOL\DefaultAppPool];
 GRANT EXECUTE ON dbo.sp_AgentConfirmRestoreBatch TO [IIS APPPOOL\DefaultAppPool];
 GRANT EXECUTE ON dbo.sp_AgentSyncPeriodInventory TO [IIS APPPOOL\DefaultAppPool];
+GRANT EXECUTE ON dbo.sp_VerifyBackupPeriodInventory TO [IIS APPPOOL\DefaultAppPool];
 GRANT EXECUTE ON dbo.sp_SaveBackupJobConfiguration TO [IIS APPPOOL\DefaultAppPool];
 GRANT SELECT ON dbo.BackupAgentNode TO [IIS APPPOOL\DefaultAppPool];
 GRANT SELECT ON dbo.BackupOperatorAccess TO [IIS APPPOOL\DefaultAppPool];
