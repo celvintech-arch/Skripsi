@@ -241,11 +241,18 @@ function Save-BackupBatch($batch,$schema) {
   $selectedTables=@(Get-SelectedTableNames ([string]$batch.selectedTables))
   $targetTables=@($selectedTables|ForEach-Object{$_+'_backup'})
   $requiredTables=@('tbio01_backup')
-  if($targetTables -contains 'treg_backup'){$requiredTables+=@('treg_backup')}
   foreach($requiredTable in $requiredTables){
    $foundNims=@{}
    foreach($sourceRow in @($batch.tables.$requiredTable)){if($null -ne $sourceRow -and $null -ne $sourceRow.nim1){$foundNims[[string]$sourceRow.nim1.Trim()]=$true}}
    foreach($requiredNim in $nims){if(-not $foundNims.ContainsKey(([string]$requiredNim).Trim())){throw ('Payload backup tidak lengkap: '+$requiredTable+' tidak memiliki NIM '+$requiredNim+'. Batch dibatalkan sebelum data lokal diubah.')}}
+  }
+  $academicTables=@('treg_backup','tkrs06_backup','t_absensi14_backup')|Where-Object{$targetTables -contains $_}
+  if($academicTables.Count -gt 0){
+   $academicFoundNims=@{}
+   foreach($tbl in $academicTables){
+    foreach($sourceRow in @($batch.tables.$tbl)){if($null -ne $sourceRow -and $null -ne $sourceRow.nim1){$academicFoundNims[[string]$sourceRow.nim1.Trim()]=$true}}
+   }
+   foreach($requiredNim in $nims){if(-not $academicFoundNims.ContainsKey(([string]$requiredNim).Trim())){throw ('Payload backup tidak lengkap: NIM '+$requiredNim+' tidak memiliki data akademik di tabel manapun dalam batch.')}}
   }
   foreach($target in $targetTables){
    $columns=@($schema.tables|Where-Object{$_.table -eq $target}|Sort-Object order)
