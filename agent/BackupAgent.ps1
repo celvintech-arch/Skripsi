@@ -425,7 +425,11 @@ function Process-BackupJobs($schema,$database) {
  $claim=Invoke-AgentApi 'claim' @{databaseReady=$database.Ready;message=$database.Message};if(-not $claim.hasJob){return}
  try{
   if([string]$claim.operationType -eq 'EXPORT'){Process-ExportJob $claim $database;return}
-  if([string]$claim.operationType -eq 'RESTORE'){Process-RestoreJob $claim $database;return}
+  if([string]$claim.operationType -eq 'RESTORE'){
+   Process-RestoreJob $claim $database
+   try{[void](Invoke-AgentApi 'inventory' @{databaseReady=$database.Ready;message='Memperbarui inventaris setelah pemulihan';periods=(Get-PeriodInventory)});Write-AgentLog ('Inventaris backup berhasil disinkronkan setelah pemulihan '+$claim.jobId)}catch{Write-AgentLog ('Peringatan: gagal sinkronisasi inventaris setelah pemulihan: '+$_.Exception.Message)}
+   return
+  }
   if([string]$claim.operationType -ne 'BACKUP'){throw ('Operasi tidak didukung: '+[string]$claim.operationType)}
   if($null -eq $schema){$schema=Get-BackupSchema}
   $baseline=$null
@@ -439,11 +443,14 @@ function Process-BackupJobs($schema,$database) {
    $confirm=Invoke-AgentApi 'backupconfirm' @{databaseReady=$database.Ready;message='Proses Backup';jobId=[string]$claim.jobId;nims=@($batch.nims)}
    Write-AgentLog ('Backup job '+$claim.jobId+': '+$confirm.status+'; tersalin '+$confirm.copiedStudents+' mahasiswa.')
   }while([int]$confirm.pendingStudents -gt 0)
-  if([string]$confirm.status -eq 'SUCCESS' -and $null -ne $baseline){
-   try{
-    $after=Test-BackupDatabase
+  if([string]$confirm.status -eq 'SUCCESS'){
+   try{[void](Invoke-AgentApi 'inventory' @{databaseReady=$database.Ready;message='Memperbarui inventaris setelah backup';periods=(Get-PeriodInventory)});Write-AgentLog ('Inventaris backup berhasil disinkronkan setelah job '+$claim.jobId)}catch{Write-AgentLog ('Peringatan: gagal sinkronisasi inventaris setelah backup: '+$_.Exception.Message)}
+   if($null -ne $baseline){
+    try{
+     $after=Test-BackupDatabase
      [void](Invoke-AgentApi 'backupmetrics' @{databaseReady=$after.Ready;message='Menyimpan perbandingan sebelum dan sesudah backup';phase='complete';jobId=[string]$claim.jobId;liveBioBefore=[int64]$baseline.bioRows;liveRegBefore=[int64]$baseline.regRows;liveKrsBefore=[int64]$baseline.krsRows;liveAbsBefore=[int64]$baseline.absRows;liveSizeBefore=[double]$baseline.sizeMb;arcBioBefore=[int64]$database.BioRows;arcRegBefore=[int64]$database.RegRows;arcKrsBefore=[int64]$database.KrsRows;arcAbsBefore=[int64]$database.AbsRows;arcSizeBefore=[double]$database.SizeMb;arcBioAfter=[int64]$after.BioRows;arcRegAfter=[int64]$after.RegRows;arcKrsAfter=[int64]$after.KrsRows;arcAbsAfter=[int64]$after.AbsRows;arcSizeAfter=[double]$after.SizeMb})
-   }catch{Write-AgentLog ('Peringatan: snapshot job '+$claim.jobId+' tidak tersimpan: '+$_.Exception.Message)}
+    }catch{Write-AgentLog ('Peringatan: snapshot job '+$claim.jobId+' tidak tersimpan: '+$_.Exception.Message)}
+   }
   }
  }catch{
   $reason=[string]$_.Exception.Message
