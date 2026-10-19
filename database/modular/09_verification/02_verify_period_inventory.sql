@@ -1,6 +1,6 @@
 /*
  Fungsi: Memverifikasi kesesuaian jumlah mahasiswa database aktif vs inventaris backup per Tahun Akademik.
- Mencakup mahasiswa dari tabel Registrasi (treg), KRS (tkrs06), dan Absensi (t_absensi14).
+ Mencakup mahasiswa dari tabel Registrasi (treg), KRS (tkrs06), dan Absensi (t_absensi14) yang memiliki biodata di tbio01.
 */
 
 USE [dec_dummy];
@@ -27,9 +27,10 @@ BEGIN
   SELECT a.th_akdk, a.nim1 FROM dbo.t_absensi14 a JOIN @targets t ON t.ThAkdk = a.th_akdk
  ),
  LiveCounts AS (
-  SELECT th_akdk, COUNT(DISTINCT nim1) AS LiveCount
-  FROM LiveAcademicRows
-  GROUP BY th_akdk
+  SELECT a.th_akdk, COUNT(DISTINCT a.nim1) AS LiveCount
+  FROM LiveAcademicRows a
+  JOIN dbo.tbio01 b ON b.nim1 = a.nim1
+  GROUP BY a.th_akdk
  )
  UPDATE p
  SET 
