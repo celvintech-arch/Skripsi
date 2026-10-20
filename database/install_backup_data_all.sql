@@ -1065,6 +1065,7 @@ INSERT @RequiredObjects(ObjectName,ObjectType) VALUES
  ('sp_AgentClaimBackupTransferJob','P'),('sp_AgentGetBackupBatch','P'),
  ('sp_AgentConfirmBackupBatch','P'),('sp_AgentConfirmRestoreBatch','P'),
  ('sp_AgentSyncPeriodInventory','P'),
+ ('sp_VerifyBackupPeriodInventory','P'),
  ('BackupJobConfiguration','U'),('sp_SaveBackupJobConfiguration','P');
 
 SELECT ObjectName,ObjectType,
@@ -1126,4 +1127,25 @@ IF COL_LENGTH(N'dbo.BackupTransferJob',N'AgentName') IS NOT NULL
 GO
 
 PRINT N'Pemrosesan batch selesai. Instalasi hanya dinyatakan berhasil jika verifikasi tidak menampilkan MISSING dan tidak ada pesan error.';
+GO
+/* ========================================================================== 
+   BAGIAN 18/18 : Inisialisasi Operator dan Registrasi Primary Agent
+   ========================================================================== */
+PRINT N'Mendaftarkan operator awal dan primary agent...';
+GO
+
+-- 1. Pendaftaran Operator Default (User ID 20014001)
+EXEC dbo.sp_SetBackupOperatorAccess
+    @UserId = '20014001',
+    @AccessRole = 'STAFF_BACKUP',
+    @IsEnabled = 1;
+GO
+
+-- 2. Registrasi Primary Agent dengan Token Aktif Production
+EXEC dbo.sp_RegisterPrimaryBackupAgent
+    @AgentName = 'BACKUP-SERVER-UTAMA',
+    @ApiKey = 'A9zK2mP7vX1qR8wT4bY6uC3fJ8kL5nM0';
+GO
+
+PRINT N'Operator 20014001 dan Primary Agent (token: A9zK2mP7vX1qR8wT4bY6uC3fJ8kL5nM0) berhasil didaftarkan.';
 GO
