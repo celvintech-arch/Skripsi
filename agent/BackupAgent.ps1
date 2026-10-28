@@ -363,7 +363,11 @@ function Get-BackupSearchResult([string]$keyword,[string]$year) {
  $items=@();$cn=[System.Data.SqlClient.SqlConnection]::new((Get-LocalConnectionString));$cn.Open()
  try{
   $cmd=$cn.CreateCommand();$cmd.CommandTimeout=120
-   $cmd.CommandText=";WITH A AS(SELECT nim1,LTRIM(RTRIM(th_akdk)) th_akdk FROM dbo.treg_backup UNION SELECT nim1,LTRIM(RTRIM(th_akdk)) FROM dbo.tkrs06_backup UNION SELECT nim1,LTRIM(RTRIM(th_akdk)) FROM dbo.t_absensi14_backup) SELECT TOP(100) RTRIM(b.nim1) Nim1,LTRIM(RTRIM(b.nama)) Nama,ISNULL(MAX(A.th_akdk),'') ThAkdk FROM dbo.tbio01_backup b LEFT JOIN A ON A.nim1=b.nim1 WHERE (@year='' OR EXISTS(SELECT 1 FROM A y WHERE y.nim1=b.nim1 AND LEFT(y.th_akdk,4)=@year)) AND (@keyword='' OR b.nim1 LIKE @keyword+'%' OR b.nama LIKE '%'+@keyword+'%') GROUP BY b.nim1,b.nama ORDER BY ISNULL(MAX(A.th_akdk),'') DESC,b.nim1"
+  if(-not [string]::IsNullOrWhiteSpace($year)){
+   $cmd.CommandText="SELECT TOP(100) RTRIM(b.nim1) Nim1,LTRIM(RTRIM(b.nama)) Nama,ISNULL(r.ThAkdk,'') ThAkdk FROM (SELECT nim1,MAX(th_akdk) ThAkdk FROM dbo.treg_backup WHERE LEFT(th_akdk,4)=@year GROUP BY nim1) r JOIN dbo.tbio01_backup b ON b.nim1=r.nim1 WHERE (@keyword='' OR b.nim1 LIKE @keyword+'%' OR b.nama LIKE '%'+@keyword+'%') ORDER BY r.ThAkdk DESC,b.nim1"
+  }else{
+   $cmd.CommandText="SELECT TOP(100) RTRIM(b.nim1) Nim1,LTRIM(RTRIM(b.nama)) Nama,ISNULL(r.ThAkdk,'') ThAkdk FROM dbo.tbio01_backup b OUTER APPLY (SELECT MAX(th_akdk) ThAkdk FROM dbo.treg_backup t WHERE t.nim1=b.nim1) r WHERE (@keyword='' OR b.nim1 LIKE @keyword+'%' OR b.nama LIKE '%'+@keyword+'%') ORDER BY ISNULL(r.ThAkdk,'') DESC,b.nim1"
+  }
   $cmd.Parameters.Add('@year',[System.Data.SqlDbType]::Char,4).Value=if([string]::IsNullOrWhiteSpace($year)){''}else{$year}
   $cmd.Parameters.Add('@keyword',[System.Data.SqlDbType]::NVarChar,100).Value=if([string]::IsNullOrWhiteSpace($keyword)){''}else{$keyword}
   $rd=$cmd.ExecuteReader();while($rd.Read()){$items+=[pscustomobject]@{nim1=$rd['Nim1'].ToString().Trim();nama=$rd['Nama'].ToString().Trim();thAkdk=$rd['ThAkdk'].ToString().Trim()}};$rd.Close()

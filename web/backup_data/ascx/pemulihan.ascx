@@ -122,12 +122,40 @@ Private Sub LoadBackedUpStudents()
   If Session("BackupStudentLookupId") Is Nothing OrElse Not Guid.TryParse(Convert.ToString(Session("BackupStudentLookupId")),lookupId) Then ShowEmptyRestoreNimState():Return
   tutupsr()
   Dim status As String="",json As String="",failure As String="",keyword As String="",year As String=""
-  If Not ReadLookup(lookupId,status,json,failure,keyword,year) Then Session.Remove("BackupStudentLookupId"):lblStudentSearchInfo.Text="Pencarian backup sudah kedaluwarsa. Silakan cari kembali.":Return
+
+  ' Short poll sinkron hingga 2 detik agar respons instan jika data sudah tersedia/selesai
+  For i As Integer = 1 To 8
+   tutupsr()
+   If ReadLookup(lookupId,status,json,failure,keyword,year) Then
+    If status<>"WAITING" AndAlso status<>"CLAIMED" Then Exit For
+   End If
+   System.Threading.Thread.Sleep(250)
+  Next
+
   tutupsr()
   If ddlStudentRestoreYear.Items.FindByValue(year) IsNot Nothing Then ddlStudentRestoreYear.SelectedValue=year
   txtSearchBackupNim.Text=keyword
-  If status="WAITING" OrElse status="CLAIMED" Then LookupPending=True:ShowBackupConnectionWarning("Menunggu koneksi Database Backup.","Pencarian belum dapat diproses. Pastikan server dan layanan pemrosesan backup berjalan.","warning"):gvBackedUpStudents.DataSource=data:gvBackedUpStudents.DataBind():lblStudentSearchInfo.Text="Menunggu Database Backup mencari data...":RegisterLookupRefresh():Return
-  If status="FAILED" Then Throw New ApplicationException(If(failure="","Pencarian backup gagal.",failure))
+
+  If status="WAITING" OrElse status="CLAIMED" Then
+   LookupPending=True
+   ' JANGAN tampilkan warning error/koneksi karena proses query sedang berjalan normal
+   gvBackedUpStudents.EmptyDataText="<div class='text-center text-muted' style='padding: 24px 10px;'><i class='fa fa-spinner fa-spin fa-2x' style='color: #0369a1;'></i><div style='margin-top: 10px; font-size: 14px; font-weight: 600; color: #0369a1;'>Sedang mengambil data mahasiswa dari Laptop Backup...</div><div style='font-size: 12px; color: #64748b; margin-top: 4px;'>Daftar mahasiswa akan dimuat secara otomatis.</div></div>"
+   gvBackedUpStudents.DataSource=data
+   gvBackedUpStudents.DataBind()
+   lblStudentSearchInfo.Text="<span class='text-info'><i class='fa fa-spinner fa-spin'></i> Menghubungi Laptop Backup...</span>"
+   RegisterLookupRefresh()
+   Return
+  End If
+
+  If status="FAILED" Then
+   ShowAlert("error","Pencarian backup gagal",If(String.IsNullOrWhiteSpace(failure),"Terjadi kesalahan saat mencari data pada Laptop Backup.",failure))
+   gvBackedUpStudents.EmptyDataText="Pencarian gagal: " & Server.HtmlEncode(failure)
+   gvBackedUpStudents.DataSource=data
+   gvBackedUpStudents.DataBind()
+   lblStudentSearchInfo.Text=""
+   Return
+  End If
+
   Dim root=TryCast((New System.Web.Script.Serialization.JavaScriptSerializer()).DeserializeObject(json),System.Collections.Generic.Dictionary(Of String,Object))
   Dim students=If(root IsNot Nothing AndAlso root.ContainsKey("students"),TryCast(root("students"),System.Collections.IList),Nothing)
   If students IsNot Nothing Then
@@ -136,9 +164,9 @@ Private Sub LoadBackedUpStudents()
     If row IsNot Nothing Then data.Rows.Add(Convert.ToString(row("nim1")),Convert.ToString(row("nama")),Convert.ToString(row("thAkdk")))
    Next
   End If
-  gvBackedUpStudents.EmptyDataText="Data NIM backup tidak ditemukan."
+  gvBackedUpStudents.EmptyDataText="Data mahasiswa tidak ditemukan pada pencarian/tahun ini."
   gvBackedUpStudents.DataSource=data:gvBackedUpStudents.DataBind()
-  lblStudentSearchInfo.Text=If(data.Rows.Count=0,"Data tidak ditemukan.","Ditemukan " & data.Rows.Count.ToString("N0") & " data.")
+  lblStudentSearchInfo.Text=If(data.Rows.Count=0,"Data tidak ditemukan.","Ditemukan " & data.Rows.Count.ToString("N0") & " data mahasiswa pada Database Backup.")
  Catch ex As Exception
   gvBackedUpStudents.DataSource=Nothing:gvBackedUpStudents.DataBind():lblStudentSearchInfo.Text="Database Backup tidak dapat dibaca: " & Server.HtmlEncode(BackupErrorMessage(ex))
  Finally:tutupsr():End Try
@@ -298,7 +326,7 @@ End Sub
 <script type="text/javascript">
 var backupLookupRefreshTimer=null;
 var backupLookupRefreshUrl=null;
-var backupLookupRefreshDelay=8000;
+var backupLookupRefreshDelay=1500;
 function cancelBackupLookupRefresh(stopPolling){
  if(backupLookupRefreshTimer!==null){window.clearTimeout(backupLookupRefreshTimer);backupLookupRefreshTimer=null;}
  if(stopPolling===true){backupLookupRefreshUrl=null;}
@@ -325,11 +353,6 @@ function scheduleBackupLookupRefresh(url){
  backupLookupRefreshUrl=url;
  armBackupLookupRefresh();
 }
-document.addEventListener('click',function(event){
- var node=event.target;
- while(node&&node!==document){if(node.tagName==='A'||node.tagName==='BUTTON'||node.tagName==='INPUT'){cancelBackupLookupRefresh(true);break;}node=node.parentNode;}
-},true);
-document.addEventListener('change',function(){cancelBackupLookupRefresh(true);},true);
 document.addEventListener('visibilitychange',function(){
  cancelBackupLookupRefresh(false);
  if(!document.hidden){armBackupLookupRefresh();}
