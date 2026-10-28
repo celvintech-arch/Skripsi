@@ -376,35 +376,6 @@ $(document).ready(applyRestoreScope);
  <asp:Literal ID="litAlertRestore" runat="server" />
  <span class="backup-u-029" id="backupLookupPending" data-pending="<%= If(LookupPending,"1","0") %>"></span>
 
- <!-- ALUR PEMULIHAN DATA -->
- <div class="panel panel-default" style="border-left: 4px solid #0369a1; background: #f8fafc; margin-bottom: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-     <div class="panel-body" style="padding: 14px 18px;">
-         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;">
-             <div style="flex: 1; min-width: 180px;">
-                 <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px;">
-                     <i class="fa fa-laptop text-info"></i> Asal Data
-                 </div>
-                 <div style="font-size: 16px; font-weight: bold; color: #0369a1; margin-top: 3px;">
-                     Laptop Backup
-                 </div>
-             </div>
-             <div style="text-align: center; padding: 0 24px;">
-                 <div style="color: #0369a1; font-size: 24px; line-height: 1;">
-                     <i class="fa fa-arrow-right"></i>
-                 </div>
-             </div>
-             <div style="flex: 1; min-width: 180px;">
-                 <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px;">
-                     <i class="fa fa-database text-primary"></i> Tujuan Pemulihan
-                 </div>
-                 <div style="font-size: 16px; font-weight: bold; color: #1e293b; margin-top: 3px;">
-                     Server Lintar
-                 </div>
-             </div>
-         </div>
-     </div>
- </div>
-
  <ul class="nav nav-tabs backup-u-064">
   <li class="<%= If(CurrentRestoreSection="ta","active","") %>"><a href="index.aspx?tab=pemulihan&amp;section=ta"><i class="fa fa-calendar backup-u-068"></i>Pemulihan Tahun Akademik</a></li>
   <li class="<%= If(CurrentRestoreSection="nim","active","") %>"><a href="index.aspx?tab=pemulihan&amp;section=nim"><i class="fa fa-user backup-u-068"></i>Pemulihan per NIM</a></li>
@@ -415,6 +386,34 @@ $(document).ready(applyRestoreScope);
    <div class="panel restore-card">
     <div class="panel-heading"><i class="fa fa-user"></i> Pemulihan per NIM</div>
     <div class="panel-body">
+     <!-- ALUR PEMULIHAN DATA -->
+     <div class="panel panel-default" style="border-left: 4px solid #0369a1; background: #f8fafc; margin-bottom: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+         <div class="panel-body" style="padding: 14px 18px;">
+             <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+                 <div style="flex: 1; min-width: 180px;">
+                     <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px;">
+                         <i class="fa fa-laptop text-info"></i> Asal Data
+                     </div>
+                     <div style="font-size: 16px; font-weight: bold; color: #0369a1; margin-top: 3px;">
+                         Laptop Backup
+                     </div>
+                 </div>
+                 <div style="text-align: center; padding: 0 24px;">
+                     <div style="color: #0369a1; font-size: 24px; line-height: 1;">
+                         <i class="fa fa-arrow-right"></i>
+                     </div>
+                 </div>
+                 <div style="flex: 1; min-width: 180px;">
+                     <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px;">
+                         <i class="fa fa-database text-primary"></i> Tujuan Pemulihan
+                     </div>
+                     <div style="font-size: 16px; font-weight: bold; color: #1e293b; margin-top: 3px;">
+                         Server Lintar
+                     </div>
+                 </div>
+             </div>
+         </div>
+     </div>
      <p class="backup-mode-help"><i class="fa fa-info-circle"></i>Gunakan menu ini untuk memulihkan data satu mahasiswa tertentu. Baris yang sudah ada pada database aktif tidak akan ditimpa.</p>
      <div class="row backup-u-062">
       <div class="col-md-3 col-sm-4"><label for="<%= ddlStudentRestoreYear.ClientID %>">Filter tahun</label><asp:DropDownList ID="ddlStudentRestoreYear" runat="server" CssClass="form-control" AutoPostBack="true" OnSelectedIndexChanged="ddlStudentRestoreYear_SelectedIndexChanged" /></div>
@@ -450,6 +449,34 @@ $(document).ready(applyRestoreScope);
    <div class="panel restore-card">
     <div class="panel-heading"><i class="fa fa-calendar"></i> Pemulihan Tahun Akademik</div>
     <div class="panel-body">
+     <!-- ALUR PEMULIHAN DATA -->
+     <div class="panel panel-default" style="border-left: 4px solid #0369a1; background: #f8fafc; margin-bottom: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+         <div class="panel-body" style="padding: 14px 18px;">
+             <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+                 <div style="flex: 1; min-width: 180px;">
+                     <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px;">
+                         <i class="fa fa-laptop text-info"></i> Asal Data
+                     </div>
+                     <div style="font-size: 16px; font-weight: bold; color: #0369a1; margin-top: 3px;">
+                         Laptop Backup
+                     </div>
+                 </div>
+                 <div style="text-align: center; padding: 0 24px;">
+                     <div style="color: #0369a1; font-size: 24px; line-height: 1;">
+                         <i class="fa fa-arrow-right"></i>
+                     </div>
+                 </div>
+                 <div style="flex: 1; min-width: 180px;">
+                     <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px;">
+                         <i class="fa fa-database text-primary"></i> Tujuan Pemulihan
+                     </div>
+                     <div style="font-size: 16px; font-weight: bold; color: #1e293b; margin-top: 3px;">
+                         Server Lintar
+                     </div>
+                 </div>
+             </div>
+         </div>
+     </div>
      <p class="backup-mode-help"><i class="fa fa-info-circle"></i>Gunakan menu ini untuk memulihkan banyak mahasiswa berdasarkan satu atau beberapa Tahun Akademik. Data aktif yang sudah ada akan dilewati dan tidak ditimpa.</p>
      <div class="row backup-u-061">
       <div class="col-md-4"><label for="<%= ddlRestoreScope.ClientID %>">Cakupan pemulihan</label><asp:DropDownList ID="ddlRestoreScope" runat="server" CssClass="form-control" onchange="resetRestoreScope()"><asp:ListItem Value="SINGLE">1 Tahun Akademik</asp:ListItem><asp:ListItem Value="RANGE">Rentang Tahun Akademik</asp:ListItem></asp:DropDownList></div>
