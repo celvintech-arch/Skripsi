@@ -142,7 +142,7 @@ Private Sub LoadBackedUpStudents()
    gvBackedUpStudents.EmptyDataText="<div class='text-center text-muted' style='padding: 24px 10px;'><i class='fa fa-spinner fa-spin fa-2x' style='color: #0369a1;'></i><div style='margin-top: 10px; font-size: 14px; font-weight: 600; color: #0369a1;'>Sedang mengambil data mahasiswa dari Laptop Backup...</div><div style='font-size: 12px; color: #64748b; margin-top: 4px;'>Daftar mahasiswa akan dimuat secara otomatis.</div></div>"
    gvBackedUpStudents.DataSource=data
    gvBackedUpStudents.DataBind()
-   lblStudentSearchInfo.Text="<span class='text-info'><i class='fa fa-spinner fa-spin'></i> Menghubungi Laptop Backup...</span>"
+   lblStudentSearchInfo.Text=""
    RegisterLookupRefresh()
    Return
   End If
