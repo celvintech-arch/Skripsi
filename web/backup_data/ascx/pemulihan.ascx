@@ -27,7 +27,7 @@ Protected ReadOnly Property CurrentAgentName As String
         If CurrentBackupService IsNot Nothing AndAlso Not String.IsNullOrWhiteSpace(CurrentBackupService.AgentName) AndAlso CurrentBackupService.AgentName <> "-" Then
             Return CurrentBackupService.AgentName
         End If
-        Return "BACKUP-SERVER-UTAMA"
+        Return "Laptop Backup"
     End Get
 End Property
 Protected Sub Page_Load(sender As Object,e As EventArgs)
@@ -383,28 +383,33 @@ $(document).ready(applyRestoreScope);
 
  <!-- ALUR PEMULIHAN DATA -->
  <div class="panel panel-default" style="border-left: 4px solid #0369a1; background: #f8fafc; margin-bottom: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-     <div class="panel-body" style="padding: 12px 16px;">
-         <div class="row" style="display: flex; align-items: center; flex-wrap: wrap;">
-             <div class="col-md-5 col-sm-5 col-xs-12">
-                 <small class="text-muted text-uppercase" style="font-weight: 600; letter-spacing: 0.5px; font-size: 11px;"><i class="fa fa-hdd-o text-info"></i> Asal Data (Database Cadangan)</small>
-                 <div style="font-size: 14px; font-weight: bold; color: #0369a1; margin-top: 2px;">
-                     <%= CurrentBackupDbName %> <span class="badge" style="background: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; font-size: 11px;">Node: <%= CurrentAgentName %></span>
+     <div class="panel-body" style="padding: 14px 18px;">
+         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+             <div style="flex: 1; min-width: 180px;">
+                 <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px;">
+                     <i class="fa fa-laptop text-info"></i> Asal Data
+                 </div>
+                 <div style="font-size: 16px; font-weight: bold; color: #0369a1; margin-top: 3px;">
+                     Laptop Backup <span class="badge" style="background: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; font-size: 11px; font-weight: normal; margin-left: 4px;"><%= CurrentBackupDbName %></span>
                  </div>
              </div>
-             <div class="col-md-2 col-sm-2 col-xs-12 text-center" style="margin: 6px 0;">
-                 <div style="color: #0369a1; font-size: 20px;" title="Dipulihkan ke Database Aktif">
-                     <i class="fa fa-arrow-right hidden-xs"></i>
-                     <i class="fa fa-arrow-down visible-xs"></i>
+             <div style="text-align: center; padding: 0 24px;">
+                 <div style="color: #0369a1; font-size: 24px; line-height: 1;">
+                     <i class="fa fa-arrow-right"></i>
                  </div>
-                 <small class="text-muted" style="font-size: 10px; display: block; font-weight: 600;">Dipulihkan ke</small>
+                 <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Dipulihkan ke</div>
              </div>
-             <div class="col-md-5 col-sm-5 col-xs-12">
-                 <small class="text-muted text-uppercase" style="font-weight: 600; letter-spacing: 0.5px; font-size: 11px;"><i class="fa fa-database text-primary"></i> Tujuan Pemulihan (Database Aktif)</small>
-                 <div style="font-size: 14px; font-weight: bold; color: #1e293b; margin-top: 2px;">
-                     <%= CurrentLiveDbName %> <span class="badge" style="background: #e2e8f0; color: #475569; font-size: 11px;">Server LINTAR</span>
+             <div style="flex: 1; min-width: 180px;">
+                 <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px;">
+                     <i class="fa fa-database text-primary"></i> Tujuan Pemulihan
+                 </div>
+                 <div style="font-size: 16px; font-weight: bold; color: #1e293b; margin-top: 3px;">
+                     Server Lintar <span class="badge" style="background: #e2e8f0; color: #475569; font-size: 11px; font-weight: normal; margin-left: 4px;"><%= CurrentLiveDbName %></span>
                  </div>
              </div>
          </div>
+     </div>
+ </div>
          <div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #cbd5e1; font-size: 12px; color: #64748b;">
              <i class="fa fa-info-circle text-info"></i> <strong>Integritas Data:</strong> Data historis dipulihkan kembali ke database operasional LINTAR. Data yang sudah ada di database aktif <strong>tidak akan ditimpa</strong> (*zero conflict*).
          </div>

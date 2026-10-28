@@ -1143,7 +1143,7 @@ GO
 
 -- 2. Registrasi Primary Agent dengan Token Aktif Production
 EXEC dbo.sp_RegisterPrimaryBackupAgent
-    @AgentName = 'BACKUP-SERVER-UTAMA',
+    @AgentName = 'Laptop Backup',
     @ApiKey = 'A9zK2mP7vX1qR8wT4bY6uC3fJ8kL5nM0';
 GO
 
