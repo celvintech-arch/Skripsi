@@ -390,7 +390,7 @@ $(document).ready(applyRestoreScope);
                      <i class="fa fa-laptop text-info"></i> Asal Data
                  </div>
                  <div style="font-size: 16px; font-weight: bold; color: #0369a1; margin-top: 3px;">
-                     Laptop Backup <span class="badge" style="background: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; font-size: 11px; font-weight: normal; margin-left: 4px;"><%= CurrentBackupDbName %></span>
+                     Laptop Backup
                  </div>
              </div>
              <div style="text-align: center; padding: 0 24px;">
@@ -403,7 +403,7 @@ $(document).ready(applyRestoreScope);
                      <i class="fa fa-database text-primary"></i> Tujuan Pemulihan
                  </div>
                  <div style="font-size: 16px; font-weight: bold; color: #1e293b; margin-top: 3px;">
-                     Server Lintar <span class="badge" style="background: #e2e8f0; color: #475569; font-size: 11px; font-weight: normal; margin-left: 4px;"><%= CurrentLiveDbName %></span>
+                     Server Lintar
                  </div>
              </div>
          </div>
