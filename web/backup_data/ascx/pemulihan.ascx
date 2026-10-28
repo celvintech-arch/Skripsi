@@ -123,14 +123,11 @@ Private Sub LoadBackedUpStudents()
   tutupsr()
   Dim status As String="",json As String="",failure As String="",keyword As String="",year As String=""
 
-  ' Short poll sinkron hingga 2 detik agar respons instan jika data sudah tersedia/selesai
-  For i As Integer = 1 To 8
-   tutupsr()
-   If ReadLookup(lookupId,status,json,failure,keyword,year) Then
-    If status<>"WAITING" AndAlso status<>"CLAIMED" Then Exit For
-   End If
-   System.Threading.Thread.Sleep(250)
-  Next
+  If Not ReadLookup(lookupId,status,json,failure,keyword,year) Then
+   Session.Remove("BackupStudentLookupId")
+   lblStudentSearchInfo.Text="Pencarian backup sudah kedaluwarsa. Silakan cari kembali."
+   Return
+  End If
 
   tutupsr()
   If ddlStudentRestoreYear.Items.FindByValue(year) IsNot Nothing Then ddlStudentRestoreYear.SelectedValue=year
@@ -138,7 +135,6 @@ Private Sub LoadBackedUpStudents()
 
   If status="WAITING" OrElse status="CLAIMED" Then
    LookupPending=True
-   ' JANGAN tampilkan warning error/koneksi karena proses query sedang berjalan normal
    gvBackedUpStudents.EmptyDataText="<div class='text-center text-muted' style='padding: 24px 10px;'><i class='fa fa-spinner fa-spin fa-2x' style='color: #0369a1;'></i><div style='margin-top: 10px; font-size: 14px; font-weight: 600; color: #0369a1;'>Sedang mengambil data mahasiswa dari Laptop Backup...</div><div style='font-size: 12px; color: #64748b; margin-top: 4px;'>Daftar mahasiswa akan dimuat secara otomatis.</div></div>"
    gvBackedUpStudents.DataSource=data
    gvBackedUpStudents.DataBind()
@@ -326,36 +322,53 @@ End Sub
 <script type="text/javascript">
 var backupLookupRefreshTimer=null;
 var backupLookupRefreshUrl=null;
-var backupLookupRefreshDelay=1500;
+var backupLookupRefreshDelay=2000;
+var backupLookupIsFetching=false;
+
 function cancelBackupLookupRefresh(stopPolling){
  if(backupLookupRefreshTimer!==null){window.clearTimeout(backupLookupRefreshTimer);backupLookupRefreshTimer=null;}
  if(stopPolling===true){backupLookupRefreshUrl=null;}
 }
+
 function armBackupLookupRefresh(){
- if(!backupLookupRefreshUrl||document.hidden){return;}
+ if(!backupLookupRefreshUrl||backupLookupIsFetching){return;}
+ if(backupLookupRefreshTimer!==null){window.clearTimeout(backupLookupRefreshTimer);backupLookupRefreshTimer=null;}
  backupLookupRefreshTimer=window.setTimeout(function(){
   backupLookupRefreshTimer=null;
-  if(document.hidden||!backupLookupRefreshUrl){return;}
+  if(!backupLookupRefreshUrl||backupLookupIsFetching){return;}
+  backupLookupIsFetching=true;
   var checkUrl=backupLookupRefreshUrl+'&poll='+Date.now();
   fetch(checkUrl,{credentials:'same-origin',cache:'no-store',headers:{'X-Requested-With':'BackupLookupPoll'}})
    .then(function(response){if(!response.ok){throw new Error('Status HTTP '+response.status);}return response.text();})
    .then(function(html){
+    backupLookupIsFetching=false;
     if(!backupLookupRefreshUrl){return;}
-    if(html.indexOf('id="backupLookupPending" data-pending="1"')>=0){armBackupLookupRefresh();return;}
+    if(html.indexOf('id="backupLookupPending" data-pending="1"')>=0){
+     armBackupLookupRefresh();
+     return;
+    }
     sessionStorage.setItem('restore_scroll_pos', window.scrollY || window.pageYOffset);
     window.location.replace(checkUrl);
    })
-   .catch(function(){if(backupLookupRefreshUrl&&!document.hidden){armBackupLookupRefresh();}});
+   .catch(function(){
+    backupLookupIsFetching=false;
+    if(backupLookupRefreshUrl){
+     armBackupLookupRefresh();
+    }
+   });
  },backupLookupRefreshDelay);
 }
+
 function scheduleBackupLookupRefresh(url){
  cancelBackupLookupRefresh(false);
  backupLookupRefreshUrl=url;
  armBackupLookupRefresh();
 }
+
 document.addEventListener('visibilitychange',function(){
- cancelBackupLookupRefresh(false);
- if(!document.hidden){armBackupLookupRefresh();}
+ if(!document.hidden&&backupLookupRefreshUrl&&!backupLookupIsFetching){
+  armBackupLookupRefresh();
+ }
 });
 window.addEventListener('beforeunload',function(){cancelBackupLookupRefresh(true);});
 var savedRestoreScroll = sessionStorage.getItem('restore_scroll_pos');
