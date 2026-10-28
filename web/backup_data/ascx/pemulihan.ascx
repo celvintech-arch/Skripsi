@@ -397,7 +397,6 @@ $(document).ready(applyRestoreScope);
                  <div style="color: #0369a1; font-size: 24px; line-height: 1;">
                      <i class="fa fa-arrow-right"></i>
                  </div>
-                 <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Dipulihkan ke</div>
              </div>
              <div style="flex: 1; min-width: 180px;">
                  <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px;">
@@ -407,11 +406,6 @@ $(document).ready(applyRestoreScope);
                      Server Lintar <span class="badge" style="background: #e2e8f0; color: #475569; font-size: 11px; font-weight: normal; margin-left: 4px;"><%= CurrentLiveDbName %></span>
                  </div>
              </div>
-         </div>
-     </div>
- </div>
-         <div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #cbd5e1; font-size: 12px; color: #64748b;">
-             <i class="fa fa-info-circle text-info"></i> <strong>Integritas Data:</strong> Data historis dipulihkan kembali ke database operasional LINTAR. Data yang sudah ada di database aktif <strong>tidak akan ditimpa</strong> (*zero conflict*).
          </div>
      </div>
  </div>

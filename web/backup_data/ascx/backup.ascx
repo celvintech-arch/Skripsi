@@ -463,7 +463,6 @@ End Sub
                                     <div style="color: #15803d; font-size: 24px; line-height: 1;">
                                         <i class="fa fa-arrow-right"></i>
                                     </div>
-                                    <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Disalin ke</div>
                                 </div>
                                 <div style="flex: 1; min-width: 180px;">
                                     <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px;">
@@ -473,11 +472,6 @@ End Sub
                                         Laptop Backup <span class="badge" style="background: #dcfce7; color: #15803d; border: 1px solid #86efac; font-size: 11px; font-weight: normal; margin-left: 4px;"><%= CurrentBackupDbName %></span>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-                            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #cbd5e1; font-size: 12px; color: #64748b;">
-                                <i class="fa fa-shield text-success"></i> <strong>Keamanan Data:</strong> Data mahasiswa disalin ke basis data cadangan terisolasi di node backup. Data asli pada database aktif <strong>tidak dihapus</strong>.
                             </div>
                         </div>
                     </div>
