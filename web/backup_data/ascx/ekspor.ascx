@@ -47,7 +47,7 @@ Private Sub LoadExports()
    litLastExportVerification.Text=Server.HtmlEncode(If(detail.IndexOf("RESTORE VERIFYONLY berhasil",StringComparison.OrdinalIgnoreCase)>=0,"Terverifikasi",If(status="SUCCESS","Belum tersedia",StatusText(status))))
    litLastExportCompleted.Text=If(latest.IsNull("CompletedAt"),"Belum selesai",Convert.ToDateTime(latest("CompletedAt")).ToString("dd MMM yyyy HH:mm"))
   End If
-  If data.Select("Status='WAITING' OR Status='CLAIMED' OR Status='TRANSFERRING'").Length>0 Then litExportRefresh.Text="<script>window.setTimeout(function(){window.location.replace('index.aspx?tab=ekspor&poll='+Date.now());},10000);</" & "script>"
+  If data.Select("Status='WAITING' OR Status='CLAIMED' OR Status='TRANSFERRING'").Length>0 Then litExportRefresh.Text="<script>window.setTimeout(function(){sessionStorage.setItem('export_scroll_pos', window.scrollY||window.pageYOffset);window.location.replace('index.aspx?tab=ekspor&poll='+Date.now());},4000);</" & "script>"
  Catch ex As Exception
   ShowAlert("danger","Gagal memuat riwayat ekspor",BackupErrorMessage(ex))
  Finally:tutupsr():End Try
@@ -97,4 +97,11 @@ End Sub
   </div>
  </div>
  <asp:Literal ID="litExportRefresh" runat="server" />
+<script type="text/javascript">
+var savedExportScroll = sessionStorage.getItem('export_scroll_pos');
+if (savedExportScroll !== null) {
+    sessionStorage.removeItem('export_scroll_pos');
+    window.scrollTo({ top: parseInt(savedExportScroll, 10), behavior: 'smooth' });
+}
+</script>
 </div>

@@ -6,14 +6,17 @@
 
 <script runat="server">
     Protected IsStaffDashboard As Boolean = False
+    Protected ActiveJobCount As Integer = 0
 
     Protected Sub Page_Load(ByVal sender As Object, ByVal e As EventArgs)
         RequireBackupReportAccess()
         IsStaffDashboard = IsBackupStaff()
         If Not IsPostBack Then
             LoadMonitoringOverview()
-            LoadDatabaseStats()
-            LoadInventorySummary()
+            If Request.QueryString("ajax_poll") <> "1" Then
+                LoadDatabaseStats()
+                LoadInventorySummary()
+            End If
         End If
     End Sub
 
@@ -29,7 +32,7 @@
             Dim ds As New DataSet()
             Dim sql="SELECT TOP(1) IsEnabled,Frequency,CutoffThAkdk,NextRunAt FROM dbo.BackupJobConfiguration WHERE ConfigurationId=1;" & _
                 "WITH Latest AS(SELECT OperationType,Status,CreatedAt,CompletedAt,ROW_NUMBER() OVER(PARTITION BY OperationType ORDER BY CreatedAt DESC) rn FROM dbo.BackupTransferJob) SELECT OperationType,Status,CreatedAt,CompletedAt FROM Latest WHERE rn=1;" & _
-                "SELECT TOP(5) OperationType,Status,ProcessedStudents,TotalStudents,CreatedAt,ProgressMessage FROM dbo.BackupTransferJob WHERE Status IN('WAITING','CLAIMED','TRANSFERRING') ORDER BY CreatedAt;"
+                "SELECT TOP(5) JobId,OperationType,Status,ProcessedStudents,TotalStudents,CreatedAt,ProgressMessage FROM dbo.BackupTransferJob WHERE Status IN('WAITING','CLAIMED','TRANSFERRING') ORDER BY CreatedAt;"
             Using cn As New SqlConnection(connstringLive),ad As New SqlDataAdapter(sql,cn)
                 ad.Fill(ds)
             End Using
@@ -57,19 +60,53 @@
                 Next
             End If
 
-            Dim active As DataTable=If(ds.Tables.Count>2,ds.Tables(2),New DataTable())
-            If active.Columns.Count>0 Then
-                active.Columns.Add("OperationLabel",GetType(String)):active.Columns.Add("StatusLabel",GetType(String)):active.Columns.Add("ProgressLabel",GetType(String))
+            Dim active As DataTable = If(ds.Tables.Count > 2, ds.Tables(2), New DataTable())
+            If active.Columns.Count > 0 Then
+                active.Columns.Add("OperationLabel", GetType(String))
+                active.Columns.Add("StatusLabel", GetType(String))
+                active.Columns.Add("ProgressLabel", GetType(String))
+                active.Columns.Add("ProgressPercent", GetType(Integer))
+                active.Columns.Add("OperationBadgeClass", GetType(String))
+                active.Columns.Add("StatusBadgeClass", GetType(String))
                 For Each row As DataRow In active.Rows
-                    row("OperationLabel")=OperationText(row("OperationType").ToString())
-                    row("StatusLabel")=JobStatusText(row("Status").ToString())
-                    Dim total=If(row.IsNull("TotalStudents"),0,Convert.ToInt32(row("TotalStudents")))
-                    row("ProgressLabel")=Convert.ToInt32(row("ProcessedStudents")).ToString("N0") & "/" & If(total>0,total.ToString("N0"),"-")
+                    Dim op = row("OperationType").ToString().Trim().ToUpperInvariant()
+                    Dim st = row("Status").ToString().Trim().ToUpperInvariant()
+                    row("OperationLabel") = OperationText(op)
+                    row("StatusLabel") = JobStatusText(st)
+                    Dim total = If(row.IsNull("TotalStudents"), 0, Convert.ToInt32(row("TotalStudents")))
+                    Dim processed = If(row.IsNull("ProcessedStudents"), 0, Convert.ToInt32(row("ProcessedStudents")))
+                    row("ProgressLabel") = processed.ToString("N0") & " / " & If(total > 0, total.ToString("N0"), "-")
+
+                    Dim percent As Integer = 0
+                    If total > 0 Then
+                        percent = Math.Min(100, Math.Max(0, CInt(Math.Round((processed / CDbl(total)) * 100))))
+                    ElseIf st = "TRANSFERRING" Then
+                        percent = 15
+                    ElseIf st = "CLAIMED" Then
+                        percent = 5
+                    End If
+                    row("ProgressPercent") = percent
+
+                    Select Case op
+                        Case "BACKUP": row("OperationBadgeClass") = "label-success"
+                        Case "RESTORE": row("OperationBadgeClass") = "label-info"
+                        Case "EXPORT": row("OperationBadgeClass") = "label-warning"
+                        Case Else: row("OperationBadgeClass") = "label-default"
+                    End Select
+
+                    Select Case st
+                        Case "TRANSFERRING": row("StatusBadgeClass") = "label-primary"
+                        Case "CLAIMED": row("StatusBadgeClass") = "label-info"
+                        Case "WAITING": row("StatusBadgeClass") = "label-warning"
+                        Case Else: row("StatusBadgeClass") = "label-default"
+                    End Select
                 Next
             End If
-            gvActiveDashboard.DataSource=active:gvActiveDashboard.DataBind()
-            litActiveProcessCount.Text=active.Rows.Count.ToString("N0")
-            If active.Rows.Count>0 Then litDashboardRefresh.Text="<script>window.setTimeout(function(){window.location.replace('index.aspx?tab=dashboard&poll='+Date.now());},10000);</" & "script>"
+            ActiveJobCount = active.Rows.Count
+            gvActiveDashboard.DataSource = active
+            gvActiveDashboard.DataBind()
+            litActiveProcessCount.Text = ActiveJobCount.ToString("N0")
+            litDashboardRefresh.Text = ""
         Catch ex As Exception
             litMonitoringMessage.Text="<div class='alert alert-warning'><strong>Ringkasan pemantauan belum dapat dimuat.</strong> " & Server.HtmlEncode(BackupErrorMessage(ex)) & "</div>"
             litServiceStatus.Text="<span class='monitor-status monitor-status-danger'>Belum siap</span>"
@@ -105,6 +142,36 @@
             Case "SUCCESS":Return "Berhasil"
             Case "FAILED":Return "Gagal/Dibatalkan"
             Case Else:Return value
+        End Select
+    End Function
+
+    Private Function GetOperationIcon(ByVal val As Object) As String
+        If val Is Nothing Then Return "fa-tasks"
+        Select Case val.ToString().Trim().ToUpperInvariant()
+            Case "BACKUP": Return "fa-arrow-circle-down"
+            Case "RESTORE": Return "fa-arrow-circle-up"
+            Case "EXPORT": Return "fa-file-archive-o"
+            Case Else: Return "fa-tasks"
+        End Select
+    End Function
+
+    Private Function GetStatusIcon(ByVal val As Object) As String
+        If val Is Nothing Then Return "fa-info-circle"
+        Select Case val.ToString().Trim().ToUpperInvariant()
+            Case "TRANSFERRING": Return "fa-refresh fa-spin"
+            Case "CLAIMED": Return "fa-cog fa-spin"
+            Case "WAITING": Return "fa-hourglass-half"
+            Case Else: Return "fa-info-circle"
+        End Select
+    End Function
+
+    Private Function GetProgressBarClass(ByVal val As Object) As String
+        If val Is Nothing Then Return "progress-bar-info"
+        Select Case val.ToString().Trim().ToUpperInvariant()
+            Case "TRANSFERRING": Return "progress-bar-success"
+            Case "CLAIMED": Return "progress-bar-info"
+            Case "WAITING": Return "progress-bar-warning"
+            Case Else: Return "progress-bar-primary"
         End Select
     End Function
 
@@ -260,6 +327,7 @@
                 End Using
                 LoadMonitoringOverview()
                 LoadInventorySummary()
+                ScriptManager.RegisterStartupScript(Me, Me.GetType(), "ScrollToActiveSync", "setTimeout(function(){ var el = document.getElementById('panelActiveProcesses'); if(el) el.scrollIntoView({behavior:'smooth', block:'center'}); }, 250);", True)
                 litMonitoringMessage.Text = "<div class='alert alert-success alert-dismissible'><button type='button' class='close' data-dismiss='alert' aria-label='Close'><span aria-hidden='true'>&times;</span></button><i class='fa fa-check-circle'></i> <strong>Job Sinkronisasi Backup Berhasil Dibuat!</strong> Antrean backup untuk Tahun Akademik <strong>" & Server.HtmlEncode(targetTa) & "</strong> telah berhasil dibuat. Agent akan memproses data.</div>"
             Catch ex As Exception
                 litMonitoringMessage.Text = "<div class='alert alert-danger alert-dismissible'><button type='button' class='close' data-dismiss='alert' aria-label='Close'><span aria-hidden='true'>&times;</span></button><strong>Sinkronisasi Gagal:</strong> " & Server.HtmlEncode(BackupErrorMessage(ex)) & "</div>"
@@ -286,6 +354,7 @@
                 End Using
                 LoadMonitoringOverview()
                 LoadInventorySummary()
+                ScriptManager.RegisterStartupScript(Me, Me.GetType(), "ScrollToActiveRestore", "setTimeout(function(){ var el = document.getElementById('panelActiveProcesses'); if(el) el.scrollIntoView({behavior:'smooth', block:'center'}); }, 250);", True)
                 litMonitoringMessage.Text = "<div class='alert alert-success alert-dismissible'><button type='button' class='close' data-dismiss='alert' aria-label='Close'><span aria-hidden='true'>&times;</span></button><i class='fa fa-check-circle'></i> <strong>Job Pemulihan Berhasil Dibuat!</strong> Antrean pemulihan data untuk Tahun Akademik <strong>" & Server.HtmlEncode(targetTa) & "</strong> telah berhasil dibuat. Agent akan memulihkan data ke database aktif.</div>"
             Catch ex As Exception
                 litMonitoringMessage.Text = "<div class='alert alert-danger alert-dismissible'><button type='button' class='close' data-dismiss='alert' aria-label='Close'><span aria-hidden='true'>&times;</span></button><strong>Pemulihan Gagal:</strong> " & Server.HtmlEncode(BackupErrorMessage(ex)) & "</div>"
@@ -459,16 +528,67 @@
         <div class="monitor-activity-card"><i class="fa fa-file-o"></i><span>Ekspor terakhir</span><strong><asp:Literal ID="litLastExport" runat="server" /></strong></div>
     </div>
 
-    <div class="panel panel-default monitor-active-panel">
-        <div class="panel-heading backup-u-043"><span><i class="fa fa-refresh"></i> Proses Sedang Berjalan</span><span class="monitor-count"><asp:Literal ID="litActiveProcessCount" runat="server" /> proses</span></div>
+    <div class="panel panel-default monitor-active-panel" id="panelActiveProcesses">
+        <div class="panel-heading backup-u-043" style="display: flex; justify-content: space-between; align-items: center;">
+            <span><i class="fa fa-refresh <%= If(ActiveJobCount > 0, "fa-spin text-primary", "") %>"></i> <strong>Proses Sedang Berjalan</strong></span>
+            <div>
+                <span class="label <%= If(ActiveJobCount > 0, "label-primary", "label-default") %>" id="activeProcessBadge" style="font-size: 12px; padding: 5px 10px;">
+                    <i class="fa <%= If(ActiveJobCount > 0, "fa-circle text-success", "fa-check") %>"></i> 
+                    <asp:Literal ID="litActiveProcessCount" runat="server" /> antrean aktif
+                </span>
+            </div>
+        </div>
         <div class="table-responsive">
-            <asp:GridView ID="gvActiveDashboard" runat="server" AutoGenerateColumns="false" CssClass="table table-striped table-hover" GridLines="None" EmptyDataText="Tidak ada proses yang sedang berjalan.">
+            <asp:GridView ID="gvActiveDashboard" runat="server" AutoGenerateColumns="false" CssClass="table table-hover table-striped" GridLines="None" EmptyDataText="Tidak ada proses antrean yang sedang berjalan saat ini.">
                 <Columns>
-                    <asp:BoundField DataField="CreatedAt" HeaderText="Dibuat" DataFormatString="{0:dd MMM yyyy HH:mm}" />
-                    <asp:BoundField DataField="OperationLabel" HeaderText="Operasi" />
-                    <asp:BoundField DataField="StatusLabel" HeaderText="Status" />
-                    <asp:BoundField DataField="ProgressLabel" HeaderText="Diproses" />
-                    <asp:BoundField DataField="ProgressMessage" HeaderText="Keterangan" NullDisplayText="-" />
+                    <asp:TemplateField HeaderText="Waktu & Operasi" HeaderStyle-Width="180px">
+                        <ItemTemplate>
+                            <span class='label <%# Eval("OperationBadgeClass") %>' style="font-size: 11px; padding: 4px 8px; display: inline-block; margin-bottom: 4px;">
+                                <i class='fa <%# GetOperationIcon(Eval("OperationType")) %>'></i> <%# Eval("OperationLabel") %>
+                            </span>
+                            <div class="text-muted small">
+                                <i class="fa fa-clock-o"></i> <%# Eval("CreatedAt", "{0:dd MMM yyyy HH:mm}") %>
+                            </div>
+                        </ItemTemplate>
+                    </asp:TemplateField>
+                    
+                    <asp:TemplateField HeaderText="Status" HeaderStyle-Width="140px">
+                        <ItemTemplate>
+                            <span class='label <%# Eval("StatusBadgeClass") %>' style="font-size: 11px; padding: 4px 8px; display: inline-block;">
+                                <i class='fa <%# GetStatusIcon(Eval("Status")) %>'></i> <%# Eval("StatusLabel") %>
+                            </span>
+                        </ItemTemplate>
+                    </asp:TemplateField>
+
+                    <asp:TemplateField HeaderText="Progress Mahasiswa" HeaderStyle-Width="300px">
+                        <ItemTemplate>
+                            <div style="min-width: 220px; padding: 2px 0;">
+                                <div class="progress" style="margin-bottom: 5px; height: 20px; border-radius: 4px; background-color: #e9ecef; box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);">
+                                    <div class='progress-bar progress-bar-striped active <%# GetProgressBarClass(Eval("Status")) %>' 
+                                         role="progressbar" 
+                                         aria-valuenow='<%# Eval("ProgressPercent") %>' 
+                                         aria-valuemin="0" 
+                                         aria-valuemax="100" 
+                                         style='width: <%# Math.Max(8, Convert.ToInt32(Eval("ProgressPercent"))) %>%; line-height: 20px; font-size: 11px; font-weight: bold;'>
+                                        <%# Eval("ProgressPercent") %>%
+                                    </div>
+                                </div>
+                                <div style="display: flex; justify-content: space-between;" class="small text-muted">
+                                    <span><i class="fa fa-users"></i> <strong><%# Eval("ProcessedStudents", "{0:N0}") %></strong> dari <strong><%# If(Convert.ToInt32(Eval("TotalStudents")) > 0, Eval("TotalStudents", "{0:N0}"), "-") %></strong> mhs</span>
+                                    <span class="text-primary" style="font-weight: 600;"><%# Eval("ProgressPercent") %>%</span>
+                                </div>
+                            </div>
+                        </ItemTemplate>
+                    </asp:TemplateField>
+
+                    <asp:TemplateField HeaderText="Keterangan / Aktivitas">
+                        <ItemTemplate>
+                            <div style="font-size: 12px; color: #334155; line-height: 1.4;">
+                                <i class="fa fa-terminal text-muted"></i> 
+                                <%# Server.HtmlEncode(If(String.IsNullOrWhiteSpace(Eval("ProgressMessage").ToString()), "Menunggu pemrosesan oleh agent...", Eval("ProgressMessage").ToString())) %>
+                            </div>
+                        </ItemTemplate>
+                    </asp:TemplateField>
                 </Columns>
             </asp:GridView>
         </div>
@@ -666,4 +786,75 @@ function confirmRestorePeriod(button) {
         icon: "question"
     });
 }
+
+(function () {
+    var activePanelId = "panelActiveProcesses";
+    var pollInterval = 3000;
+    var isPolling = false;
+
+    // Auto-scroll halus jika diarahkan dari halaman backup / pemulihan
+    var urlParams = new URLSearchParams(window.location.search);
+    var ref = urlParams.get("ref");
+    if (ref === "backup" || ref === "restore" || ref === "sync" || urlParams.get("focus") === "active") {
+        var targetEl = document.getElementById(activePanelId);
+        if (targetEl) {
+            setTimeout(function () {
+                targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
+            }, 300);
+        }
+    }
+
+    // Kembalikan posisi scroll jika ada scroll yang disimpan sebelumnya
+    var savedScroll = sessionStorage.getItem("dashboard_scroll_pos");
+    if (savedScroll !== null) {
+        sessionStorage.removeItem("dashboard_scroll_pos");
+        window.scrollTo({ top: parseInt(savedScroll, 10), behavior: "smooth" });
+    }
+
+    // Polling asinkronus (memperbarui panel progress bar tanpa me-reload seluruh halaman)
+    function pollActiveDashboard() {
+        if (isPolling) return;
+        isPolling = true;
+
+        var pollUrl = "index.aspx?tab=dashboard&ajax_poll=1&t=" + Date.now();
+        fetch(pollUrl, { credentials: "same-origin", cache: "no-store" })
+            .then(function (res) {
+                if (!res.ok) throw new Error("HTTP " + res.status);
+                return res.text();
+            })
+            .then(function (html) {
+                isPolling = false;
+                var parser = new DOMParser();
+                var doc = parser.parseFromString(html, "text/html");
+
+                var newPanel = doc.getElementById(activePanelId);
+                var curPanel = document.getElementById(activePanelId);
+
+                if (newPanel && curPanel) {
+                    curPanel.innerHTML = newPanel.innerHTML;
+                }
+
+                // Periksa apakah masih ada proses antrean yang aktif
+                var hasActiveBars = doc.querySelectorAll("#" + activePanelId + " .progress-bar").length > 0;
+                if (hasActiveBars) {
+                    setTimeout(pollActiveDashboard, pollInterval);
+                } else {
+                    // Semua proses selesai: simpan posisi scroll lalu refresh 1x untuk update ringkasan database
+                    sessionStorage.setItem("dashboard_scroll_pos", window.scrollY || window.pageYOffset);
+                    setTimeout(function () {
+                        window.location.replace("index.aspx?tab=dashboard&completed=1");
+                    }, 1200);
+                }
+            })
+            .catch(function () {
+                isPolling = false;
+                setTimeout(pollActiveDashboard, 5000);
+            });
+    }
+
+    var hasActiveNow = document.querySelectorAll("#" + activePanelId + " .progress-bar").length > 0;
+    if (hasActiveNow) {
+        setTimeout(pollActiveDashboard, pollInterval);
+    }
+})();
 </script>

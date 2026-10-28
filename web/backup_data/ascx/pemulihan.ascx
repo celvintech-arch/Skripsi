@@ -160,13 +160,20 @@ End Sub
 
 Protected Sub gvBackedUpStudents_RowCommand(sender As Object,e As GridViewCommandEventArgs)
  If e.CommandName<>"RestoreStudent" Then Return
+ Dim success As Boolean = False
  Try
   Dim nim=e.CommandArgument.ToString().Trim()
   If Not System.Text.RegularExpressions.Regex.IsMatch(nim,"^[0-9]{9}$") Then Throw New ApplicationException("NIM hasil pencarian tidak valid.")
   CreateRestoreJob(nim,Nothing,1,SelectedTables(cblRestoreNimTables,True))
+  success = True
  Catch ex As Exception
   ShowAlert("error","Pemulihan gagal",BackupErrorMessage(ex))
  Finally:tutupsr():End Try
+ If success Then
+  Response.Redirect("index.aspx?tab=dashboard&ref=restore", False)
+  Context.ApplicationInstance.CompleteRequest()
+  Return
+ End If
  LoadBackedUpStudents()
 End Sub
 
@@ -230,15 +237,22 @@ Private Function GetSelectedRestoreStudentTotal() As Integer
 End Function
 
 Protected Sub btnRestorePeriods_Click(sender As Object,e As EventArgs)
+ Dim success As Boolean = False
  Try
   Dim periods=GetSelectedRestorePeriods()
   If periods.Count=0 Then Throw New ApplicationException("Pilih minimal satu Tahun Akademik.")
   CreateRestoreJob(Nothing,String.Join(",",periods.ToArray()),GetSelectedRestoreStudentTotal(),SelectedTables(cblRestorePeriodTables,True))
+  success = True
  Catch ex As Exception
   ShowAlert("error","Pemulihan gagal",BackupErrorMessage(ex))
  Finally
   tutupsr()
  End Try
+ If success Then
+  Response.Redirect("index.aspx?tab=dashboard&ref=restore", False)
+  Context.ApplicationInstance.CompleteRequest()
+  Return
+ End If
  PopulateRestorePeriods()
 End Sub
 
@@ -283,6 +297,7 @@ function armBackupLookupRefresh(){
    .then(function(html){
     if(!backupLookupRefreshUrl){return;}
     if(html.indexOf('id="backupLookupPending" data-pending="1"')>=0){armBackupLookupRefresh();return;}
+    sessionStorage.setItem('restore_scroll_pos', window.scrollY || window.pageYOffset);
     window.location.replace(checkUrl);
    })
    .catch(function(){if(backupLookupRefreshUrl&&!document.hidden){armBackupLookupRefresh();}});
@@ -303,6 +318,11 @@ document.addEventListener('visibilitychange',function(){
  if(!document.hidden){armBackupLookupRefresh();}
 });
 window.addEventListener('beforeunload',function(){cancelBackupLookupRefresh(true);});
+var savedRestoreScroll = sessionStorage.getItem('restore_scroll_pos');
+if (savedRestoreScroll !== null) {
+    sessionStorage.removeItem('restore_scroll_pos');
+    window.scrollTo({ top: parseInt(savedRestoreScroll, 10), behavior: 'smooth' });
+}
 function restoreNumber(value){return (parseInt(value||"0",10)||0).toLocaleString("id-ID");}
 function restoreScopeIncluded(mode,start,end,ta){return(mode==="SINGLE"&&ta===end)||(mode==="RANGE"&&start&&end&&ta>=start&&ta<=end);}
 function applyRestoreScope(){

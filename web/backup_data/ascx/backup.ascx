@@ -178,7 +178,7 @@ Protected Sub btnJalankanBackup_Click(sender As Object,e As EventArgs)
   tutupsr()
  End Try
  If requestAccepted Then
-  Response.Redirect("index.aspx?tab=dashboard",False)
+  Response.Redirect("index.aspx?tab=dashboard&ref=backup",False)
   Context.ApplicationInstance.CompleteRequest()
   Return
  End If
