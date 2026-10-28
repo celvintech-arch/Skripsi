@@ -8,6 +8,28 @@ Protected CurrentRestoreSection As String="ta"
 Protected LookupPending As Boolean=False
 Protected BackupServiceReady As Boolean=False
 Private CurrentBackupService As BackupServiceState
+
+Protected ReadOnly Property CurrentLiveDbName As String
+    Get
+        Dim builder As New SqlConnectionStringBuilder(connstringLive)
+        Return builder.InitialCatalog
+    End Get
+End Property
+
+Protected ReadOnly Property CurrentBackupDbName As String
+    Get
+        Return CurrentLiveDbName & "_backup"
+    End Get
+End Property
+
+Protected ReadOnly Property CurrentAgentName As String
+    Get
+        If CurrentBackupService IsNot Nothing AndAlso Not String.IsNullOrWhiteSpace(CurrentBackupService.AgentName) AndAlso CurrentBackupService.AgentName <> "-" Then
+            Return CurrentBackupService.AgentName
+        End If
+        Return "BACKUP-SERVER-UTAMA"
+    End Get
+End Property
 Protected Sub Page_Load(sender As Object,e As EventArgs)
  RequireBackupStaff()
  LoadBackupConnectionStatus()
@@ -358,6 +380,36 @@ $(document).ready(applyRestoreScope);
  <asp:Literal ID="litBackupConnectionStatus" runat="server" />
  <asp:Literal ID="litAlertRestore" runat="server" />
  <span class="backup-u-029" id="backupLookupPending" data-pending="<%= If(LookupPending,"1","0") %>"></span>
+
+ <!-- ALUR PEMULIHAN DATA -->
+ <div class="panel panel-default" style="border-left: 4px solid #0369a1; background: #f8fafc; margin-bottom: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+     <div class="panel-body" style="padding: 12px 16px;">
+         <div class="row" style="display: flex; align-items: center; flex-wrap: wrap;">
+             <div class="col-md-5 col-sm-5 col-xs-12">
+                 <small class="text-muted text-uppercase" style="font-weight: 600; letter-spacing: 0.5px; font-size: 11px;"><i class="fa fa-hdd-o text-info"></i> Asal Data (Database Cadangan)</small>
+                 <div style="font-size: 14px; font-weight: bold; color: #0369a1; margin-top: 2px;">
+                     <%= CurrentBackupDbName %> <span class="badge" style="background: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; font-size: 11px;">Node: <%= CurrentAgentName %></span>
+                 </div>
+             </div>
+             <div class="col-md-2 col-sm-2 col-xs-12 text-center" style="margin: 6px 0;">
+                 <div style="color: #0369a1; font-size: 20px;" title="Dipulihkan ke Database Aktif">
+                     <i class="fa fa-arrow-right hidden-xs"></i>
+                     <i class="fa fa-arrow-down visible-xs"></i>
+                 </div>
+                 <small class="text-muted" style="font-size: 10px; display: block; font-weight: 600;">Dipulihkan ke</small>
+             </div>
+             <div class="col-md-5 col-sm-5 col-xs-12">
+                 <small class="text-muted text-uppercase" style="font-weight: 600; letter-spacing: 0.5px; font-size: 11px;"><i class="fa fa-database text-primary"></i> Tujuan Pemulihan (Database Aktif)</small>
+                 <div style="font-size: 14px; font-weight: bold; color: #1e293b; margin-top: 2px;">
+                     <%= CurrentLiveDbName %> <span class="badge" style="background: #e2e8f0; color: #475569; font-size: 11px;">Server LINTAR</span>
+                 </div>
+             </div>
+         </div>
+         <div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #cbd5e1; font-size: 12px; color: #64748b;">
+             <i class="fa fa-info-circle text-info"></i> <strong>Integritas Data:</strong> Data historis dipulihkan kembali ke database operasional LINTAR. Data yang sudah ada di database aktif <strong>tidak akan ditimpa</strong> (*zero conflict*).
+         </div>
+     </div>
+ </div>
 
  <ul class="nav nav-tabs backup-u-064">
   <li class="<%= If(CurrentRestoreSection="ta","active","") %>"><a href="index.aspx?tab=pemulihan&amp;section=ta"><i class="fa fa-calendar backup-u-068"></i>Pemulihan Tahun Akademik</a></li>
