@@ -203,33 +203,28 @@ Private Sub PopulateRestorePeriods()
  ddlRestoreStartTa.Items.Clear():ddlRestoreStartTa.Items.Add(New ListItem("- Pilih TA awal -",""))
  ddlRestoreEndTa.Items.Clear():ddlRestoreEndTa.Items.Add(New ListItem("- Pilih TA -",""))
  Try
-  Dim lookupId As Guid
-  If Session("BackupPeriodLookupId") Is Nothing OrElse Not Guid.TryParse(Convert.ToString(Session("BackupPeriodLookupId")),lookupId) Then lookupId=CreateLookup("PERIODS","",""):Session("BackupPeriodLookupId")=lookupId.ToString()
-  tutupsr()
-  Dim status As String="",json As String="",failure As String="",keyword As String="",yearFilter As String=""
-  If Not ReadLookup(lookupId,status,json,failure,keyword,yearFilter) Then Session.Remove("BackupPeriodLookupId"):Throw New ApplicationException("Inventaris sementara sudah kedaluwarsa. Muat ulang halaman.")
-  tutupsr()
-  If status="WAITING" OrElse status="CLAIMED" Then LookupPending=True:ShowBackupConnectionWarning("Daftar Tahun Akademik belum tersedia.","Menunggu Database Backup mengirim inventaris. Pastikan server dan layanan pemrosesan backup berjalan.","warning"):RegisterLookupRefresh():Return
-  If status="FAILED" Then Throw New ApplicationException(If(failure="","Lookup inventaris gagal.",failure))
-  Dim root=TryCast((New System.Web.Script.Serialization.JavaScriptSerializer()).DeserializeObject(json),System.Collections.Generic.Dictionary(Of String,Object)),periods=If(root IsNot Nothing AndAlso root.ContainsKey("periods"),TryCast(root("periods"),System.Collections.IList),Nothing)
-  If periods IsNot Nothing Then
-   For Each item In periods
-    Dim row=TryCast(item,System.Collections.Generic.Dictionary(Of String,Object))
-    If row IsNot Nothing Then
-     Dim ta=Convert.ToString(row("thAkdk")),backupCount=Convert.ToInt32(row("backupMhs")),eligible=Convert.ToInt32(row("eligibleMhs"))
-     Dim startItem As New ListItem(ta,ta),endItem As New ListItem(ta,ta)
-     For Each optionItem As ListItem In New ListItem(){startItem,endItem}
-      optionItem.Attributes("data-eligible")=eligible.ToString():optionItem.Attributes("data-backup")=backupCount.ToString()
+  Using cmd As New SqlCommand("SELECT p.ThAkdk, p.StudentCount, p.LiveStudentCount FROM dbo.BackupAgentPeriodInventory p JOIN dbo.BackupAgentNode a ON a.AgentId=p.AgentId WHERE a.IsPrimary=1 AND a.IsEnabled=1 AND p.StudentCount > 0 ORDER BY p.ThAkdk DESC", cnsr)
+   cnsr.Open()
+   Using rd = cmd.ExecuteReader()
+    While rd.Read()
+     Dim ta = rd("ThAkdk").ToString().Trim()
+     Dim backupCount = Convert.ToInt32(rd("StudentCount"))
+     Dim eligible = backupCount
+     Dim startItem As New ListItem(ta, ta), endItem As New ListItem(ta, ta)
+     For Each optionItem As ListItem In New ListItem(){startItem, endItem}
+      optionItem.Attributes("data-eligible") = eligible.ToString()
+      optionItem.Attributes("data-backup") = backupCount.ToString()
      Next
-     ddlRestoreStartTa.Items.Add(startItem):ddlRestoreEndTa.Items.Add(endItem)
-    End If
-   Next
-  End If
- If ddlRestoreEndTa.Items.Count<=1 Then
-   ShowBackupConnectionWarning("Belum ada Tahun Akademik pada Database Backup.","Database Backup terhubung, tetapi inventaris masih kosong. Tunggu pembaruan data atau pastikan database backup berisi data.","warning")
+     ddlRestoreStartTa.Items.Add(startItem)
+     ddlRestoreEndTa.Items.Add(endItem)
+    End While
+   End Using
+  End Using
+  If ddlRestoreEndTa.Items.Count <= 1 Then
+   ShowBackupConnectionWarning("Belum ada Tahun Akademik pada Database Backup.", "Database Backup terhubung, tetapi inventaris masih kosong. Tunggu pembaruan data atau pastikan database backup berisi data.", "warning")
   End If
  Catch ex As Exception
-  ShowBackupConnectionWarning("Daftar Tahun Akademik tidak dapat dimuat.",BackupErrorMessage(ex),"warning")
+  ShowBackupConnectionWarning("Daftar Tahun Akademik tidak dapat dimuat.", BackupErrorMessage(ex), "warning")
  Finally
   tutupsr()
  End Try
