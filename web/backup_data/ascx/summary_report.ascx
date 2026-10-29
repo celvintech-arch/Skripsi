@@ -382,8 +382,8 @@ End Function
   <div class="panel-heading backup-u-043">
    <span><i class="fa fa-calendar"></i> Inventaris Database Backup per Tahun Akademik (Audit Data)</span>
    <% If IsBackupStaff() Then %>
-   <a href="index.aspx?tab=dashboard" class="btn btn-default btn-xs" title="Kelola sinkronisasi atau pemulihan data di Dashboard">
-    <i class="fa fa-sliders"></i> Kelola di Dashboard
+   <a href="index.aspx?tab=dashboard" class="btn-header-action" style="min-height: 32px; height: 32px; padding: 5px 14px; font-size: 12px; font-weight: 600; color: #334155; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); display: inline-flex; align-items: center; gap: 7px; text-decoration: none;" title="Kelola sinkronisasi atau pemulihan data di Dashboard">
+    <i class="fa fa-sliders" style="font-size: 12px;"></i> <span>Kelola di Dashboard</span>
    </a>
    <% End If %>
   </div>

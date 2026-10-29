@@ -962,6 +962,21 @@ html body .table tbody tr:hover {
     gap: 5px !important;
 }
 
+.backup-page .btn-sm,
+.backup-page .table .btn-sm {
+    min-height: 32px !important;
+    height: 32px !important;
+    padding: 5px 12px !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    border-radius: 6px !important;
+    line-height: 20px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+}
+
 @media (max-width:1199px){.export-latest-card{grid-template-columns:repeat(3,minmax(0,1fr))}.export-latest-card>div{border-bottom:1px solid #e5eaf1}}
 @media (max-width:991px){.dashboard-quick-menu{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:767px){
