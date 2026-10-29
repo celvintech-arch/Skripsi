@@ -316,7 +316,7 @@ Protected Function FormatHistoryProgress(opObj As Object, processedObj As Object
     Dim total As Integer = If(totalObj IsNot Nothing AndAlso Not Convert.IsDBNull(totalObj), Convert.ToInt32(totalObj), -1)
     
     Dim totalText = If(total >= 0, total.ToString("N0"), processed.ToString("N0"))
-    Return "<div class='text-center' style='white-space: nowrap;'><span style='font-weight: 700; color: #0f172a; font-size: 13px;'>" & processed.ToString("N0") & "</span><span style='color: #64748b; font-size: 11px;'> / " & totalText & "</span><div class='text-muted' style='font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 1px;'>mhs</div></div>"
+    Return "<div class='text-center' style='white-space: nowrap;'><span style='font-weight: 700; color: #0f172a; font-size: 13px;'>" & processed.ToString("N0") & "</span><span style='color: #64748b; font-size: 12px;'> / " & totalText & "</span></div>"
 End Function
 
 Protected Function FormatHistoryDetail(detailObj As Object, statusObj As Object, opObj As Object) As String
@@ -391,11 +391,11 @@ End Function
       </ItemTemplate>
      </asp:TemplateField>
 
-     <asp:TemplateField HeaderText="Operasi" HeaderStyle-Width="240px">
+     <asp:TemplateField HeaderText="Operasi" HeaderStyle-Width="220px">
       <ItemTemplate>
-       <div style="display: flex; align-items: center; gap: 8px;">
-        <%# GetHistoryOperationBadge(Eval("OperationType")) %>
-        <span style="font-weight: 600; color: #1e293b; font-size: 13px;"><%# GetOperationCleanTarget(Eval("OperationLabel"), Eval("OperationType")) %></span>
+       <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 3px;">
+        <div><%# GetHistoryOperationBadge(Eval("OperationType")) %></div>
+        <div style="font-weight: 600; color: #1e293b; font-size: 13px; margin-top: 1px;"><%# GetOperationCleanTarget(Eval("OperationLabel"), Eval("OperationType")) %></div>
        </div>
       </ItemTemplate>
      </asp:TemplateField>
