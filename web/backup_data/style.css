@@ -1,4 +1,4 @@
-/* ==========================================================================
+ï»¿/* ==========================================================================
    BACKUP DATA MAHASISWA - GLOBAL DESIGN SYSTEM
    Diselaraskan penuh dengan z:\lintar2022\portofolio_fakultas Design System
    ========================================================================== */
@@ -312,7 +312,7 @@ html body .table tbody tr:hover {
 .backup-connection-alert strong{display:block;font-size:14px;margin-bottom:3px}.backup-connection-alert div div{font-size:13px;line-height:1.45}
 
 /* Source: riwayat.ascx */
-.history-card{border:1px solid #cbd5e1;border-radius:6px;margin-bottom:0;overflow:hidden}.history-card .panel-heading{font-weight:700;background:#f8fafc;padding:14px 16px}.history-table{margin-bottom:0;background:#fff;table-layout:fixed;width:100%}.history-table th{background:#f1f5f9!important;color:#334155;font-size:12px;text-transform:uppercase;vertical-align:middle!important}.history-table td{vertical-align:top!important;white-space:normal!important;overflow-wrap:anywhere;word-break:break-word}.history-target{min-width:180px}.history-note{color:#64748b;white-space:pre-line!important}.history-status{font-weight:600}
+.history-card{border:1px solid #cbd5e1;border-radius:8px;margin-bottom:0;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.05)}.history-card .panel-heading{font-weight:700;background:#f8fafc;padding:14px 18px;border-bottom:1px solid #e2e8f0;font-size:15px;color:#1e293b}.history-table{margin-bottom:0;background:#fff;width:100%}.history-table th{background:#f8fafc!important;color:#475569;font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;padding:12px 14px!important;border-bottom:2px solid #e2e8f0!important;vertical-align:middle!important}.history-table td{vertical-align:middle!important;padding:12px 14px!important;border-bottom:1px solid #f1f5f9!important;font-size:13px;color:#334155;overflow-wrap:break-word}.history-table tbody tr:hover{background-color:#f8fafc!important}.history-table .text-center{text-align:center!important}.history-table td.history-nowrap{white-space:nowrap!important}.history-target{min-width:180px}.history-note{color:#334155;line-height:1.45}.history-status{font-weight:600}
 .history-card + .history-card{margin-top:24px}
 .history-actions{display:flex;flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:center;gap:7px;width:100%}
 .history-actions a.history-text-btn{display:inline-flex!important;align-items:center;justify-content:center;width:auto!important;min-width:82px;max-width:100%;height:34px!important;margin:0!important;padding:6px 10px!important;line-height:1.2!important;white-space:nowrap}
@@ -435,7 +435,7 @@ html body .table tbody tr:hover {
 @media (max-width:575px) { .summary-filter-row { grid-template-columns:1fr !important; } .summary-filter-action { flex-direction:column !important; text-align:left !important; white-space:normal !important; } .summary-filter-action .btn { display:block !important; width:100% !important; } .summary-export-button { margin-left:0 !important; margin-top:0 !important; } .summary-card { flex-basis:100% !important; min-width:0 !important; } .backup-collapse-hint { font-size:0 !important; } .backup-collapse-hint i { font-size:12px !important; } }
 
 /* ========================================================================== 
-   Content refresh 2026 — sengaja dibatasi ke .backup-page.
+   Content refresh 2026 ï¿½ sengaja dibatasi ke .backup-page.
    Navbar utama dan navigasi modul memakai aturan lama tanpa perubahan.
    ========================================================================== */
 .backup-page {

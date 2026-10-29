@@ -255,6 +255,91 @@ Private Function TransferStatusText(value As String) As String
  End Select
 End Function
 
+Protected Function GetHistoryOperationBadge(opObj As Object) As String
+    Dim op = If(opObj Is Nothing, "", opObj.ToString().Trim().ToUpperInvariant())
+    Select Case op
+        Case "BACKUP": Return "<span class='label label-success' style='font-size: 10px; padding: 3px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;'><i class='fa fa-database'></i> Backup</span>"
+        Case "RESTORE": Return "<span class='label label-info' style='font-size: 10px; padding: 3px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;'><i class='fa fa-undo'></i> Pemulihan</span>"
+        Case "EXPORT": Return "<span class='label label-default' style='font-size: 10px; padding: 3px 7px; border-radius: 4px; background-color: #475569; color: #fff; display: inline-flex; align-items: center; gap: 4px;'><i class='fa fa-file-archive-o'></i> Ekspor</span>"
+        Case Else: Return "<span class='label label-default' style='font-size: 10px; padding: 3px 7px;'>" & Server.HtmlEncode(op) & "</span>"
+    End Select
+End Function
+
+Protected Function GetOperationCleanTarget(labelObj As Object, opObj As Object) As String
+    Dim label = If(labelObj Is Nothing, "", labelObj.ToString().Trim())
+    Dim op = If(opObj Is Nothing, "", opObj.ToString().Trim().ToUpperInvariant())
+    If op = "BACKUP" Then
+        If label.StartsWith("Backup ", StringComparison.OrdinalIgnoreCase) Then label = label.Substring(7).Trim()
+    ElseIf op = "RESTORE" Then
+        If label.StartsWith("Pemulihan ", StringComparison.OrdinalIgnoreCase) Then label = label.Substring(10).Trim()
+    ElseIf op = "EXPORT" Then
+        If label.StartsWith("Ekspor ", StringComparison.OrdinalIgnoreCase) Then label = label.Substring(7).Trim()
+    End If
+    Return If(String.IsNullOrWhiteSpace(label), "-", label)
+End Function
+
+Protected Function GetHistoryStatusBadge(statusObj As Object, errorObj As Object) As String
+    Dim status = If(statusObj Is Nothing, "", statusObj.ToString().Trim().ToUpperInvariant())
+    Dim err = If(errorObj Is Nothing, "", errorObj.ToString())
+    If status = "FAILED" AndAlso err.StartsWith("[CANCELLED]", StringComparison.OrdinalIgnoreCase) Then
+        Return "<span class='label label-default' style='font-size: 11px; padding: 4px 8px; border-radius: 4px; background-color: #64748b; color: #fff; display: inline-flex; align-items: center; gap: 4px;'><i class='fa fa-ban'></i> Dibatalkan</span>"
+    End If
+    Select Case status
+        Case "SUCCESS": Return "<span class='label label-success' style='font-size: 11px; padding: 4px 8px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;'><i class='fa fa-check'></i> Berhasil</span>"
+        Case "FAILED": Return "<span class='label label-danger' style='font-size: 11px; padding: 4px 8px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;'><i class='fa fa-times'></i> Gagal</span>"
+        Case "WAITING": Return "<span class='label label-warning' style='font-size: 11px; padding: 4px 8px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;'><i class='fa fa-clock-o'></i> Menunggu</span>"
+        Case "CLAIMED", "TRANSFERRING": Return "<span class='label label-primary' style='font-size: 11px; padding: 4px 8px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;'><i class='fa fa-refresh fa-spin'></i> Diproses</span>"
+        Case Else: Return "<span class='label label-default' style='font-size: 11px; padding: 4px 8px;'>" & Server.HtmlEncode(status) & "</span>"
+    End Select
+End Function
+
+Protected Function FormatHistoryTables(raw As Object) As String
+    Dim val = If(raw Is Nothing, "", raw.ToString().Trim())
+    If String.IsNullOrWhiteSpace(val) Then Return "<span class='text-muted'>-</span>"
+    Dim html As New System.Text.StringBuilder()
+    For Each tbl In val.Split(","c)
+        Select Case tbl.Trim().ToLowerInvariant()
+            Case "tbio01": html.Append("<span class='label label-default' style='font-size: 10px; padding: 2px 6px; background: #f8fafc; color: #334155; border: 1px solid #cbd5e1; margin-right: 4px; margin-bottom: 2px; display: inline-block; font-weight: 500;'>Biodata</span>")
+            Case "treg": html.Append("<span class='label label-default' style='font-size: 10px; padding: 2px 6px; background: #f8fafc; color: #334155; border: 1px solid #cbd5e1; margin-right: 4px; margin-bottom: 2px; display: inline-block; font-weight: 500;'>Registrasi</span>")
+            Case "tkrs06": html.Append("<span class='label label-default' style='font-size: 10px; padding: 2px 6px; background: #f8fafc; color: #334155; border: 1px solid #cbd5e1; margin-right: 4px; margin-bottom: 2px; display: inline-block; font-weight: 500;'>KRS</span>")
+            Case "t_absensi14": html.Append("<span class='label label-default' style='font-size: 10px; padding: 2px 6px; background: #f8fafc; color: #334155; border: 1px solid #cbd5e1; margin-right: 4px; margin-bottom: 2px; display: inline-block; font-weight: 500;'>Absensi</span>")
+        End Select
+    Next
+    Return If(html.Length > 0, html.ToString(), "<span class='text-muted'>-</span>")
+End Function
+
+Protected Function FormatHistoryProgress(opObj As Object, processedObj As Object, totalObj As Object) As String
+    Dim op = If(opObj Is Nothing, "", opObj.ToString().Trim().ToUpperInvariant())
+    If op = "EXPORT" Then Return "<span class='text-muted' style='font-size: 14px;'>-</span>"
+    
+    Dim processed As Integer = If(processedObj IsNot Nothing AndAlso Not Convert.IsDBNull(processedObj), Convert.ToInt32(processedObj), 0)
+    Dim total As Integer = If(totalObj IsNot Nothing AndAlso Not Convert.IsDBNull(totalObj), Convert.ToInt32(totalObj), -1)
+    
+    Dim totalText = If(total >= 0, total.ToString("N0"), processed.ToString("N0"))
+    Return "<div class='text-center' style='white-space: nowrap;'><span style='font-weight: 700; color: #0f172a; font-size: 13px;'>" & processed.ToString("N0") & "</span><span style='color: #64748b; font-size: 11px;'> / " & totalText & "</span><div class='text-muted' style='font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 1px;'>mhs</div></div>"
+End Function
+
+Protected Function FormatHistoryDetail(detailObj As Object, statusObj As Object, opObj As Object) As String
+    Dim detail = If(detailObj Is Nothing, "", detailObj.ToString())
+    Dim status = If(statusObj Is Nothing, "", statusObj.ToString().Trim().ToUpperInvariant())
+    Dim op = If(opObj Is Nothing, "", opObj.ToString().Trim().ToUpperInvariant())
+    
+    If op = "EXPORT" AndAlso detail.Contains("RESTORE VERIFYONLY") Then
+        Dim parts = detail.Split("|"c)
+        Dim filePart = If(parts.Length > 0, parts(0).Trim(), detail)
+        Dim sizePart = If(parts.Length > 1, parts(1).Trim(), "")
+        Dim fileName = filePart.Replace("File lokal:", "").Trim()
+        Return "<div style='line-height: 1.35;'><span class='text-success' style='font-weight: 600; font-size: 12px;'><i class='fa fa-check-circle'></i> RESTORE VERIFYONLY Berhasil</span><div class='text-muted small' style='margin-top: 3px; font-family: monospace; font-size: 11px; word-break: break-all;'><i class='fa fa-file-archive-o'></i> " & Server.HtmlEncode(fileName) & If(sizePart <> "", " <span class='badge' style='background: #e2e8f0; color: #334155; font-size: 10px; padding: 2px 6px; font-family: inherit; font-weight: 600;'>" & Server.HtmlEncode(sizePart) & "</span>", "") & "</div></div>"
+    End If
+    
+    If status = "SUCCESS" Then
+        Return "<span class='text-success' style='font-weight: 500; font-size: 12px;'><i class='fa fa-check-circle' style='margin-right: 4px;'></i>" & Server.HtmlEncode(detail) & "</span>"
+    ElseIf status = "FAILED" Then
+        Return "<span class='text-danger' style='font-weight: 500; font-size: 12px;'><i class='fa fa-exclamation-triangle' style='margin-right: 4px;'></i>" & Server.HtmlEncode(detail) & "</span>"
+    End If
+    Return "<span class='text-muted' style='font-size: 12px;'>" & Server.HtmlEncode(detail) & "</span>"
+End Function
+
 </script>
 <div class="backup-page backup-page-monitoring">
  <div class="backup-page-header">
@@ -273,15 +358,61 @@ End Function
  <div class="panel history-card">
   <div class="panel-heading"><i class="fa fa-history"></i> Riwayat Proses</div>
   <div class="table-responsive">
-   <asp:GridView ID="gvProcessHistory" runat="server" AutoGenerateColumns="false" AllowPaging="false" CssClass="table table-striped table-hover history-table" EmptyDataText="Belum ada riwayat proses selesai." GridLines="None">
+   <asp:GridView ID="gvProcessHistory" runat="server" AutoGenerateColumns="false" AllowPaging="false" CssClass="table table-hover history-table" EmptyDataText="Belum ada riwayat proses selesai." GridLines="None">
     <Columns>
-     <asp:BoundField DataField="CreatedAt" HeaderText="Dibuat" DataFormatString="{0:dd MMM yyyy HH:mm}" ItemStyle-Width="115px" HeaderStyle-Width="115px" />
-     <asp:BoundField DataField="OperationLabel" HeaderText="Operasi" ItemStyle-Width="270px" HeaderStyle-Width="270px" />
-     <asp:BoundField DataField="TableLabel" HeaderText="Tabel" ItemStyle-Width="210px" HeaderStyle-Width="210px" />
-     <asp:BoundField DataField="StatusLabel" HeaderText="Status" ItemStyle-CssClass="history-status" ItemStyle-Width="105px" HeaderStyle-Width="105px" />
-     <asp:BoundField DataField="ProgressLabel" HeaderText="Diproses" ItemStyle-HorizontalAlign="Right" ItemStyle-Width="95px" HeaderStyle-Width="95px" />
-     <asp:BoundField DataField="CompletedAt" HeaderText="Selesai" DataFormatString="{0:dd MMM yyyy HH:mm}" NullDisplayText="-" ItemStyle-Width="115px" HeaderStyle-Width="115px" />
-     <asp:BoundField DataField="DetailLabel" HeaderText="Keterangan" NullDisplayText="-" ItemStyle-CssClass="history-note" />
+     <asp:TemplateField HeaderText="Dibuat" HeaderStyle-Width="115px" HeaderStyle-CssClass="text-center" HeaderStyle-HorizontalAlign="Center" ItemStyle-CssClass="text-center history-nowrap" ItemStyle-HorizontalAlign="Center">
+      <ItemTemplate>
+       <div class="text-center" style="white-space: nowrap;">
+        <div style="font-weight: 600; color: #1e293b; font-size: 12px;"><%# Eval("CreatedAt", "{0:dd MMM yyyy}") %></div>
+        <div class="text-muted" style="font-size: 11px; margin-top: 1px;"><i class="fa fa-clock-o"></i> <%# Eval("CreatedAt", "{0:HH:mm}") %></div>
+       </div>
+      </ItemTemplate>
+     </asp:TemplateField>
+
+     <asp:TemplateField HeaderText="Operasi" HeaderStyle-Width="240px">
+      <ItemTemplate>
+       <div style="display: flex; align-items: center; gap: 8px;">
+        <%# GetHistoryOperationBadge(Eval("OperationType")) %>
+        <span style="font-weight: 600; color: #1e293b; font-size: 13px;"><%# GetOperationCleanTarget(Eval("OperationLabel"), Eval("OperationType")) %></span>
+       </div>
+      </ItemTemplate>
+     </asp:TemplateField>
+
+     <asp:TemplateField HeaderText="Tabel" HeaderStyle-Width="180px">
+      <ItemTemplate>
+       <div style="display: flex; flex-wrap: wrap; gap: 3px;">
+        <%# FormatHistoryTables(Eval("SelectedTables")) %>
+       </div>
+      </ItemTemplate>
+     </asp:TemplateField>
+
+     <asp:TemplateField HeaderText="Status" HeaderStyle-Width="110px" HeaderStyle-CssClass="text-center" HeaderStyle-HorizontalAlign="Center" ItemStyle-CssClass="text-center" ItemStyle-HorizontalAlign="Center">
+      <ItemTemplate>
+       <div class="text-center">
+        <%# GetHistoryStatusBadge(Eval("Status"), Eval("ErrorMessage")) %>
+       </div>
+      </ItemTemplate>
+     </asp:TemplateField>
+
+     <asp:TemplateField HeaderText="Diproses" HeaderStyle-Width="120px" HeaderStyle-CssClass="text-center" HeaderStyle-HorizontalAlign="Center" ItemStyle-CssClass="text-center history-nowrap" ItemStyle-HorizontalAlign="Center">
+      <ItemTemplate>
+       <%# FormatHistoryProgress(Eval("OperationType"), Eval("ProcessedStudents"), Eval("TotalStudents")) %>
+      </ItemTemplate>
+     </asp:TemplateField>
+
+     <asp:TemplateField HeaderText="Selesai" HeaderStyle-Width="115px" HeaderStyle-CssClass="text-center" HeaderStyle-HorizontalAlign="Center" ItemStyle-CssClass="text-center history-nowrap" ItemStyle-HorizontalAlign="Center">
+      <ItemTemplate>
+       <%# If(Eval("CompletedAt") IsNot Nothing AndAlso Not Convert.IsDBNull(Eval("CompletedAt")), _
+           "<div class='text-center' style='white-space: nowrap;'><div style='font-weight: 600; color: #1e293b; font-size: 12px;'>" & String.Format("{0:dd MMM yyyy}", Eval("CompletedAt")) & "</div><div class='text-muted' style='font-size: 11px; margin-top: 1px;'><i class='fa fa-clock-o'></i> " & String.Format("{0:HH:mm}", Eval("CompletedAt")) & "</div></div>", _
+           "<span class='text-muted'>-</span>") %>
+      </ItemTemplate>
+     </asp:TemplateField>
+
+     <asp:TemplateField HeaderText="Keterangan">
+      <ItemTemplate>
+       <%# FormatHistoryDetail(Eval("DetailLabel"), Eval("Status"), Eval("OperationType")) %>
+      </ItemTemplate>
+     </asp:TemplateField>
     </Columns>
    </asp:GridView>
    <asp:Panel ID="pnlHistoryPager" runat="server" CssClass="panel-footer history-pager" Visible="false">
