@@ -1,4 +1,4 @@
-﻿<!-- #INCLUDE file ="con_backup.ascx" -->
+<!-- #INCLUDE file ="con_backup.ascx" -->
 <%@ Import Namespace="System.Data" %>
 <%@ Import Namespace="System.Data.SqlClient" %>
 <%@ Import Namespace="System.Collections.Generic" %>
@@ -16,8 +16,24 @@
             If Request.QueryString("ajax_poll") <> "1" Then
                 LoadDatabaseStats()
                 LoadInventorySummary()
+                CheckRedirectNotifications()
             End If
         End If
+    End Sub
+
+    Private Sub CheckRedirectNotifications()
+        Dim refParam = Request.QueryString("ref")
+        If String.IsNullOrWhiteSpace(refParam) Then Return
+        Select Case refParam.Trim().ToLowerInvariant()
+            Case "backup"
+                litMonitoringMessage.Text = "<div class='alert alert-success alert-dismissible'><button type='button' class='close' data-dismiss='alert' aria-label='Close'><span aria-hidden='true'>&times;</span></button><i class='fa fa-check-circle'></i> <strong>Job Backup Berhasil Dimasukkan ke Antrean!</strong> Antrean proses backup sedang disiapkan dan diproses oleh agent. Pantau prosesnya di bawah.</div>"
+            Case "restore"
+                litMonitoringMessage.Text = "<div class='alert alert-success alert-dismissible'><button type='button' class='close' data-dismiss='alert' aria-label='Close'><span aria-hidden='true'>&times;</span></button><i class='fa fa-check-circle'></i> <strong>Job Pemulihan Berhasil Dimasukkan ke Antrean!</strong> Antrean proses pemulihan data sedang disiapkan dan diproses oleh agent. Pantau prosesnya di bawah.</div>"
+            Case "export"
+                litMonitoringMessage.Text = "<div class='alert alert-success alert-dismissible'><button type='button' class='close' data-dismiss='alert' aria-label='Close'><span aria-hidden='true'>&times;</span></button><i class='fa fa-check-circle'></i> <strong>Job Ekspor Database Berhasil Dimasukkan ke Antrean!</strong> Antrean pembuatan file .BAK sedang disiapkan dan diproses oleh agent. Pantau prosesnya di bawah.</div>"
+            Case "sync"
+                litMonitoringMessage.Text = "<div class='alert alert-success alert-dismissible'><button type='button' class='close' data-dismiss='alert' aria-label='Close'><span aria-hidden='true'>&times;</span></button><i class='fa fa-check-circle'></i> <strong>Job Sinkronisasi Backup Berhasil Dimasukkan ke Antrean!</strong> Antrean sinkronisasi sedang disiapkan dan diproses oleh agent. Pantau prosesnya di bawah.</div>"
+        End Select
     End Sub
 
     Private Sub LoadMonitoringOverview()
@@ -327,7 +343,7 @@
                 End Using
                 LoadMonitoringOverview()
                 LoadInventorySummary()
-                ScriptManager.RegisterStartupScript(Me, Me.GetType(), "ScrollToActiveSync", "setTimeout(function(){ var el = document.getElementById('panelActiveProcesses'); if(el) el.scrollIntoView({behavior:'smooth', block:'center'}); }, 250);", True)
+                ScriptManager.RegisterStartupScript(Me, Me.GetType(), "ScrollToActiveSync", "setTimeout(function(){ var el = document.getElementById('panelActiveProcesses'); if(el) { el.scrollIntoView({behavior:'smooth', block:'center'}); el.style.transition='box-shadow 0.4s ease, border-color 0.4s ease'; el.style.boxShadow='0 0 0 4px rgba(160, 22, 38, 0.25)'; el.style.borderColor='#A01626'; setTimeout(function(){ el.style.boxShadow=''; el.style.borderColor=''; }, 2200); } }, 250);", True)
                 litMonitoringMessage.Text = "<div class='alert alert-success alert-dismissible'><button type='button' class='close' data-dismiss='alert' aria-label='Close'><span aria-hidden='true'>&times;</span></button><i class='fa fa-check-circle'></i> <strong>Job Sinkronisasi Backup Berhasil Dibuat!</strong> Antrean backup untuk Tahun Akademik <strong>" & Server.HtmlEncode(targetTa) & "</strong> telah berhasil dibuat. Agent akan memproses data.</div>"
             Catch ex As Exception
                 litMonitoringMessage.Text = "<div class='alert alert-danger alert-dismissible'><button type='button' class='close' data-dismiss='alert' aria-label='Close'><span aria-hidden='true'>&times;</span></button><strong>Sinkronisasi Gagal:</strong> " & Server.HtmlEncode(BackupErrorMessage(ex)) & "</div>"
@@ -354,7 +370,7 @@
                 End Using
                 LoadMonitoringOverview()
                 LoadInventorySummary()
-                ScriptManager.RegisterStartupScript(Me, Me.GetType(), "ScrollToActiveRestore", "setTimeout(function(){ var el = document.getElementById('panelActiveProcesses'); if(el) el.scrollIntoView({behavior:'smooth', block:'center'}); }, 250);", True)
+                ScriptManager.RegisterStartupScript(Me, Me.GetType(), "ScrollToActiveRestore", "setTimeout(function(){ var el = document.getElementById('panelActiveProcesses'); if(el) { el.scrollIntoView({behavior:'smooth', block:'center'}); el.style.transition='box-shadow 0.4s ease, border-color 0.4s ease'; el.style.boxShadow='0 0 0 4px rgba(160, 22, 38, 0.25)'; el.style.borderColor='#A01626'; setTimeout(function(){ el.style.boxShadow=''; el.style.borderColor=''; }, 2200); } }, 250);", True)
                 litMonitoringMessage.Text = "<div class='alert alert-success alert-dismissible'><button type='button' class='close' data-dismiss='alert' aria-label='Close'><span aria-hidden='true'>&times;</span></button><i class='fa fa-check-circle'></i> <strong>Job Pemulihan Berhasil Dibuat!</strong> Antrean pemulihan data untuk Tahun Akademik <strong>" & Server.HtmlEncode(targetTa) & "</strong> telah berhasil dibuat. Agent akan memulihkan data ke database aktif.</div>"
             Catch ex As Exception
                 litMonitoringMessage.Text = "<div class='alert alert-danger alert-dismissible'><button type='button' class='close' data-dismiss='alert' aria-label='Close'><span aria-hidden='true'>&times;</span></button><strong>Pemulihan Gagal:</strong> " & Server.HtmlEncode(BackupErrorMessage(ex)) & "</div>"
@@ -780,14 +796,21 @@ function confirmRestorePeriod(button) {
     var pollInterval = 3000;
     var isPolling = false;
 
-    // Auto-scroll halus jika diarahkan dari halaman backup / pemulihan
+    // Auto-scroll halus & highlight fokus jika diarahkan dari halaman backup / pemulihan / ekspor
     var urlParams = new URLSearchParams(window.location.search);
     var ref = urlParams.get("ref");
-    if (ref === "backup" || ref === "restore" || ref === "sync" || urlParams.get("focus") === "active") {
+    if (ref === "backup" || ref === "restore" || ref === "export" || ref === "sync" || urlParams.get("focus") === "active") {
         var targetEl = document.getElementById(activePanelId);
         if (targetEl) {
             setTimeout(function () {
                 targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
+                targetEl.style.transition = "box-shadow 0.4s ease, border-color 0.4s ease";
+                targetEl.style.boxShadow = "0 0 0 4px rgba(160, 22, 38, 0.25)";
+                targetEl.style.borderColor = "#A01626";
+                setTimeout(function () {
+                    targetEl.style.boxShadow = "";
+                    targetEl.style.borderColor = "";
+                }, 2200);
             }, 300);
         }
     }

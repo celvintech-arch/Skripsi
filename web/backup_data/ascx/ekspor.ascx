@@ -15,6 +15,7 @@ Protected Sub Page_Load(sender As Object,e As EventArgs)
 End Sub
 
 Protected Sub btnCreateExport_Click(sender As Object,e As EventArgs)
+ Dim success As Boolean = False
  Try
   EnsureBackupServiceReady(ReadBackupServiceState(),"Ekspor database")
   Using cmd As New SqlCommand("dbo.sp_CreateBackupExportJob",cnsr)
@@ -22,11 +23,16 @@ Protected Sub btnCreateExport_Click(sender As Object,e As EventArgs)
    cmd.Parameters.Add("@RequestedBy",SqlDbType.VarChar,50).Value=BackupRequestedBy()
    cnsr.Open()
    Dim jobId=Convert.ToString(cmd.ExecuteScalar())
-   ShowAlert("success","Permintaan ekspor dibuat","Proses " & jobId & " menunggu layanan Database Backup.")
+   success = True
   End Using
  Catch ex As Exception
   ShowAlert("danger","Ekspor gagal dibuat",BackupErrorMessage(ex))
  Finally:tutupsr():End Try
+ If success Then
+  Response.Redirect("index.aspx?tab=dashboard&ref=export", False)
+  Context.ApplicationInstance.CompleteRequest()
+  Return
+ End If
  LoadExports()
 End Sub
 
