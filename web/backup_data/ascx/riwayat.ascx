@@ -324,12 +324,34 @@ Protected Function FormatHistoryDetail(detailObj As Object, statusObj As Object,
     Dim status = If(statusObj Is Nothing, "", statusObj.ToString().Trim().ToUpperInvariant())
     Dim op = If(opObj Is Nothing, "", opObj.ToString().Trim().ToUpperInvariant())
     
-    If op = "EXPORT" AndAlso detail.Contains("RESTORE VERIFYONLY") Then
-        Dim parts = detail.Split("|"c)
-        Dim filePart = If(parts.Length > 0, parts(0).Trim(), detail)
-        Dim sizePart = If(parts.Length > 1, parts(1).Trim(), "")
-        Dim fileName = filePart.Replace("File lokal:", "").Trim()
-        Return "<div style='line-height: 1.35;'><span class='text-success' style='font-weight: 600; font-size: 12px;'><i class='fa fa-check-circle'></i> RESTORE VERIFYONLY Berhasil</span><div class='text-muted small' style='margin-top: 3px; font-family: monospace; font-size: 11px; word-break: break-all;'><i class='fa fa-file-archive-o'></i> " & Server.HtmlEncode(fileName) & If(sizePart <> "", " <span class='badge' style='background: #e2e8f0; color: #334155; font-size: 10px; padding: 2px 6px; font-family: inherit; font-weight: 600;'>" & Server.HtmlEncode(sizePart) & "</span>", "") & "</div></div>"
+    If op = "EXPORT" AndAlso (status = "SUCCESS" OrElse detail.Contains("RESTORE VERIFYONLY")) Then
+        Dim fileMatch = System.Text.RegularExpressions.Regex.Match(detail, "File lokal:\s*(?<file>[^|]+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase)
+        Dim sizeMatch = System.Text.RegularExpressions.Regex.Match(detail, "Ukuran:\s*(?<size>[^|]+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase)
+        
+        Dim fileName = If(fileMatch.Success, fileMatch.Groups("file").Value.Trim(), "")
+        Dim sizeText = If(sizeMatch.Success, sizeMatch.Groups("size").Value.Trim(), "")
+        
+        Dim shortName = fileName
+        If fileName.Length > 36 Then
+            shortName = fileName.Substring(0, 22) & "..." & fileName.Substring(fileName.Length - 8)
+        End If
+        
+        Dim html As New System.Text.StringBuilder()
+        html.Append("<div style='line-height: 1.4;'>")
+        html.Append("<div class='text-success' style='font-weight: 600; font-size: 12px;'><i class='fa fa-check-circle' style='margin-right: 4px;'></i>File .BAK Berhasil Diekspor & Terverifikasi</div>")
+        
+        If shortName <> "" OrElse sizeText <> "" Then
+            html.Append("<div class='text-muted small' style='margin-top: 3px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;'>")
+            If shortName <> "" Then
+                html.Append("<span style='font-family: Consolas, monospace; font-size: 11px;' title='" & Server.HtmlEncode(fileName) & "'><i class='fa fa-file-archive-o text-muted'></i> " & Server.HtmlEncode(shortName) & "</span>")
+            End If
+            If sizeText <> "" Then
+                html.Append("<span class='badge' style='background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; font-size: 10px; padding: 2px 6px; font-weight: 600;'><i class='fa fa-database'></i> " & Server.HtmlEncode(sizeText) & "</span>")
+            End If
+            html.Append("</div>")
+        End If
+        html.Append("</div>")
+        Return html.ToString()
     End If
     
     If status = "SUCCESS" Then
