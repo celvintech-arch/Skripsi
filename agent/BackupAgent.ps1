@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param([Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string]$ConfigPath)
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Data
@@ -411,9 +411,13 @@ function Process-ExportJob($claim,$database) {
  [IO.Directory]::CreateDirectory($outputDirectory)|Out-Null
  $databaseName=Get-BackupDatabaseName
  $safeDatabaseName=($databaseName -replace '[^0-9A-Za-z_-]','_')
- $jobFileId=([string]$claim.jobId).Replace('-','')
- $fileName=$safeDatabaseName+'_export_'+$jobFileId+'.bak'
- $backupPath=Join-Path $outputDirectory $fileName
+  $timestamp=(Get-Date).ToString("yyyyMMdd_HHmmss")
+  $fileName=$safeDatabaseName+'_export_'+$timestamp+'.bak'
+  $backupPath=Join-Path $outputDirectory $fileName
+  if(Test-Path -LiteralPath $backupPath){
+   $fileName=$safeDatabaseName+'_export_'+$timestamp+'_'+([string]$claim.jobId).Substring(0,8)+'.bak'
+   $backupPath=Join-Path $outputDirectory $fileName
+  }
  $cn=[System.Data.SqlClient.SqlConnection]::new((Get-LocalConnectionString));$cn.Open()
  try{
   $cmd=$cn.CreateCommand();$cmd.CommandTimeout=0

@@ -332,8 +332,8 @@ Protected Function FormatHistoryDetail(detailObj As Object, statusObj As Object,
         Dim sizeText = If(sizeMatch.Success, sizeMatch.Groups("size").Value.Trim(), "")
         
         Dim shortName = fileName
-        If fileName.Length > 36 Then
-            shortName = fileName.Substring(0, 22) & "..." & fileName.Substring(fileName.Length - 8)
+        If fileName.Length > 48 Then
+            shortName = fileName.Substring(0, 24) & "..." & fileName.Substring(fileName.Length - 12)
         End If
         
         Dim html As New System.Text.StringBuilder()
