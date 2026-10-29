@@ -1,4 +1,4 @@
-﻿<%@ Import Namespace="System.Configuration" %>
+<%@ Import Namespace="System.Configuration" %>
 <%@ Import Namespace="System.Data" %>
 <%@ Import Namespace="System.Data.SqlClient" %>
 
@@ -216,4 +216,51 @@
         If Session("idlintar") Is Nothing OrElse String.IsNullOrWhiteSpace(Session("idlintar").ToString()) Then Return "Application"
         Return Session("idlintar").ToString().Trim()
     End Function
+
+    Public ReadOnly Property CurrentLiveDbName As String
+        Get
+            Dim builder As New SqlConnectionStringBuilder(connstringLive)
+            Return builder.InitialCatalog
+        End Get
+    End Property
+
+    Public ReadOnly Property CurrentBackupDbName As String
+        Get
+            Return CurrentLiveDbName & "_backup"
+        End Get
+    End Property
+
+    Public Function OperationText(value As String) As String
+        If String.IsNullOrWhiteSpace(value) Then Return "-"
+        Select Case value.Trim().ToUpperInvariant()
+            Case "BACKUP": Return "Backup"
+            Case "RESTORE": Return "Pemulihan"
+            Case "EXPORT": Return "Ekspor"
+            Case Else: Return value.Trim()
+        End Select
+    End Function
+
+    Public Function VerificationBadge(statusObj As Object, verifiedAtObj As Object) As String
+        Dim status As String = If(statusObj Is Nothing OrElse IsDBNull(statusObj), "UNVERIFIED", statusObj.ToString().Trim().ToUpperInvariant())
+        Dim tooltip As String = ""
+        If verifiedAtObj IsNot Nothing AndAlso Not IsDBNull(verifiedAtObj) Then
+            tooltip = " title='Diverifikasi: " & CDate(verifiedAtObj).ToString("dd MMM yyyy HH:mm") & "'"
+        End If
+        Select Case status
+            Case "VERIFIED"
+                Return "<span class='label label-success'" & tooltip & "><i class='fa fa-check-circle'></i> Sesuai</span>"
+            Case "ARCHIVED"
+                Return "<span class='label label-info'" & tooltip & "><i class='fa fa-archive'></i> Terarsip</span>"
+            Case "MISMATCH"
+                Return "<span class='label label-danger'" & tooltip & "><i class='fa fa-exclamation-triangle'></i> Selisih</span>"
+            Case Else
+                Return "<span class='label label-default'" & tooltip & "><i class='fa fa-clock-o'></i> Belum Dicek</span>"
+        End Select
+    End Function
+
+    Public Sub ShowAlert(lit As Literal, kind As String, title As String, msg As String)
+        If lit Is Nothing Then Return
+        Dim alertKind As String = If(kind = "error", "danger", kind)
+        lit.Text = "<div class='alert alert-" & alertKind & "'><strong>" & Server.HtmlEncode(title) & "</strong> " & Server.HtmlEncode(msg) & "</div>"
+    End Sub
 </script>

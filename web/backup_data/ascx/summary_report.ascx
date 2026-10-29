@@ -233,23 +233,7 @@ Private Sub LoadInventorySummary()
  gvReportInventory.DataBind()
 End Sub
 
-Private Function VerificationBadge(statusObj As Object, verifiedAtObj As Object) As String
- Dim status As String = If(statusObj Is Nothing OrElse IsDBNull(statusObj), "UNVERIFIED", statusObj.ToString().Trim().ToUpperInvariant())
- Dim tooltip As String = ""
- If verifiedAtObj IsNot Nothing AndAlso Not IsDBNull(verifiedAtObj) Then
-  tooltip = " title='Diverifikasi: " & CDate(verifiedAtObj).ToString("dd MMM yyyy HH:mm") & "'"
- End If
- Select Case status
-  Case "VERIFIED"
-   Return "<span class='label label-success'" & tooltip & "><i class='fa fa-check-circle'></i> Sesuai</span>"
-  Case "ARCHIVED"
-   Return "<span class='label label-info'" & tooltip & "><i class='fa fa-archive'></i> Terarsip</span>"
-  Case "MISMATCH"
-   Return "<span class='label label-danger'" & tooltip & "><i class='fa fa-exclamation-triangle'></i> Selisih</span>"
-  Case Else
-   Return "<span class='label label-default'" & tooltip & "><i class='fa fa-clock-o'></i> Belum Dicek</span>"
- End Select
-End Function
+
 
 
 Private Function ReportFilterDescription() As String
@@ -266,14 +250,7 @@ Private Function NumberValue(value As Object) As String
 End Function
 
 
-Private Function OperationText(value As String) As String
- Select Case value.Trim().ToUpperInvariant()
-  Case "BACKUP":Return "Backup"
-  Case "RESTORE":Return "Pemulihan"
-  Case "EXPORT":Return "Ekspor"
-  Case Else:Return value
- End Select
-End Function
+
 
 Private Function StatusText(value As String,errorMessage As String) As String
  Dim status=value.Trim().ToUpperInvariant()

@@ -9,18 +9,7 @@ Protected BackupServiceReady As Boolean=False
 Protected AutomaticSettingsOpen As Boolean=False
 Private CurrentBackupService As BackupServiceState
 
-Protected ReadOnly Property CurrentLiveDbName As String
-    Get
-        Dim builder As New SqlConnectionStringBuilder(connstringLive)
-        Return builder.InitialCatalog
-    End Get
-End Property
 
-Protected ReadOnly Property CurrentBackupDbName As String
-    Get
-        Return CurrentLiveDbName & "_backup"
-    End Get
-End Property
 
 Protected ReadOnly Property CurrentAgentName As String
     Get
@@ -63,8 +52,7 @@ Private Sub LoadBackupServiceStatus()
  btnJalankanBackup.Enabled=BackupServiceReady
 End Sub
 Private Sub PopulateSourceDatabases()
- Dim builder As New SqlConnectionStringBuilder(cnsr.ConnectionString)
- Dim databaseName=builder.InitialCatalog
+ Dim databaseName = CurrentLiveDbName
  ddlSourceDatabase.Items.Clear()
  ddlSourceDatabase.Items.Add(New ListItem(databaseName,databaseName))
  ddlSourceDatabase.Enabled=False
@@ -73,8 +61,7 @@ Private Sub PopulateSourceDatabases()
  ddlSourceDatabaseSchedule.Enabled=False
 End Sub
 Private Sub ValidateSelectedSourceDatabase(selectedDatabase As String)
- Dim builder As New SqlConnectionStringBuilder(cnsr.ConnectionString)
- If Not String.Equals(selectedDatabase,builder.InitialCatalog,StringComparison.OrdinalIgnoreCase) Then Throw New ApplicationException("Database sumber belum terdaftar pada koneksi aplikasi.")
+ If Not String.Equals(selectedDatabase, CurrentLiveDbName, StringComparison.OrdinalIgnoreCase) Then Throw New ApplicationException("Database sumber belum terdaftar pada koneksi aplikasi.")
 End Sub
 Private Sub ApplySelectedTables(list As CheckBoxList,value As String)
  Dim selected As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)

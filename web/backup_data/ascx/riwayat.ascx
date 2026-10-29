@@ -74,20 +74,14 @@ Private Sub LoadHistory()
   btnHistoryNext.Enabled=(HistoryPageIndex<lastPage):btnHistoryLast.Enabled=(HistoryPageIndex<lastPage)
   Dim inventoryByYear=LoadInventoryPeriodsByYear()
   data.Columns.Add("OperationLabel",GetType(String))
-  data.Columns.Add("StatusLabel",GetType(String))
-  data.Columns.Add("ProgressLabel",GetType(String))
-  data.Columns.Add("TableLabel",GetType(String))
   data.Columns.Add("DetailLabel",GetType(String))
   For Each row As DataRow In data.Rows
    Dim operation=row("OperationType").ToString().Trim().ToUpperInvariant()
    Dim status=row("Status").ToString().Trim().ToUpperInvariant()
    row("OperationLabel")=GetOperationTargetLabel(row,operation,inventoryByYear)
-   row("TableLabel")=BackupTableLabels(row("SelectedTables").ToString())
    Dim progress=If(row.IsNull("ProgressMessage"),"",row("ProgressMessage").ToString()),result=If(row.IsNull("ResultMessage"),"",row("ResultMessage").ToString()),failure=If(row.IsNull("ErrorMessage"),"",row("ErrorMessage").ToString())
    Dim detail=If(status="SUCCESS",result,If(status="FAILED",failure,progress))
-   row("StatusLabel")=If(status="FAILED" AndAlso failure.StartsWith("[CANCELLED]",StringComparison.OrdinalIgnoreCase),"Dibatalkan",TransferStatusText(status))
-   Dim processed=Convert.ToInt32(row("ProcessedStudents")),tracked=Convert.ToInt32(row("TrackedStudents")),storedTotal=If(row.IsNull("TotalStudents"),-1,Convert.ToInt32(row("TotalStudents"))),total=GetProgressTotal(storedTotal,tracked,operation,status,processed)
-   row("ProgressLabel")=String.Format("{0:N0}",processed) & "/" & If(total>=0,String.Format("{0:N0}",total),"-")
+   Dim processed=Convert.ToInt32(row("ProcessedStudents"))
    row("DetailLabel")=CleanProgressDetail(detail,operation,status,processed)
   Next
   gvProcessHistory.DataSource=data:gvProcessHistory.DataBind()
@@ -118,12 +112,7 @@ Private Function LoadInventoryPeriodsByYear() As System.Collections.Generic.Dict
  Return result
 End Function
 
-Private Function GetProgressTotal(storedTotal As Integer,tracked As Integer,operation As String,status As String,processed As Integer) As Integer
- If storedTotal>=0 Then Return storedTotal
- If operation="BACKUP" Then Return tracked
- If operation="RESTORE" AndAlso status="SUCCESS" Then Return processed
- Return -1
-End Function
+
 
 Private Function CleanProgressDetail(detail As String,operation As String,status As String,processed As Integer) As String
  Dim cleaned=System.Text.RegularExpressions.Regex.Replace(BackupFriendlyText(detail),"^\[TOTAL:\d+\]\s*","")
@@ -245,15 +234,7 @@ Private Function GetOperationTargetLabel(row As DataRow,operation As String,inve
  End If
  Return title & " " & target
 End Function
-Private Function TransferStatusText(value As String) As String
- Select Case value
-  Case "WAITING":Return "Menunggu Database Backup"
-  Case "CLAIMED","TRANSFERRING":Return "Diproses"
-  Case "SUCCESS":Return "Berhasil"
-  Case "FAILED":Return "Gagal"
-  Case Else:Return value
- End Select
-End Function
+
 
 Protected Function GetHistoryOperationBadge(opObj As Object) As String
     Dim op = If(opObj Is Nothing, "", opObj.ToString().Trim().ToUpperInvariant())

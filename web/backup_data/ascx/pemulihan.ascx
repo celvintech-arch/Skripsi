@@ -9,18 +9,7 @@ Protected LookupPending As Boolean=False
 Protected BackupServiceReady As Boolean=False
 Private CurrentBackupService As BackupServiceState
 
-Protected ReadOnly Property CurrentLiveDbName As String
-    Get
-        Dim builder As New SqlConnectionStringBuilder(connstringLive)
-        Return builder.InitialCatalog
-    End Get
-End Property
 
-Protected ReadOnly Property CurrentBackupDbName As String
-    Get
-        Return CurrentLiveDbName & "_backup"
-    End Get
-End Property
 
 Protected ReadOnly Property CurrentAgentName As String
     Get
