@@ -529,34 +529,33 @@
     </div>
 
     <div class="panel panel-default monitor-active-panel" id="panelActiveProcesses" role="region" aria-label="Daftar proses antrean aktif" aria-live="polite">
-        <div class="panel-heading backup-u-043" style="display: flex; justify-content: space-between; align-items: center;">
+        <div class="panel-heading backup-u-043">
             <span><i class="fa fa-refresh <%= If(ActiveJobCount > 0, "fa-spin text-primary", "") %>"></i> <strong>Proses Sedang Berjalan</strong></span>
-            <div>
-                <span class="label <%= If(ActiveJobCount > 0, "label-primary", "label-default") %>" id="activeProcessBadge" style="font-size: 12px; padding: 5px 10px;">
-                    <i class="fa <%= If(ActiveJobCount > 0, "fa-circle text-success", "fa-check") %>"></i> 
-                    <asp:Literal ID="litActiveProcessCount" runat="server" /> antrean aktif
-                </span>
-            </div>
+            <asp:Literal ID="litActiveProcessCount" runat="server" Visible="false" />
         </div>
         <div class="table-responsive">
             <asp:GridView ID="gvActiveDashboard" runat="server" AutoGenerateColumns="false" CssClass="table table-hover table-striped" GridLines="None" EmptyDataText="Tidak ada proses antrean yang sedang berjalan saat ini.">
                 <Columns>
-                    <asp:TemplateField HeaderText="Waktu & Operasi" HeaderStyle-Width="180px">
+                    <asp:TemplateField HeaderText="Waktu & Operasi" HeaderStyle-Width="180px" HeaderStyle-CssClass="text-center" HeaderStyle-HorizontalAlign="Center" ItemStyle-CssClass="text-center" ItemStyle-HorizontalAlign="Center">
                         <ItemTemplate>
-                            <span class='label <%# Eval("OperationBadgeClass") %>' style="font-size: 11px; padding: 4px 8px; display: inline-block; margin-bottom: 4px;">
-                                <i class='fa <%# GetOperationIcon(Eval("OperationType")) %>'></i> <%# Eval("OperationLabel") %>
-                            </span>
-                            <div class="text-muted small">
-                                <i class="fa fa-clock-o"></i> <%# Eval("CreatedAt", "{0:dd MMM yyyy HH:mm}") %>
+                            <div class="text-center">
+                                <span class='label <%# Eval("OperationBadgeClass") %>' style="font-size: 11px; padding: 4px 8px; display: inline-block; margin-bottom: 4px;">
+                                    <i class='fa <%# GetOperationIcon(Eval("OperationType")) %>'></i> <%# Eval("OperationLabel") %>
+                                </span>
+                                <div class="text-muted small">
+                                    <i class="fa fa-clock-o"></i> <%# Eval("CreatedAt", "{0:dd MMM yyyy HH:mm}") %>
+                                </div>
                             </div>
                         </ItemTemplate>
                     </asp:TemplateField>
                     
-                    <asp:TemplateField HeaderText="Status" HeaderStyle-Width="140px">
+                    <asp:TemplateField HeaderText="Status" HeaderStyle-Width="140px" HeaderStyle-CssClass="text-center" HeaderStyle-HorizontalAlign="Center" ItemStyle-CssClass="text-center" ItemStyle-HorizontalAlign="Center">
                         <ItemTemplate>
-                            <span class='label <%# Eval("StatusBadgeClass") %>' style="font-size: 11px; padding: 4px 8px; display: inline-block;">
-                                <i class='fa <%# GetStatusIcon(Eval("Status")) %>'></i> <%# Eval("StatusLabel") %>
-                            </span>
+                            <div class="text-center">
+                                <span class='label <%# Eval("StatusBadgeClass") %>' style="font-size: 11px; padding: 4px 8px; display: inline-block;">
+                                    <i class='fa <%# GetStatusIcon(Eval("Status")) %>'></i> <%# Eval("StatusLabel") %>
+                                </span>
+                            </div>
                         </ItemTemplate>
                     </asp:TemplateField>
 
