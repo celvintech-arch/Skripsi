@@ -804,13 +804,19 @@ html body .table tbody tr:hover {
     border-bottom: 1px solid #e5eaf1 !important;
 }
 
+.db-capacity-strip,
 .db-capacity-stats {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
-    padding: 14px 18px;
-    background: #f8fafc;
-    border-bottom: 1px solid #e5eaf1;
+    display: flex !important;
+    gap: 16px !important;
+    padding: 14px 18px !important;
+    background: #f8fafc !important;
+    border-bottom: 1px solid #e5eaf1 !important;
+}
+
+.db-capacity-strip > .db-capacity-box,
+.db-capacity-stats > .db-capacity-box {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
 }
 
 .db-capacity-box {
@@ -903,10 +909,11 @@ html body .table tbody tr:hover {
 @media (max-width:1199px){.export-latest-card{grid-template-columns:repeat(3,minmax(0,1fr))}.export-latest-card>div{border-bottom:1px solid #e5eaf1}}
 @media (max-width:991px){.dashboard-quick-menu{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:767px){
+    .db-capacity-strip,
     .db-capacity-stats {
-        grid-template-columns: 1fr;
-        padding: 12px;
-        gap: 10px;
+        flex-direction: column !important;
+        padding: 12px !important;
+        gap: 10px !important;
     }
     .monitor-overview-grid,.monitor-activity-grid,.export-latest-card,.access-summary,.dashboard-quick-menu{grid-template-columns:1fr}.monitor-detail-list{grid-template-columns:1fr}.monitor-detail-list .monitor-detail-wide{grid-column:auto}.monitor-detail-list>div{border-bottom:1px solid #edf1f6!important}.monitor-detail-list>div:last-child{border-bottom:0!important}.history-filter-grid{flex-direction:column;align-items:stretch}.history-filter-field,.history-filter-action{width:100%}.history-filter-action .btn{width:100%}.export-latest-card>div{border-right:0;border-bottom:1px solid #e5eaf1}.export-latest-card>div:last-child{border-bottom:0}.export-action-buttons{align-items:stretch;flex-direction:column}.export-action-buttons .btn{width:100%}.backup-history-link{display:flex;margin:8px 0 0}
 }

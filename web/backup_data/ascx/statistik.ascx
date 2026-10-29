@@ -601,29 +601,25 @@
             <i class="fa fa-database text-primary backup-u-067"></i><strong>Kapasitas &amp; Perbandingan Baris Data Fisik</strong>
         </div>
 
-        <!-- COMPACT CAPACITY STATS STRIP (Built-in robust styles & Bootstrap 3 grid) -->
-        <div class="row db-capacity-stats" style="margin: 0; padding: 14px 15px; background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
-            <div class="col-sm-6 col-xs-12" style="margin-bottom: 8px;">
-                <div class="db-capacity-box db-capacity-live" style="display: flex; align-items: center; gap: 14px; padding: 12px 16px; background: #ffffff; border: 1px solid #dbe3ee; border-left: 4px solid #A01626 !important; border-radius: 9px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                    <div class="db-capacity-icon" style="width: 42px; height: 42px; border-radius: 9px; background: #feecef; color: #A01626; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;">
-                        <i class="fa fa-database" style="margin: 0; line-height: 1;"></i>
-                    </div>
-                    <div class="db-capacity-details" style="display: flex; flex-direction: column;">
-                        <span class="db-capacity-label" style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">Database Aktif</span>
-                        <strong class="db-capacity-value" style="font-size: 20px; font-weight: 800; color: #0f172a; line-height: 1.2;"><asp:Literal ID="litSizeLive" runat="server" /></strong>
-                    </div>
+        <!-- COMPACT CAPACITY STATS STRIP (Pure Flex Container, No pseudo-element grid clash) -->
+        <div class="db-capacity-strip" style="display: flex; gap: 16px; padding: 14px 18px; background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+            <div class="db-capacity-box db-capacity-live" style="flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: 14px; padding: 14px 18px; background: #ffffff; border: 1px solid #dbe3ee; border-left: 4px solid #A01626 !important; border-radius: 9px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                <div class="db-capacity-icon" style="width: 44px; height: 44px; border-radius: 9px; background: #feecef; color: #A01626; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">
+                    <i class="fa fa-database" style="margin: 0; line-height: 1;"></i>
+                </div>
+                <div class="db-capacity-details" style="display: flex; flex-direction: column; min-width: 0;">
+                    <span class="db-capacity-label" style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">Database Aktif</span>
+                    <strong class="db-capacity-value" style="font-size: 22px; font-weight: 800; color: #0f172a; line-height: 1.2;"><asp:Literal ID="litSizeLive" runat="server" /></strong>
                 </div>
             </div>
 
-            <div class="col-sm-6 col-xs-12" style="margin-bottom: 8px;">
-                <div class="db-capacity-box db-capacity-backup" style="display: flex; align-items: center; gap: 14px; padding: 12px 16px; background: #ffffff; border: 1px solid #dbe3ee; border-left: 4px solid #2563eb !important; border-radius: 9px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                    <div class="db-capacity-icon" style="width: 42px; height: 42px; border-radius: 9px; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;">
-                        <i class="fa fa-archive" style="margin: 0; line-height: 1;"></i>
-                    </div>
-                    <div class="db-capacity-details" style="display: flex; flex-direction: column;">
-                        <span class="db-capacity-label" style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">Database Backup</span>
-                        <strong class="db-capacity-value" style="font-size: 20px; font-weight: 800; color: #0f172a; line-height: 1.2;"><asp:Literal ID="litSizeBackup" runat="server" /></strong>
-                    </div>
+            <div class="db-capacity-box db-capacity-backup" style="flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: 14px; padding: 14px 18px; background: #ffffff; border: 1px solid #dbe3ee; border-left: 4px solid #2563eb !important; border-radius: 9px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                <div class="db-capacity-icon" style="width: 44px; height: 44px; border-radius: 9px; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">
+                    <i class="fa fa-archive" style="margin: 0; line-height: 1;"></i>
+                </div>
+                <div class="db-capacity-details" style="display: flex; flex-direction: column; min-width: 0;">
+                    <span class="db-capacity-label" style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">Database Backup</span>
+                    <strong class="db-capacity-value" style="font-size: 22px; font-weight: 800; color: #0f172a; line-height: 1.2;"><asp:Literal ID="litSizeBackup" runat="server" /></strong>
                 </div>
             </div>
         </div>
