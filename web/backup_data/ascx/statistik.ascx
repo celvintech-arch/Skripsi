@@ -1,4 +1,4 @@
-<!-- #INCLUDE file ="con_backup.ascx" -->
+﻿<!-- #INCLUDE file ="con_backup.ascx" -->
 <%@ Import Namespace="System.Data" %>
 <%@ Import Namespace="System.Data.SqlClient" %>
 <%@ Import Namespace="System.Collections.Generic" %>
@@ -699,14 +699,14 @@
 
     <!-- PUSAT REKONSILIASI & SINKRONISASI DATA PER PERIODE -->
     <div class="panel panel-default">
-        <div class="panel-heading backup-u-043">
-            <div>
-                <i class="fa fa-balance-scale text-primary backup-u-067"></i>
-                <span class="font-bold">Pusat Rekonsiliasi &amp; Sinkronisasi Data per Periode</span>
+        <div class="panel-heading backup-u-043" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 18px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <i class="fa fa-balance-scale text-primary backup-u-067" style="font-size: 16px;"></i>
+                <span class="font-bold" style="font-size: 14px; color: #1e293b;">Pusat Rekonsiliasi &amp; Sinkronisasi Data per Periode</span>
             </div>
             <div>
-                <asp:LinkButton ID="btnCheckVerification" runat="server" CssClass="btn btn-default btn-xs" OnClick="btnCheckVerification_Click" ToolTip="Cek ulang kesesuaian data backup terhadap data aktif saat ini">
-                    <i class="fa fa-refresh"></i> Cek Verifikasi Sekarang
+                <asp:LinkButton ID="btnCheckVerification" runat="server" CssClass="btn-header-action" style="min-height: 32px; height: 32px; padding: 5px 14px; font-size: 12px; font-weight: 600; color: #334155; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); display: inline-flex; align-items: center; gap: 7px; text-decoration: none;" OnClick="btnCheckVerification_Click" ToolTip="Cek ulang kesesuaian data backup terhadap data aktif saat ini">
+                    <i class="fa fa-refresh" style="font-size: 12px;"></i> <span>Cek Verifikasi Sekarang</span>
                 </asp:LinkButton>
             </div>
         </div>
