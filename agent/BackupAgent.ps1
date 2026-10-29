@@ -364,7 +364,7 @@ function Get-BackupSearchResult([string]$keyword,[string]$year) {
  try{
   $cmd=$cn.CreateCommand();$cmd.CommandTimeout=120
   if(-not [string]::IsNullOrWhiteSpace($year)){
-   $cmd.CommandText="SELECT TOP(100) RTRIM(b.nim1) Nim1,LTRIM(RTRIM(b.nama)) Nama,ISNULL(r.ThAkdk,'') ThAkdk FROM (SELECT nim1,MAX(th_akdk) ThAkdk FROM dbo.treg_backup WHERE LEFT(th_akdk,4)=@year GROUP BY nim1) r JOIN dbo.tbio01_backup b ON b.nim1=r.nim1 WHERE (@keyword='' OR b.nim1 LIKE @keyword+'%' OR b.nama LIKE '%'+@keyword+'%') ORDER BY r.ThAkdk DESC,b.nim1"
+   $cmd.CommandText="SELECT TOP(100) RTRIM(b.nim1) Nim1,LTRIM(RTRIM(b.nama)) Nama,ISNULL(r.ThAkdk,'') ThAkdk FROM (SELECT nim1,MAX(th_akdk) ThAkdk FROM dbo.treg_backup WHERE th_akdk LIKE RTRIM(@year)+'%' GROUP BY nim1) r JOIN dbo.tbio01_backup b ON b.nim1=r.nim1 WHERE (@keyword='' OR b.nim1 LIKE @keyword+'%' OR b.nama LIKE '%'+@keyword+'%') ORDER BY r.ThAkdk DESC,b.nim1"
   }else{
    $cmd.CommandText="SELECT TOP(100) RTRIM(b.nim1) Nim1,LTRIM(RTRIM(b.nama)) Nama,ISNULL(r.ThAkdk,'') ThAkdk FROM dbo.tbio01_backup b OUTER APPLY (SELECT MAX(th_akdk) ThAkdk FROM dbo.treg_backup t WHERE t.nim1=b.nim1) r WHERE (@keyword='' OR b.nim1 LIKE @keyword+'%' OR b.nama LIKE '%'+@keyword+'%') ORDER BY ISNULL(r.ThAkdk,'') DESC,b.nim1"
   }

@@ -40,10 +40,9 @@ Protected Sub Page_Load(sender As Object,e As EventArgs)
    PopulateRestorePeriods()
   Else
    PopulateStudentRestoreYears()
-   If String.Equals(Request.QueryString("lookup"),"1",StringComparison.Ordinal) AndAlso Session("BackupStudentLookupId") IsNot Nothing Then
+   If Session("BackupStudentLookupId") IsNot Nothing Then
     LoadBackedUpStudents()
    Else
-    Session.Remove("BackupStudentLookupId")
     ShowEmptyRestoreNimState()
    End If
   End If
@@ -343,12 +342,29 @@ function armBackupLookupRefresh(){
    .then(function(html){
     backupLookupIsFetching=false;
     if(!backupLookupRefreshUrl){return;}
-    if(html.indexOf('id="backupLookupPending" data-pending="1"')>=0){
+    
+    var parser=new DOMParser();
+    var doc=parser.parseFromString(html,'text/html');
+    var pendingEl=doc.getElementById('backupLookupPending');
+    
+    if(pendingEl&&pendingEl.getAttribute('data-pending')==='1'){
      armBackupLookupRefresh();
      return;
     }
-    sessionStorage.setItem('restore_scroll_pos', window.scrollY || window.pageYOffset);
-    window.location.replace(checkUrl);
+    
+    // In-place DOM update langsung tanpa reload halaman
+    var newContainer=doc.getElementById('pnlBackedUpStudentsContainer');
+    var curContainer=document.getElementById('pnlBackedUpStudentsContainer');
+    var newInfo=doc.getElementById('lblStudentSearchInfo');
+    var curInfo=document.getElementById('lblStudentSearchInfo');
+    
+    if(newContainer&&curContainer){
+     curContainer.innerHTML=newContainer.innerHTML;
+    }
+    if(newInfo&&curInfo){
+     curInfo.innerHTML=newInfo.innerHTML;
+    }
+    cancelBackupLookupRefresh(true);
    })
    .catch(function(){
     backupLookupIsFetching=false;
@@ -466,7 +482,7 @@ $(document).ready(applyRestoreScope);
       </asp:CheckBoxList>
       <p class="help-block">Biodata otomatis disertakan jika tabel lain dipilih. Baris aktif yang sudah ada tetap dilewati.</p>
      </div>
-     <div class="table-responsive backup-u-065">
+     <div class="table-responsive backup-u-065" id="pnlBackedUpStudentsContainer" ClientIDMode="Static">
       <asp:GridView ID="gvBackedUpStudents" runat="server" AutoGenerateColumns="false" CssClass="table table-bordered table-hover restore-period-table" EmptyDataText="Data NIM backup tidak ditemukan." AllowPaging="true" PageSize="10" PagerSettings-Mode="NumericFirstLast" PagerSettings-FirstPageText="Awal" PagerSettings-LastPageText="Akhir" PagerStyle-CssClass="customPager" PagerStyle-HorizontalAlign="Center" OnPageIndexChanging="gvBackedUpStudents_PageIndexChanging" OnRowCommand="gvBackedUpStudents_RowCommand">
        <Columns>
         <asp:BoundField DataField="Nim1" HeaderText="NIM" />
@@ -476,7 +492,7 @@ $(document).ready(applyRestoreScope);
        </Columns>
       </asp:GridView>
      </div>
-     <asp:Label ID="lblStudentSearchInfo" runat="server" CssClass="text-muted" />
+     <asp:Label ID="lblStudentSearchInfo" runat="server" CssClass="text-muted" ClientIDMode="Static" />
     </div>
    </div>
   </div>
