@@ -135,7 +135,7 @@ Private Sub LoadBackedUpStudents()
 
   If status="WAITING" OrElse status="CLAIMED" Then
    LookupPending=True
-   gvBackedUpStudents.EmptyDataText="<div class='text-center text-muted' style='padding: 24px 10px;'><i class='fa fa-spinner fa-spin fa-2x' style='color: #0369a1;'></i><div style='margin-top: 10px; font-size: 14px; font-weight: 600; color: #0369a1;'>Sedang mengambil data mahasiswa dari Laptop Backup...</div><div style='font-size: 12px; color: #64748b; margin-top: 4px;'>Daftar mahasiswa akan dimuat secara otomatis.</div></div>"
+   gvBackedUpStudents.EmptyDataText="<div class='text-center text-muted' style='padding: 24px 10px;' role='status' aria-live='polite'><i class='fa fa-spinner fa-spin fa-2x' style='color: #0369a1;' aria-hidden='true'></i><div style='margin-top: 10px; font-size: 14px; font-weight: 600; color: #0369a1;'>Sedang mengambil data mahasiswa dari Laptop Backup...</div><div style='font-size: 12px; color: #64748b; margin-top: 4px;'>Daftar mahasiswa akan dimuat secara otomatis.</div></div>"
    gvBackedUpStudents.DataSource=data
    gvBackedUpStudents.DataBind()
    lblStudentSearchInfo.Text=""
@@ -452,9 +452,9 @@ $(document).ready(applyRestoreScope);
      </div>
      <p class="backup-mode-help"><i class="fa fa-info-circle"></i>Gunakan menu ini untuk memulihkan data satu mahasiswa tertentu. Baris yang sudah ada pada database aktif tidak akan ditimpa.</p>
      <div class="row backup-u-062">
-      <div class="col-md-3 col-sm-4"><label for="<%= ddlStudentRestoreYear.ClientID %>">Filter tahun</label><asp:DropDownList ID="ddlStudentRestoreYear" runat="server" CssClass="form-control" AutoPostBack="true" OnSelectedIndexChanged="ddlStudentRestoreYear_SelectedIndexChanged" /></div>
-      <div class="col-md-5 col-sm-5"><label for="<%= txtSearchBackupNim.ClientID %>">Cari mahasiswa</label><asp:TextBox ID="txtSearchBackupNim" runat="server" CssClass="form-control" MaxLength="100" placeholder="Masukkan NIM atau nama mahasiswa" /></div>
-      <div class="col-md-2 col-sm-3 backup-u-075"><asp:Button ID="btnSearchBackupNim" runat="server" Text="Cari" CssClass="btn btn-default btn-block" OnClick="btnSearchBackupNim_Click" /></div>
+      <div class="col-md-3 col-sm-4"><label for="<%= ddlStudentRestoreYear.ClientID %>">Filter tahun</label><asp:DropDownList ID="ddlStudentRestoreYear" runat="server" CssClass="form-control" AutoPostBack="true" OnSelectedIndexChanged="ddlStudentRestoreYear_SelectedIndexChanged" aria-label="Filter berdasarkan tahun akademik" /></div>
+      <div class="col-md-5 col-sm-5"><label for="<%= txtSearchBackupNim.ClientID %>">Cari mahasiswa</label><asp:TextBox ID="txtSearchBackupNim" runat="server" CssClass="form-control" MaxLength="100" placeholder="Masukkan NIM atau nama mahasiswa" aria-label="Cari mahasiswa berdasarkan NIM atau nama" /></div>
+      <div class="col-md-2 col-sm-3 backup-u-075"><asp:LinkButton ID="btnSearchBackupNim" runat="server" CssClass="btn btn-primary btn-block" OnClick="btnSearchBackupNim_Click" aria-label="Cari data mahasiswa"><i class="fa fa-search" aria-hidden="true"></i> Cari</asp:LinkButton></div>
      </div>
      <div class="well backup-u-010">
       <label>Tabel yang dipulihkan:</label>
@@ -472,7 +472,7 @@ $(document).ready(applyRestoreScope);
         <asp:BoundField DataField="Nim1" HeaderText="NIM" />
         <asp:BoundField DataField="Nama" HeaderText="Nama Mahasiswa" />
         <asp:BoundField DataField="ThAkdk" HeaderText="TA Terakhir" />
-        <asp:TemplateField HeaderText="Aksi" ItemStyle-HorizontalAlign="Center"><ItemTemplate><asp:Button ID="btnRestoreStudent" runat="server" Text="Pulihkan" CssClass="btn btn-xs btn-success" Enabled='<%# BackupServiceReady %>' CommandName="RestoreStudent" CommandArgument='<%# Eval("Nim1") %>' OnClientClick="return backupConfirm(this,'Pulihkan mahasiswa ini? Salinan backup tetap disimpan; data aktif yang sudah ada tidak akan ditimpa.',{title:'Konfirmasi pemulihan',confirmText:'Ya, pulihkan',confirmColor:'#15803d'});" /></ItemTemplate></asp:TemplateField>
+        <asp:TemplateField HeaderText="Aksi" ItemStyle-HorizontalAlign="Center"><ItemTemplate><asp:Button ID="btnRestoreStudent" runat="server" Text="Pulihkan" CssClass="btn btn-xs btn-success" Enabled='<%# BackupServiceReady %>' CommandName="RestoreStudent" CommandArgument='<%# Eval("Nim1") %>' aria-label='<%# "Pulihkan data mahasiswa " & Eval("Nama") & " NIM " & Eval("Nim1") %>' OnClientClick="return backupConfirm(this,'Pulihkan mahasiswa ini? Salinan backup tetap disimpan; data aktif yang sudah ada tidak akan ditimpa.',{title:'Konfirmasi pemulihan',confirmText:'Ya, pulihkan',confirmColor:'#15803d'});" /></ItemTemplate></asp:TemplateField>
        </Columns>
       </asp:GridView>
      </div>
@@ -534,7 +534,7 @@ $(document).ready(applyRestoreScope);
         <div class="col-md-4"><div class="scope-summary-card inactive-card"><div class="scope-summary-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M7.5 10H14a5 5 0 0 1 0 10h-2v-2h2a3 3 0 0 1 0-6H7.5l3 3L9 16.5 3.5 11 9 5.5 10.5 7l-3 3Z" /></svg></div><div class="scope-summary-content"><span>Akumulasi Mahasiswa per TA</span><strong id="restoreSummaryEligible">0</strong></div></div></div>
        <div class="col-md-4"><div class="scope-summary-card period-card"><div class="scope-summary-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M7 2h2v3h6V2h2v3h3v17H4V5h3V2Zm11 8H6v10h12V10ZM6 7v1h12V7H6Z" /></svg></div><div class="scope-summary-content"><span>Cakupan Tahun Akademik</span><strong id="restoreSummaryPeriod">-</strong></div></div></div>
       </div>
-     <div class="backup-u-076"><asp:Button ID="btnRestorePeriods" runat="server" Text="Masukkan Antrean Pemulihan" CssClass="btn btn-success" OnClick="btnRestorePeriods_Click" OnClientClick="return confirmRestorePeriods(this);" /></div>
+     <div class="backup-u-076"><asp:Button ID="btnRestorePeriods" runat="server" Text="Masukkan Antrean Pemulihan" CssClass="btn btn-success" aria-label="Masukkan proses pemulihan ke dalam antrean" OnClick="btnRestorePeriods_Click" OnClientClick="return confirmRestorePeriods(this);" /></div>
     </div>
    </div>
   </div>

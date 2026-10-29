@@ -528,7 +528,7 @@
         <div class="monitor-activity-card"><i class="fa fa-file-o"></i><span>Ekspor terakhir</span><strong><asp:Literal ID="litLastExport" runat="server" /></strong></div>
     </div>
 
-    <div class="panel panel-default monitor-active-panel" id="panelActiveProcesses">
+    <div class="panel panel-default monitor-active-panel" id="panelActiveProcesses" role="region" aria-label="Daftar proses antrean aktif" aria-live="polite">
         <div class="panel-heading backup-u-043" style="display: flex; justify-content: space-between; align-items: center;">
             <span><i class="fa fa-refresh <%= If(ActiveJobCount > 0, "fa-spin text-primary", "") %>"></i> <strong>Proses Sedang Berjalan</strong></span>
             <div>
@@ -569,6 +569,7 @@
                                          aria-valuenow='<%# Eval("ProgressPercent") %>' 
                                          aria-valuemin="0" 
                                          aria-valuemax="100" 
+                                         aria-label='<%# "Progress " & Eval("OperationLabel") & ": " & Eval("ProgressPercent") & "%" %>' 
                                          style='width: <%# Math.Max(8, Convert.ToInt32(Eval("ProgressPercent"))) %>%; line-height: 20px; font-size: 11px; font-weight: bold;'>
                                         <%# Eval("ProgressPercent") %>%
                                     </div>

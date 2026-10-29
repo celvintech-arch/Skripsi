@@ -385,7 +385,7 @@ End Sub
                                     <div class="col-md-6 col-sm-12">
                                         <div class="form-group">
                                             <label for="<%= ddlFrekuensi.ClientID %>">Frekuensi Backup Otomatis:</label>
-                                            <asp:DropDownList ID="ddlFrekuensi" runat="server" CssClass="form-control">
+                                            <asp:DropDownList ID="ddlFrekuensi" runat="server" CssClass="form-control" aria-label="Frekuensi backup otomatis">
                                                 <asp:ListItem Value="SEMESTER" Text="Setiap Akhir Semester (Setiap Januari & Agustus)" />
                                                 <asp:ListItem Value="MONTHLY" Text="Bulanan (Setiap Tanggal 1 Awal Bulan)" />
                                                 <asp:ListItem Value="DAILY" Text="Harian" />
@@ -395,7 +395,7 @@ End Sub
                                     <div class="col-md-6 col-sm-12">
                                         <div class="form-group">
                                             <label for="<%= ddlJamEksekusi.ClientID %>">Waktu Eksekusi (waktu server):</label>
-                                            <asp:DropDownList ID="ddlJamEksekusi" runat="server" CssClass="form-control">
+                                            <asp:DropDownList ID="ddlJamEksekusi" runat="server" CssClass="form-control" aria-label="Waktu eksekusi backup otomatis">
                                                 <asp:ListItem Value="NEXT_1_MINUTE" Text="1 menit lagi (uji coba)" />
                                                 <asp:ListItem Value="01:00" Text="Pukul 01:00 WIB" />
                                                 <asp:ListItem Value="02:00" Text="Pukul 02:00 WIB" />
@@ -431,7 +431,7 @@ End Sub
                     </div>
 
                     <div class="backup-u-076">
-                        <asp:Button ID="btnSimpanJadwal" runat="server" Text="Simpan Pengaturan" CssClass="btn btn-success btn-lg backup-u-048" OnClick="btnSimpanJadwal_Click" />
+                        <asp:Button ID="btnSimpanJadwal" runat="server" Text="Simpan Pengaturan" CssClass="btn btn-success btn-lg backup-u-048" aria-label="Simpan pengaturan jadwal backup otomatis" OnClick="btnSimpanJadwal_Click" />
                     </div>
                 </div>
                 </div>
@@ -486,18 +486,18 @@ End Sub
                                 </div>
                                 <div class="col-md-4 form-group">
                                     <label for="<%= ddlBackupScope.ClientID %>">Cakupan backup:</label>
-                                    <asp:DropDownList ID="ddlBackupScope" runat="server" CssClass="form-control" onchange="resetBackupScope()">
+                                    <asp:DropDownList ID="ddlBackupScope" runat="server" CssClass="form-control" onchange="resetBackupScope()" aria-label="Cakupan tahun akademik backup">
                                         <asp:ListItem Value="SINGLE">1 Tahun Akademik</asp:ListItem>
                                         <asp:ListItem Value="RANGE">Rentang Tahun Akademik</asp:ListItem>
                                     </asp:DropDownList>
                                 </div>
                                 <div class="col-md-4 form-group backup-u-029" id="backupStartTaGroup">
                                     <label for="<%= ddlBackupStartTa.ClientID %>">TA awal:</label>
-                                    <asp:DropDownList ID="ddlBackupStartTa" runat="server" CssClass="form-control" onchange="toggleBackupScope()" />
+                                    <asp:DropDownList ID="ddlBackupStartTa" runat="server" CssClass="form-control" onchange="toggleBackupScope()" aria-label="Tahun akademik awal rentang backup" />
                                 </div>
                                 <div class="col-md-4 form-group">
                                     <label id="backupEndTaLabel" for="<%= ddlBackupEndTa.ClientID %>">Tahun Akademik:</label>
-                                    <asp:DropDownList ID="ddlBackupEndTa" runat="server" CssClass="form-control" onchange="toggleBackupScope()" />
+                                    <asp:DropDownList ID="ddlBackupEndTa" runat="server" CssClass="form-control" onchange="toggleBackupScope()" aria-label="Tahun akademik backup" />
                                 </div>
                             </div>
                             <div class="well backup-u-010">
@@ -517,7 +517,7 @@ End Sub
 
 
 
-                            <div class="backup-u-077"><asp:Button ID="btnJalankanBackup" runat="server" Text="Backup Sekarang" CssClass="btn btn-danger btn-lg backup-u-048" OnClick="btnJalankanBackup_Click" OnClientClick="return confirmBackupPeriods(this);" /></div>
+                            <div class="backup-u-077"><asp:Button ID="btnJalankanBackup" runat="server" Text="Backup Sekarang" CssClass="btn btn-danger btn-lg backup-u-048" aria-label="Jalankan proses backup data sekarang" OnClick="btnJalankanBackup_Click" OnClientClick="return confirmBackupPeriods(this);" /></div>
                         </div>
                     </div>
                 </div>
