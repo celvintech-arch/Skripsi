@@ -1,4 +1,4 @@
-<!-- #INCLUDE file ="con_backup.ascx" -->
+﻿<!-- #INCLUDE file ="con_backup.ascx" -->
 <%@ Import Namespace="System.Data" %>
 <%@ Import Namespace="System.Data.SqlClient" %>
 <%@ Import Namespace="System.Collections.Generic" %>
@@ -595,43 +595,38 @@
     </div>
 
 
-    <!-- DATABASE SIZE CARDS -->
-    <div class="row backup-u-057">
-        <!-- CARD 1: DATABASE AKTIF STATS -->
-        <div class="col-md-6 col-sm-6 col-xs-12 backup-u-063">
-            <div class="card backup-u-008">
-                <div class="backup-u-078">
-                    <i class="fa fa-database backup-u-038"></i>
-                </div>
-                <div class="backup-u-030">
-                    <span class="backup-u-033">Database Aktif</span>
-                    <h3 class="backup-u-044"><asp:Literal ID="litSizeLive" runat="server" /></h3>
-                </div>
-            </div>
-        </div>
-
-        <!-- CARD 2: DATABASE BACKUP STATS -->
-        <div class="col-md-6 col-sm-6 col-xs-12 backup-u-063">
-            <div class="card backup-u-009">
-                <div class="backup-u-079">
-                    <i class="fa fa-database backup-u-039"></i>
-                </div>
-                <div class="backup-u-030">
-                    <span class="backup-u-033">Database Backup</span>
-                    <h3 class="backup-u-044"><asp:Literal ID="litSizeBackup" runat="server" /></h3>
-                </div>
-            </div>
-        </div>
-
-    </div>
-
-    <!-- TABLE COMPARISON row counts -->
-    <div class="panel panel-default backup-u-016">
+    <!-- UNIFIED DATABASE CAPACITY & ROW INVENTORY PANEL -->
+    <div class="panel panel-default backup-capacity-panel">
         <div class="panel-heading backup-u-004">
-            <i class="fa fa-table text-primary backup-u-067"></i>Perbandingan Jumlah Baris Fisik per Tabel
+            <i class="fa fa-database text-primary backup-u-067"></i><strong>Kapasitas &amp; Perbandingan Baris Data Fisik</strong>
         </div>
+
+        <!-- COMPACT CAPACITY STATS STRIP -->
+        <div class="db-capacity-stats">
+            <div class="db-capacity-box db-capacity-live">
+                <div class="db-capacity-icon">
+                    <i class="fa fa-database"></i>
+                </div>
+                <div class="db-capacity-details">
+                    <span class="db-capacity-label">Database Aktif</span>
+                    <strong class="db-capacity-value"><asp:Literal ID="litSizeLive" runat="server" /></strong>
+                </div>
+            </div>
+
+            <div class="db-capacity-box db-capacity-backup">
+                <div class="db-capacity-icon">
+                    <i class="fa fa-archive"></i>
+                </div>
+                <div class="db-capacity-details">
+                    <span class="db-capacity-label">Database Backup</span>
+                    <strong class="db-capacity-value"><asp:Literal ID="litSizeBackup" runat="server" /></strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- TABLE COMPARISON WITH INTEGRATED TOTALS IN TFOOT -->
         <div class="table-responsive">
-            <table class="table table-hover table-striped backup-u-059">
+            <table class="table table-hover table-striped backup-u-059" style="margin-bottom: 0;">
                 <thead>
                     <tr class="backup-u-002">
                         <th>Nama Tabel Modul</th>
@@ -666,31 +661,24 @@
                         <td class="text-center backup-u-048"><asp:Literal ID="litTotalAbs" runat="server" /></td>
                     </tr>
                 </tbody>
+                <tfoot>
+                    <tr class="db-capacity-total-row">
+                        <td class="backup-u-040">
+                            <strong><i class="fa fa-calculator text-muted me-2"></i> Total Seluruh Baris</strong>
+                        </td>
+                        <td class="text-center font-bold backup-u-020 db-capacity-total-cell">
+                            <asp:Literal ID="litLiveCount" runat="server" />
+                        </td>
+                        <td class="text-center font-bold backup-u-022 db-capacity-total-cell">
+                            <asp:Literal ID="litBackupCount" runat="server" />
+                        </td>
+                        <td class="text-center font-bold backup-u-048 db-capacity-total-cell" style="color: #0f172a;">
+                            <asp:Literal ID="litTotalCount" runat="server" />
+                        </td>
+                    </tr>
+                </tfoot>
             </table>
         </div>
-    </div>
-
-    <!-- ROW COUNT REDUCTION PROGRESS PANEL (AGGREGATED SUMMARY) -->
-    <div class="panel panel-default backup-u-018">
-        <h4 class="backup-u-053">
-            <i class="fa fa-pie-chart text-danger backup-u-067"></i>Ringkasan Jumlah Baris Fisik
-        </h4>
-        
-        <div class="row text-center backup-u-064">
-            <div class="col-md-4 col-sm-4 col-xs-12 backup-u-060">
-                <span class="backup-u-035">Total Seluruh Baris Live</span>
-                <h2 class="backup-u-046"><asp:Literal ID="litLiveCount" runat="server" /></h2>
-            </div>
-            <div class="col-md-4 col-sm-4 col-xs-12 backup-u-060">
-                <span class="backup-u-035">Total Seluruh Baris Backup</span>
-                <h2 class="backup-u-047"><asp:Literal ID="litBackupCount" runat="server" /></h2>
-            </div>
-            <div class="col-md-4 col-sm-4 col-xs-12 backup-u-060">
-                <span class="backup-u-035">Total Fisik Aktif + Backup</span>
-                <h2 class="backup-u-045"><asp:Literal ID="litTotalCount" runat="server" /></h2>
-            </div>
-        </div>
-
     </div>
 
     <!-- PUSAT REKONSILIASI & SINKRONISASI DATA PER PERIODE -->

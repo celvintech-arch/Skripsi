@@ -1,4 +1,4 @@
-﻿/* ==========================================================================
+/* ==========================================================================
    BACKUP DATA MAHASISWA - GLOBAL DESIGN SYSTEM
    Diselaraskan penuh dengan z:\lintar2022\portofolio_fakultas Design System
    ========================================================================== */
@@ -787,6 +787,126 @@ html body .table tbody tr:hover {
     align-items: center !important;
     justify-content: center !important;
 }
+
+/* --------------------------------------------------------------------------
+   Unified Database Capacity & Row Inventory Panel
+   -------------------------------------------------------------------------- */
+.backup-capacity-panel {
+    border-radius: 12px !important;
+    border: 1px solid #dbe3ee !important;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05) !important;
+    overflow: hidden !important;
+    margin-bottom: 22px !important;
+    background: #ffffff !important;
+}
+
+.backup-capacity-panel .panel-heading {
+    border-bottom: 1px solid #e5eaf1 !important;
+}
+
+.db-capacity-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    padding: 14px 18px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e5eaf1;
+}
+
+.db-capacity-box {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 16px;
+    background: #ffffff;
+    border: 1px solid #dbe3ee;
+    border-radius: 9px;
+    transition: all 0.2s ease;
+}
+
+.db-capacity-box:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.db-capacity-box.db-capacity-live {
+    border-left: 4px solid #A01626 !important;
+}
+
+.db-capacity-box.db-capacity-backup {
+    border-left: 4px solid #2563eb !important;
+}
+
+.db-capacity-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 9px;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0;
+    font-size: 18px;
+}
+
+.db-capacity-icon i {
+    margin: 0 !important;
+    line-height: 1 !important;
+    text-align: center !important;
+}
+
+.db-capacity-live .db-capacity-icon {
+    background: #feecef;
+    color: #A01626;
+}
+
+.db-capacity-backup .db-capacity-icon {
+    background: #eff6ff;
+    color: #2563eb;
+}
+
+.db-capacity-details {
+    display: flex;
+    flex-direction: column;
+}
+
+.db-capacity-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+}
+
+.db-capacity-value {
+    font-size: 20px;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.2;
+}
+
+.db-capacity-total-row {
+    background: #f1f5f9 !important;
+    border-top: 2px solid #cbd5e1 !important;
+}
+
+.db-capacity-total-row td {
+    padding: 12px 14px !important;
+    vertical-align: middle !important;
+}
+
+.db-capacity-total-cell {
+    font-size: 14px !important;
+    font-weight: 800 !important;
+}
+
 @media (max-width:1199px){.export-latest-card{grid-template-columns:repeat(3,minmax(0,1fr))}.export-latest-card>div{border-bottom:1px solid #e5eaf1}}
 @media (max-width:991px){.dashboard-quick-menu{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media (max-width:767px){.monitor-overview-grid,.monitor-activity-grid,.export-latest-card,.access-summary,.dashboard-quick-menu{grid-template-columns:1fr}.monitor-detail-list{grid-template-columns:1fr}.monitor-detail-list .monitor-detail-wide{grid-column:auto}.monitor-detail-list>div{border-bottom:1px solid #edf1f6!important}.monitor-detail-list>div:last-child{border-bottom:0!important}.history-filter-grid{flex-direction:column;align-items:stretch}.history-filter-field,.history-filter-action{width:100%}.history-filter-action .btn{width:100%}.export-latest-card>div{border-right:0;border-bottom:1px solid #e5eaf1}.export-latest-card>div:last-child{border-bottom:0}.export-action-buttons{align-items:stretch;flex-direction:column}.export-action-buttons .btn{width:100%}.backup-history-link{display:flex;margin:8px 0 0}}
+@media (max-width:767px){
+    .db-capacity-stats {
+        grid-template-columns: 1fr;
+        padding: 12px;
+        gap: 10px;
+    }
+    .monitor-overview-grid,.monitor-activity-grid,.export-latest-card,.access-summary,.dashboard-quick-menu{grid-template-columns:1fr}.monitor-detail-list{grid-template-columns:1fr}.monitor-detail-list .monitor-detail-wide{grid-column:auto}.monitor-detail-list>div{border-bottom:1px solid #edf1f6!important}.monitor-detail-list>div:last-child{border-bottom:0!important}.history-filter-grid{flex-direction:column;align-items:stretch}.history-filter-field,.history-filter-action{width:100%}.history-filter-action .btn{width:100%}.export-latest-card>div{border-right:0;border-bottom:1px solid #e5eaf1}.export-latest-card>div:last-child{border-bottom:0}.export-action-buttons{align-items:stretch;flex-direction:column}.export-action-buttons .btn{width:100%}.backup-history-link{display:flex;margin:8px 0 0}
+}
