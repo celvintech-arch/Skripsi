@@ -475,9 +475,14 @@ try{
  if(-not $database.Ready){$schema=Ensure-BackupSchema $null;$database=Test-BackupDatabase}
  $heartbeat=Invoke-AgentApi 'heartbeat' @{databaseReady=$database.Ready;message=$database.Message}
  if($database.Ready){
-  try{Process-BackupLookups}catch{Write-AgentLog ('Peringatan: lookup backup belum tersedia: '+$_.Exception.Message)}
   if((Get-Date).Minute % 5 -eq 0){[void](Invoke-AgentApi 'inventory' @{databaseReady=$database.Ready;message='Memperbarui inventaris lokal';periods=(Get-PeriodInventory)})}
   Process-BackupJobs $schema $database
+  $loopDeadline = (Get-Date).AddSeconds(48)
+  do {
+   try{Process-BackupLookups}catch{Write-AgentLog ('Peringatan: lookup backup belum tersedia: '+$_.Exception.Message);break}
+   if((Get-Date) -ge $loopDeadline){break}
+   Start-Sleep -Milliseconds 1500
+  } while((Get-Date) -lt $loopDeadline)
  }
  Write-AgentLog ($heartbeat|ConvertTo-Json -Compress)
 }catch{

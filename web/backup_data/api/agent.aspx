@@ -1,4 +1,4 @@
-<%@ Page Language="VB" EnableSessionState="False" %>
+﻿<%@ Page Language="VB" EnableSessionState="False" %>
 <%@ Import Namespace="System" %>
 <%@ Import Namespace="System.Collections" %>
 <%@ Import Namespace="System.Collections.Generic" %>
@@ -172,7 +172,7 @@
   If body.ContainsKey("result") AndAlso body("result") IsNot Nothing Then resultJson=CreateJsonSerializer().Serialize(body("result"))
   If resultJson IsNot Nothing AndAlso resultJson.Length>2000000 Then Throw New HttpException(400,"Hasil lookup terlalu besar.")
   If errorMessage.Length>1000 Then errorMessage=errorMessage.Substring(0,1000)
-  Dim sql="SET NOCOUNT ON; UPDATE q SET Status=CASE WHEN @ok=1 THEN 'SUCCESS' ELSE 'FAILED' END,ResultJson=CASE WHEN @ok=1 THEN @json ELSE NULL END,ErrorMessage=CASE WHEN @ok=1 THEN NULL ELSE @error END,CompletedAt=SYSDATETIME(),LeaseExpiresAt=NULL,ExpiresAt=DATEADD(MINUTE,15,SYSDATETIME()) FROM dbo.BackupLookupRequest q JOIN dbo.BackupAgentNode a ON a.AgentId=q.AgentId WHERE q.LookupId=@id AND q.Status='CLAIMED' AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t); SELECT q.Status FROM dbo.BackupLookupRequest q JOIN dbo.BackupAgentNode a ON a.AgentId=q.AgentId WHERE q.LookupId=@id AND q.Status IN('SUCCESS','FAILED') AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t);"
+  Dim sql="SET NOCOUNT ON; UPDATE q SET Status=CASE WHEN @ok=1 THEN 'SUCCESS' ELSE 'FAILED' END,ResultJson=CASE WHEN @ok=1 THEN @json ELSE NULL END,ErrorMessage=CASE WHEN @ok=1 THEN NULL ELSE @error END,CompletedAt=SYSDATETIME(),LeaseExpiresAt=NULL,ExpiresAt=CASE WHEN @ok=1 THEN DATEADD(DAY,7,SYSDATETIME()) ELSE DATEADD(MINUTE,5,SYSDATETIME()) END FROM dbo.BackupLookupRequest q JOIN dbo.BackupAgentNode a ON a.AgentId=q.AgentId WHERE q.LookupId=@id AND q.Status='CLAIMED' AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t); SELECT q.Status FROM dbo.BackupLookupRequest q JOIN dbo.BackupAgentNode a ON a.AgentId=q.AgentId WHERE q.LookupId=@id AND q.Status IN('SUCCESS','FAILED') AND a.IsPrimary=1 AND a.IsEnabled=1 AND a.ApiKeyHash=HASHBYTES('SHA2_256',@t);"
   Using cmd As New SqlCommand(sql,cn)
    cmd.Parameters.Add("@id",SqlDbType.UniqueIdentifier).Value=lookupId:cmd.Parameters.Add("@t",SqlDbType.NVarChar,256).Value=apiKey:cmd.Parameters.Add("@ok",SqlDbType.Bit).Value=succeeded
    cmd.Parameters.Add("@json",SqlDbType.NVarChar,-1).Value=If(resultJson Is Nothing,CObj(DBNull.Value),resultJson)

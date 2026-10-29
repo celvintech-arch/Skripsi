@@ -1,4 +1,4 @@
-/*
+﻿/*
   INSTALLER GABUNGAN MODUL BACKUP DATA LINTAR
 
   Target        : dec_dummy
@@ -772,11 +772,11 @@ BEGIN
  DECLARE @agent UNIQUEIDENTIFIER,@id UNIQUEIDENTIFIER;
  SELECT @agent=AgentId FROM dbo.BackupAgentNode WHERE IsPrimary=1 AND IsEnabled=1;
  IF @agent IS NULL THROW 51103,'Node backup utama belum didaftarkan.',1;
- DELETE dbo.BackupLookupRequest WHERE ExpiresAt<DATEADD(HOUR,-1,SYSDATETIME());
+ DELETE dbo.BackupLookupRequest WHERE ExpiresAt<DATEADD(DAY,-7,SYSDATETIME());
  SELECT TOP(1) @id=LookupId FROM dbo.BackupLookupRequest
  WHERE AgentId=@agent AND QueryType=@QueryType
   AND ISNULL(SearchKeyword,'')=ISNULL(@SearchKeyword,'') AND ISNULL(FilterYear,'')=ISNULL(@FilterYear,'')
-  AND ((Status IN('WAITING','CLAIMED') AND ExpiresAt>SYSDATETIME()) OR (Status='SUCCESS' AND CompletedAt>DATEADD(MINUTE,-5,SYSDATETIME())))
+  AND ((Status IN('WAITING','CLAIMED') AND ExpiresAt>SYSDATETIME()) OR (Status='SUCCESS' AND CompletedAt>DATEADD(DAY,-7,SYSDATETIME()) AND ResultJson IS NOT NULL))
  ORDER BY CreatedAt DESC;
  IF @id IS NULL
  BEGIN
