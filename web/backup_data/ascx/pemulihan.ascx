@@ -1,13 +1,24 @@
 <%@ Control Language="VB" ClassName="backup_data_pemulihan_control" %>
+
+<%-- 
+=============================================================================================
+MODUL PEMULIHAN DATA / RESTORE (pemulihan.ascx)
+Menangani pengembalian data dari Database Backup sekunder ke Database Aktif (dec_dummy),
+baik dalam skala massal per Tahun Akademik maupun per individu Mahasiswa (NIM).
+=============================================================================================
+--%>
 <!-- #INCLUDE file="con_backup.ascx" -->
 <!-- #INCLUDE file="table_helpers.ascx" -->
 <%@ Import Namespace="System.Collections.Generic" %>
 
 <script runat="server">
-Protected CurrentRestoreSection As String="ta"
-Protected LookupPending As Boolean=False
-Protected BackupServiceReady As Boolean=False
-Private CurrentBackupService As BackupServiceState
+    ' Sub-bagian aktif: "ta" (Tahun Akademik) atau "nim" (Pencarian Mahasiswa per NIM)
+    Protected CurrentRestoreSection As String = "ta"
+    ' Status apakah pencarian data mahasiswa ke node sekunder masih dalam proses (asynchronous)
+    Protected LookupPending As Boolean = False
+    ' Status kesiapan Database Backup sekunder
+    Protected BackupServiceReady As Boolean = False
+    Private CurrentBackupService As BackupServiceState
 
 
 
@@ -75,18 +86,26 @@ Private Sub ShowEmptyRestoreNimState()
  lblStudentSearchInfo.Text=""
 End Sub
 
-Private Function CreateLookup(queryType As String,keyword As String,year As String) As Guid
- Using cmd As New SqlCommand("dbo.sp_CreateBackupLookupRequest",cnsr)
-  cmd.CommandType=CommandType.StoredProcedure
-  cmd.Parameters.Add("@QueryType",SqlDbType.VarChar,10).Value=queryType
-  cmd.Parameters.Add("@SearchKeyword",SqlDbType.NVarChar,100).Value=If(String.IsNullOrWhiteSpace(keyword),CObj(DBNull.Value),keyword.Trim())
-  cmd.Parameters.Add("@FilterYear",SqlDbType.Char,4).Value=If(String.IsNullOrWhiteSpace(year),CObj(DBNull.Value),year.Trim())
-  cmd.Parameters.Add("@RequestedBy",SqlDbType.VarChar,50).Value=BackupRequestedBy()
-  cnsr.Open():Using rd=cmd.ExecuteReader():If rd.Read() Then Return CType(rd("LookupId"),Guid)
-  End Using
- End Using
- Throw New ApplicationException("Permintaan pencarian backup tidak menghasilkan ID.")
-End Function
+    ' =========================================================================================
+    ' PENCARIAN ASINKRON KE NODE SEKUNDER (REMOTE LOOKUP REQUEST)
+    ' Karena server web tidak terhubung langsung ke database laptop cadangan, pencarian
+    ' mahasiswa dilakukan dengan mendaftarkan tiket pencarian ke tabel dbo.BackupLookupRequest.
+    ' Agen laptop akan memproses tiket ini dan mengisi hasilnya dalam hitungan detik.
+    ' =========================================================================================
+    Private Function CreateLookup(queryType As String, keyword As String, year As String) As Guid
+        Using cmd As New SqlCommand("dbo.sp_CreateBackupLookupRequest", cnsr)
+            cmd.CommandType = CommandType.StoredProcedure
+            cmd.Parameters.Add("@QueryType", SqlDbType.VarChar, 10).Value = queryType
+            cmd.Parameters.Add("@SearchKeyword", SqlDbType.NVarChar, 100).Value = If(String.IsNullOrWhiteSpace(keyword), CObj(DBNull.Value), keyword.Trim())
+            cmd.Parameters.Add("@FilterYear", SqlDbType.Char, 4).Value = If(String.IsNullOrWhiteSpace(year), CObj(DBNull.Value), year.Trim())
+            cmd.Parameters.Add("@RequestedBy", SqlDbType.VarChar, 50).Value = BackupRequestedBy()
+            cnsr.Open()
+            Using rd = cmd.ExecuteReader()
+                If rd.Read() Then Return CType(rd("LookupId"), Guid)
+            End Using
+        End Using
+        Throw New ApplicationException("Permintaan pencarian backup tidak menghasilkan ID.")
+    End Function
 
 Private Function ReadLookup(id As Guid,ByRef status As String,ByRef resultJson As String,ByRef failure As String,ByRef keyword As String,ByRef year As String) As Boolean
  Using cmd As New SqlCommand("dbo.sp_GetBackupLookupRequest",cnsr)

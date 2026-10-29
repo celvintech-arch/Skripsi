@@ -1,17 +1,27 @@
 <%@ Control Language="VB" ClassName="backup_data_backup_v3_control" %>
+
+<%-- 
+=============================================================================================
+MODUL PUSAT BACKUP DATA (backup.ascx)
+Menangani konfigurasi backup otomatis terjadwal (background daemon/SQL Agent) dan
+pencadangan manual per Tahun Akademik (single period maupun rentang periode).
+=============================================================================================
+--%>
 <!-- #INCLUDE file="con_backup.ascx" -->
 <!-- #INCLUDE file="table_helpers.ascx" -->
 <%@ Import Namespace="System.Collections.Generic" %>
 
 <script runat="server">
-Protected CurrentBackupSection As String="otomatis"
-Protected BackupServiceReady As Boolean=False
-Protected AutomaticSettingsOpen As Boolean=False
-Private CurrentBackupService As BackupServiceState
+    ' Sub-bagian yang sedang aktif: "otomatis" (jadwal) atau "tahun" (manual per periode)
+    Protected CurrentBackupSection As String = "otomatis"
+    ' Status kesiapan layanan agen database cadangan
+    Protected BackupServiceReady As Boolean = False
+    ' Status apakah form pengaturan jadwal sedang dibuka
+    Protected AutomaticSettingsOpen As Boolean = False
+    Private CurrentBackupService As BackupServiceState
 
-
-
-Protected ReadOnly Property CurrentAgentName As String
+    ' Mengambil nama agen sekunder yang terhubung
+    Protected ReadOnly Property CurrentAgentName As String
     Get
         If CurrentBackupService IsNot Nothing AndAlso Not String.IsNullOrWhiteSpace(CurrentBackupService.AgentName) AndAlso CurrentBackupService.AgentName <> "-" Then
             Return CurrentBackupService.AgentName
@@ -19,38 +29,49 @@ Protected ReadOnly Property CurrentAgentName As String
         Return "Laptop Backup"
     End Get
 End Property
-Protected Sub Page_Load(sender As Object,e As EventArgs)
- RequireBackupStaff()
- Response.Cache.SetCacheability(HttpCacheability.NoCache)
- Response.Cache.SetNoStore()
- Response.Cache.SetExpires(DateTime.UtcNow.AddYears(-1))
- Dim requested=If(Request.QueryString("section"),"").Trim().ToLowerInvariant()
- If requested="tahun" Then CurrentBackupSection=requested
- AutomaticSettingsOpen=IsPostBack AndAlso CurrentBackupSection="otomatis"
- LoadBackupServiceStatus()
- If Not IsPostBack Then
-  PopulateSourceDatabases()
-  If CurrentBackupSection="otomatis" Then
-   PopulateYears(ddlTahunJadwal,"- Pilih Tahun -")
-   PopulateTAByYear(ddlBatasThAkdk,"- Pilih Detail Tahun Akademik -","")
-   LoadConfig()
-  Else
-   PopulateBackupPeriods(ddlBackupStartTa,"- Pilih TA awal -")
-   PopulateBackupPeriods(ddlBackupEndTa,"- Pilih TA -")
-  End If
- End If
-End Sub
-Private Sub LoadBackupServiceStatus()
- Try
-  CurrentBackupService=ReadBackupServiceState()
-  BackupServiceReady=CurrentBackupService.IsReady
-  litBackupServiceStatus.Text=BackupServiceAlertHtml(CurrentBackupService,"Permintaan backup")
- Catch ex As Exception
-  CurrentBackupService=New BackupServiceState()
-  litBackupServiceStatus.Text="<div class='alert alert-danger backup-service-alert'><i class='fa fa-exclamation-triangle'></i><div><strong>Status Database Backup tidak dapat diperiksa</strong><span>" & Server.HtmlEncode(BackupErrorMessage(ex)) & "</span></div></div>"
- End Try
- btnJalankanBackup.Enabled=BackupServiceReady
-End Sub
+    ' =========================================================================================
+    ' SIKLUS HIDUP KONTROL: Page_Load
+    ' Validasi wewenang staf, inisialisasi dropdown tahun akademik dan konfigurasi jadwal.
+    ' =========================================================================================
+    Protected Sub Page_Load(sender As Object, e As EventArgs)
+        ' Pastikan hanya Staf Backup yang dapat membuka form ini
+        RequireBackupStaff()
+        Response.Cache.SetCacheability(HttpCacheability.NoCache)
+        Response.Cache.SetNoStore()
+        Response.Cache.SetExpires(DateTime.UtcNow.AddYears(-1))
+        
+        Dim requested = If(Request.QueryString("section"), "").Trim().ToLowerInvariant()
+        If requested = "tahun" Then CurrentBackupSection = requested
+        AutomaticSettingsOpen = IsPostBack AndAlso CurrentBackupSection = "otomatis"
+        
+        ' Periksa kesehatan agen sekunder (apakah database backup siap menerima instruksi)
+        LoadBackupServiceStatus()
+        
+        If Not IsPostBack Then
+            PopulateSourceDatabases()
+            If CurrentBackupSection = "otomatis" Then
+                PopulateYears(ddlTahunJadwal, "- Pilih Tahun -")
+                PopulateTAByYear(ddlBatasThAkdk, "- Pilih Detail Tahun Akademik -", "")
+                LoadConfig()
+            Else
+                PopulateBackupPeriods(ddlBackupStartTa, "- Pilih TA awal -")
+                PopulateBackupPeriods(ddlBackupEndTa, "- Pilih TA -")
+            End If
+        End If
+    End Sub
+
+    ' Memeriksa status agen; jika tidak aktif, tombol eksekusi dinonaktifkan demi keamanan
+    Private Sub LoadBackupServiceStatus()
+        Try
+            CurrentBackupService = ReadBackupServiceState()
+            BackupServiceReady = CurrentBackupService.IsReady
+            litBackupServiceStatus.Text = BackupServiceAlertHtml(CurrentBackupService, "Permintaan backup")
+        Catch ex As Exception
+            CurrentBackupService = New BackupServiceState()
+            litBackupServiceStatus.Text = "<div class='alert alert-danger backup-service-alert'><i class='fa fa-exclamation-triangle'></i><div><strong>Status Database Backup tidak dapat diperiksa</strong><span>" & Server.HtmlEncode(BackupErrorMessage(ex)) & "</span></div></div>"
+        End Try
+        btnJalankanBackup.Enabled = BackupServiceReady
+    End Sub
 Private Sub PopulateSourceDatabases()
  Dim databaseName = CurrentLiveDbName
  ddlSourceDatabase.Items.Clear()
@@ -131,67 +152,96 @@ Private Sub Summary(onOff As Boolean,nextRun As Nullable(Of DateTime))
   litSummaryCountdown.Text=If(nextRun.HasValue,"<span id='backupCountdown' data-next='" & nextRun.Value.ToString("yyyy-MM-ddTHH:mm:ss") & "'>Menghitung...</span>","-")
  End If
 End Sub
-Protected Sub btnSimpanJadwal_Click(sender As Object,e As EventArgs)
- Dim savedSuccessfully As Boolean=False
- Try
-  ValidateSelectedSourceDatabase(ddlSourceDatabaseSchedule.SelectedValue)
-  If ddlBatasThAkdk.SelectedValue="" Then Throw New ApplicationException("Pilih Tahun Akademik.")
-  Dim selectedTableCsv=SelectedTables(cblScheduleTables,True)
-  Using cmd As New SqlCommand("dbo.sp_SaveBackupJobConfiguration",cnsr)
-   Dim nowTime As DateTime=DateTime.Now:Dim scheduledTime As TimeSpan=If(ddlJamEksekusi.SelectedValue="NEXT_1_MINUTE",nowTime.AddMinutes(1).TimeOfDay,TimeSpan.Parse(ddlJamEksekusi.SelectedValue))
-   cmd.CommandType=CommandType.StoredProcedure:cmd.Parameters.Add("@IsEnabled",SqlDbType.Bit).Value=(hdnJobActive.Value="1"):cmd.Parameters.Add("@Frequency",SqlDbType.VarChar,10).Value=ddlFrekuensi.SelectedValue:cmd.Parameters.Add("@ExecutionTime",SqlDbType.Time).Value=scheduledTime:cmd.Parameters.Add("@CutoffThAkdk",SqlDbType.Char,5).Value=ddlBatasThAkdk.SelectedValue:cmd.Parameters.Add("@AdminUser",SqlDbType.VarChar,50).Value=BackupRequestedBy():cmd.Parameters.Add("@SelectedTables",SqlDbType.VarChar,100).Value=selectedTableCsv:cnsr.Open():cmd.ExecuteNonQuery()
-  End Using
-  savedSuccessfully=True
- Catch ex As Exception:ShowAlert(litAlertSchedule,"error","Gagal menyimpan konfigurasi",BackupErrorMessage(ex))
- Finally:tutupsr():End Try
- If savedSuccessfully Then
-  Response.Redirect("index.aspx?tab=dashboard",False)
-  Context.ApplicationInstance.CompleteRequest()
-  Return
- End If
- LoadConfig()
-End Sub
-Protected Sub btnDisableSchedule_Click(sender As Object,e As EventArgs)
- hdnJobActive.Value="0"
- chkJobToggleJS.Checked=False
- btnSimpanJadwal_Click(sender,e)
-End Sub
-Protected Sub btnJalankanBackup_Click(sender As Object,e As EventArgs)
- Dim requestAccepted As Boolean=False
- Try
-  EnsureBackupServiceReady(CurrentBackupService,"Backup")
-  ValidateSelectedSourceDatabase(ddlSourceDatabase.SelectedValue)
-  Dim mode=ddlBackupScope.SelectedValue,startTa=ddlBackupStartTa.SelectedValue,endTa=ddlBackupEndTa.SelectedValue
-  If mode<>"SINGLE" AndAlso mode<>"RANGE" Then Throw New ApplicationException("Cakupan backup tidak valid.")
-  If endTa="" Then Throw New ApplicationException("Pilih Tahun Akademik.")
-  If mode="RANGE" AndAlso startTa="" Then Throw New ApplicationException("Pilih TA awal rentang.")
-  If mode="RANGE" AndAlso String.CompareOrdinal(startTa,endTa)>=0 Then Throw New ApplicationException("TA akhir harus lebih besar dari TA awal.")
-  Dim selectedTableCsv=SelectedTables(cblBackupTables,True)
-  Using cmd As New SqlCommand("dbo.sp_CreateBackupTransferJob",cnsr)
-   cmd.CommandType=CommandType.StoredProcedure
-   cmd.Parameters.Add("@CutoffThAkdk",SqlDbType.Char,5).Value=endTa
-   cmd.Parameters.Add("@RequestedBy",SqlDbType.VarChar,50).Value=BackupRequestedBy()
-   cmd.Parameters.Add("@TriggerSource",SqlDbType.VarChar,10).Value="MANUAL"
-   cmd.Parameters.Add("@SelectionMode",SqlDbType.VarChar,10).Value=mode
-   cmd.Parameters.Add("@StartThAkdk",SqlDbType.Char,5).Value=If(mode="RANGE",CObj(startTa),DBNull.Value)
-   cmd.Parameters.Add("@SelectedTables",SqlDbType.VarChar,100).Value=selectedTableCsv
-   cnsr.Open()
-   Using rd=cmd.ExecuteReader()
-    If Not rd.Read() Then Throw New ApplicationException("Pembuatan antrean tidak menghasilkan status.")
-    requestAccepted=True
-   End Using
-  End Using
- Catch ex As Exception
-  ShowAlert(litAlertBackup,"error","Backup gagal",BackupErrorMessage(ex))
- Finally
-  tutupsr()
- End Try
- If requestAccepted Then
-  Response.Redirect("index.aspx?tab=dashboard&ref=backup",False)
-  Context.ApplicationInstance.CompleteRequest()
-  Return
- End If
-End Sub
+    ' =========================================================================================
+    ' AKSI: Menyimpan Konfigurasi Jadwal Otomatis
+    ' Memanggil stored procedure sp_SaveBackupJobConfiguration dan mengalihkan ke dashboard.
+    ' =========================================================================================
+    Protected Sub btnSimpanJadwal_Click(sender As Object, e As EventArgs)
+        Dim savedSuccessfully As Boolean = False
+        Try
+            ValidateSelectedSourceDatabase(ddlSourceDatabaseSchedule.SelectedValue)
+            If ddlBatasThAkdk.SelectedValue = "" Then Throw New ApplicationException("Pilih Tahun Akademik.")
+            Dim selectedTableCsv = SelectedTables(cblScheduleTables, True)
+            
+            Using cmd As New SqlCommand("dbo.sp_SaveBackupJobConfiguration", cnsr)
+                Dim nowTime As DateTime = DateTime.Now
+                Dim scheduledTime As TimeSpan = If(ddlJamEksekusi.SelectedValue = "NEXT_1_MINUTE", nowTime.AddMinutes(1).TimeOfDay, TimeSpan.Parse(ddlJamEksekusi.SelectedValue))
+                cmd.CommandType = CommandType.StoredProcedure
+                cmd.Parameters.Add("@IsEnabled", SqlDbType.Bit).Value = (hdnJobActive.Value = "1")
+                cmd.Parameters.Add("@Frequency", SqlDbType.VarChar, 10).Value = ddlFrekuensi.SelectedValue
+                cmd.Parameters.Add("@ExecutionTime", SqlDbType.Time).Value = scheduledTime
+                cmd.Parameters.Add("@CutoffThAkdk", SqlDbType.Char, 5).Value = ddlBatasThAkdk.SelectedValue
+                cmd.Parameters.Add("@AdminUser", SqlDbType.VarChar, 50).Value = BackupRequestedBy()
+                cmd.Parameters.Add("@SelectedTables", SqlDbType.VarChar, 100).Value = selectedTableCsv
+                cnsr.Open()
+                cmd.ExecuteNonQuery()
+            End Using
+            savedSuccessfully = True
+        Catch ex As Exception
+            ShowAlert(litAlertSchedule, "error", "Gagal menyimpan konfigurasi", BackupErrorMessage(ex))
+        Finally
+            tutupsr()
+        End Try
+        
+        If savedSuccessfully Then
+            Response.Redirect("index.aspx?tab=dashboard", False)
+            Context.ApplicationInstance.CompleteRequest()
+            Return
+        End If
+        LoadConfig()
+    End Sub
+
+    ' Menonaktifkan jadwal otomatis
+    Protected Sub btnDisableSchedule_Click(sender As Object, e As EventArgs)
+        hdnJobActive.Value = "0"
+        chkJobToggleJS.Checked = False
+        btnSimpanJadwal_Click(sender, e)
+    End Sub
+
+    ' =========================================================================================
+    ' AKSI: Mendaftarkan Antrean Backup Manual (Single TA atau Rentang TA)
+    ' Mendaftarkan job berstatus WAITING ke dbo.BackupTransferJob via sp_CreateBackupTransferJob,
+    ' lalu mengalihkan pengguna ke Dashboard untuk memantau progress bar secara real-time.
+    ' =========================================================================================
+    Protected Sub btnJalankanBackup_Click(sender As Object, e As EventArgs)
+        Dim requestAccepted As Boolean = False
+        Try
+            EnsureBackupServiceReady(CurrentBackupService, "Backup")
+            ValidateSelectedSourceDatabase(ddlSourceDatabase.SelectedValue)
+            Dim mode = ddlBackupScope.SelectedValue, startTa = ddlBackupStartTa.SelectedValue, endTa = ddlBackupEndTa.SelectedValue
+            If mode <> "SINGLE" AndAlso mode <> "RANGE" Then Throw New ApplicationException("Cakupan backup tidak valid.")
+            If endTa = "" Then Throw New ApplicationException("Pilih Tahun Akademik.")
+            If mode = "RANGE" AndAlso startTa = "" Then Throw New ApplicationException("Pilih TA awal rentang.")
+            If mode = "RANGE" AndAlso String.CompareOrdinal(startTa, endTa) >= 0 Then Throw New ApplicationException("TA akhir harus lebih besar dari TA awal.")
+            
+            Dim selectedTableCsv = SelectedTables(cblBackupTables, True)
+            Using cmd As New SqlCommand("dbo.sp_CreateBackupTransferJob", cnsr)
+                cmd.CommandType = CommandType.StoredProcedure
+                cmd.Parameters.Add("@CutoffThAkdk", SqlDbType.Char, 5).Value = endTa
+                cmd.Parameters.Add("@RequestedBy", SqlDbType.VarChar, 50).Value = BackupRequestedBy()
+                cmd.Parameters.Add("@TriggerSource", SqlDbType.VarChar, 10).Value = "MANUAL"
+                cmd.Parameters.Add("@SelectionMode", SqlDbType.VarChar, 10).Value = mode
+                cmd.Parameters.Add("@StartThAkdk", SqlDbType.Char, 5).Value = If(mode = "RANGE", CObj(startTa), DBNull.Value)
+                cmd.Parameters.Add("@SelectedTables", SqlDbType.VarChar, 100).Value = selectedTableCsv
+                cnsr.Open()
+                Using rd = cmd.ExecuteReader()
+                    If Not rd.Read() Then Throw New ApplicationException("Pembuatan antrean tidak menghasilkan status.")
+                    requestAccepted = True
+                End Using
+            End Using
+        Catch ex As Exception
+            ShowAlert(litAlertBackup, "error", "Backup gagal", BackupErrorMessage(ex))
+        Finally
+            tutupsr()
+        End Try
+        
+        ' Alihkan ke Dashboard dan arahkan pandangan ke panel proses aktif dengan efek sorotan
+        If requestAccepted Then
+            Response.Redirect("index.aspx?tab=dashboard&ref=backup", False)
+            Context.ApplicationInstance.CompleteRequest()
+            Return
+        End If
+    End Sub
 Private Sub ShowAlert(lit As Literal,kind As String,title As String,msg As String)
  msg=BackupFriendlyText(msg)
  Dim alertType As String = If(kind = "error", "danger", kind)

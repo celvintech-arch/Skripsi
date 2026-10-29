@@ -1,4 +1,13 @@
-﻿<%@ Page Language="VB" EnableSessionState="False" %>
+<%@ Page Language="VB" EnableSessionState="False" %>
+
+<%-- 
+=============================================================================================
+API GATEWAY AGEN LATAR BELAKANG / WORKER NODE (agent.aspx)
+Menangani komunikasi REST-like (HTTP POST / JSON) antara skrip PowerShell agen pada node
+sekunder (laptop/server backup) dengan server web pusat LINTAR.
+Setiap permintaan diautentikasi secara ketat menggunakan header rahasia 'X-Backup-Agent-Key'.
+=============================================================================================
+--%>
 <%@ Import Namespace="System" %>
 <%@ Import Namespace="System.Collections" %>
 <%@ Import Namespace="System.Collections.Generic" %>
@@ -11,7 +20,8 @@
 <!-- #INCLUDE virtual="/con_ascx2022/condecdummy.ascx" -->
 
 <script runat="server">
- Private Function GetBackupLiveSqlConnectionString() As String
+    ' Mengonversi koneksi database aktif menjadi format SqlClient berkecepatan tinggi dengan pooling
+    Private Function GetBackupLiveSqlConnectionString() As String
   Dim source As New OleDb.OleDbConnectionStringBuilder(connstringdec)
   Dim target As New SqlConnectionStringBuilder()
   target.DataSource=Convert.ToString(source("Data Source"))
@@ -28,18 +38,29 @@
   HandleAgentRequest(Context)
  End Sub
 
- Private Sub HandleAgentRequest(context As HttpContext)
-  context.Response.ContentType="application/json"
-  context.Response.TrySkipIisCustomErrors=True
-  context.Response.Cache.SetCacheability(HttpCacheability.NoCache)
-  context.Response.Cache.SetNoStore()
-  Try
-   If Not String.Equals(context.Request.HttpMethod,"POST",StringComparison.OrdinalIgnoreCase) Then WriteJson(context,405,New With {.ok=False,.message="Gunakan POST."}) : Return
-   If context.Request.ContentLength>104857600 Then WriteJson(context,413,New With {.ok=False,.message="Payload melebihi batas 100 MB."}) : Return
-   Dim action=If(context.Request.QueryString("action"),"").Trim().ToLowerInvariant()
-  If Array.IndexOf(New String(){"heartbeat","schema","claim","backupbatch","backupconfirm","backupmetrics","restorepush","restorecomplete","exportconfirm","inventory","jobprogress","jobfail","lookupclaim","lookupcomplete","sourcecheck"},action)<0 Then WriteJson(context,404,New With {.ok=False,.message="Endpoint tidak tersedia."}) : Return
-   Dim apiKey=If(context.Request.Headers("X-Backup-Agent-Key"),"").Trim()
-   If apiKey.Length<32 OrElse apiKey.Length>256 Then Throw New HttpException(401,"Token agent tidak tersedia atau tidak valid.")
+    ' =========================================================================================
+    ' ROUTER UTAMA PERMINTAAN AGEN (ACTION DISPATCHER)
+    ' Memeriksa metode HTTP POST, memvalidasi token X-Backup-Agent-Key, mengurai JSON payload,
+    ' dan mengarahkan ke handler aksi yang sesuai (heartbeat, claim, get_batch, restore, dll.).
+    ' =========================================================================================
+    Private Sub HandleAgentRequest(context As HttpContext)
+        context.Response.ContentType = "application/json"
+        context.Response.TrySkipIisCustomErrors = True
+        context.Response.Cache.SetCacheability(HttpCacheability.NoCache)
+        context.Response.Cache.SetNoStore()
+        Try
+            ' 1. Validasi Metode HTTP & Batas Ukuran Payload (Maksimum 100 MB)
+            If Not String.Equals(context.Request.HttpMethod, "POST", StringComparison.OrdinalIgnoreCase) Then WriteJson(context, 405, New With {.ok = False, .message = "Gunakan POST."}) : Return
+            If context.Request.ContentLength > 104857600 Then WriteJson(context, 413, New With {.ok = False, .message = "Payload melebihi batas 100 MB."}) : Return
+            
+            Dim action = If(context.Request.QueryString("action"), "").Trim().ToLowerInvariant()
+            If Array.IndexOf(New String() {"heartbeat", "schema", "claim", "backupbatch", "backupconfirm", "backupmetrics", "restorepush", "restorecomplete", "exportconfirm", "inventory", "jobprogress", "jobfail", "lookupclaim", "lookupcomplete", "sourcecheck"}, action) < 0 Then
+                WriteJson(context, 404, New With {.ok = False, .message = "Endpoint tidak tersedia."}) : Return
+            End If
+            
+            ' 2. Validasi Token Autentikasi Agen
+            Dim apiKey = If(context.Request.Headers("X-Backup-Agent-Key"), "").Trim()
+            If apiKey.Length < 32 OrElse apiKey.Length > 256 Then Throw New HttpException(401, "Token agent tidak tersedia atau tidak valid.")
 
    Dim payload As String
    Using reader As New StreamReader(context.Request.InputStream)

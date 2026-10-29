@@ -1,3 +1,11 @@
+<%-- 
+=============================================================================================
+DASHBOARD PEMANTAUAN & COCKPIT OPERASIONAL (statistik.ascx)
+Menyajikan status kesehatan agen terdistribusi (liveness & heartbeat), kapasitas fisik basis
+data aktif vs cadangan, perbandingan baris fisik per tabel, antrean proses berjalan secara
+real-time via polling AJAX, serta pusat rekonsiliasi sinkronisasi per Tahun Akademik.
+=============================================================================================
+--%>
 <!-- #INCLUDE file ="con_backup.ascx" -->
 <%@ Import Namespace="System.Data" %>
 <%@ Import Namespace="System.Data.SqlClient" %>
@@ -8,11 +16,18 @@
     Protected IsStaffDashboard As Boolean = False
     Protected ActiveJobCount As Integer = 0
 
+    ' =========================================================================================
+    ' SIKLUS HIDUP KONTROL: Page_Load
+    ' Memeriksa izin akses (Staff atau Manager) dan memuat metrik observabilitas sistem.
+    ' =========================================================================================
     Protected Sub Page_Load(ByVal sender As Object, ByVal e As EventArgs)
         RequireBackupReportAccess()
         IsStaffDashboard = IsBackupStaff()
         If Not IsPostBack Then
+            ' 1. Muat status agen, konfigurasi jadwal, dan antrean proses aktif
             LoadMonitoringOverview()
+            
+            ' 2. Muat statistik kapasitas dan rekonsiliasi inventaris jika bukan request polling ringan
             If Request.QueryString("ajax_poll") <> "1" Then
                 LoadDatabaseStats()
                 LoadInventorySummary()

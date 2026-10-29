@@ -1,11 +1,24 @@
 <%@ Control Language="VB" ClassName="backup_data_operator_control" %>
+
+<%-- 
+=============================================================================================
+MODUL MANAJEMEN OPERATOR & HAK AKSES PERAN (operator.ascx)
+Menangani penambahan, pengaktifan/penonaktifan, dan penugasan peran (Staff vs Manager)
+bagi akun-akun LINTAR yang berhak mengakses modul backup data. Dilengkapi proteksi
+anti-self lockout agar akun operator aktif tidak terkunci secara tidak sengaja.
+=============================================================================================
+--%>
 <!-- #INCLUDE file="con_backup.ascx" -->
 
 <script runat="server">
-Protected Sub Page_Load(sender As Object,e As EventArgs)
- RequireBackupStaff()
- If Not IsPostBack Then LoadOperators()
-End Sub
+    ' =========================================================================================
+    ' SIKLUS HIDUP KONTROL: Page_Load
+    ' Memastikan hanya staf yang berhak mengelola operator dan memuat daftar pengguna aktif.
+    ' =========================================================================================
+    Protected Sub Page_Load(sender As Object, e As EventArgs)
+        RequireBackupStaff()
+        If Not IsPostBack Then LoadOperators()
+    End Sub
 
 Private Function CurrentOperatorId() As String
  Return BackupRequestedBy().Trim()
@@ -55,11 +68,13 @@ Protected Sub gvOperators_RowCommand(sender As Object,e As GridViewCommandEventA
   If parts.Length<3 Then Throw New ApplicationException("Parameter perubahan pengguna tidak lengkap.")
   Dim userId=parts(0).Trim(),accessRole=parts(1).Trim().ToUpperInvariant(),enable=(parts(2)="1")
   If Not ValidUserId(userId) OrElse Not ValidRole(accessRole) Then Throw New ApplicationException("Parameter pengguna tidak valid.")
+  ' Proteksi Anti-Self Lockout: Akun yang sedang login dilarang menonaktifkan dirinya sendiri
   If e.CommandName="ToggleOperator" Then
    If Not enable AndAlso String.Equals(userId,CurrentOperatorId(),StringComparison.OrdinalIgnoreCase) Then Throw New ApplicationException("Akun yang sedang digunakan tidak dapat dinonaktifkan sendiri.")
    SetOperatorAccess(userId,accessRole,enable)
    ShowOperatorAlert("success","Akses diperbarui","Pengguna " & userId & If(enable," sudah diaktifkan."," sudah dinonaktifkan."))
   Else
+   ' Proteksi Anti-Self Demotion: Staf yang sedang login dilarang mengubah perannya sendiri menjadi Manager
    If accessRole="MANAGER_BACKUP" AndAlso String.Equals(userId,CurrentOperatorId(),StringComparison.OrdinalIgnoreCase) Then Throw New ApplicationException("Staf yang sedang login tidak dapat mengubah dirinya sendiri menjadi Manager.")
    SetOperatorAccess(userId,accessRole,enable)
    ShowOperatorAlert("success","Peran diperbarui","Pengguna " & userId & " sekarang menjadi " & RoleText(accessRole) & ".")

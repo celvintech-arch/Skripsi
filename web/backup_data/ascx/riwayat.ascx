@@ -1,9 +1,19 @@
 <%@ Control Language="VB" ClassName="backup_data_riwayat_control" %>
+
+<%-- 
+=============================================================================================
+MODUL RIWAYAT & AUDIT TRAIL PROSES (riwayat.ascx)
+Menyajikan daftar catatan lengkap seluruh pekerjaan (Backup, Restore, Ekspor) yang telah
+selesai dijalankan, baik yang berstatus Berhasil, Gagal, maupun Dibatalkan. Dilengkapi
+mekanisme penyaringan dinamis dan pagination server-side yang sangat hemat memori.
+=============================================================================================
+--%>
 <!-- #INCLUDE file="con_backup.ascx" -->
 <!-- #INCLUDE file="table_helpers.ascx" -->
 
 <script runat="server">
-Private Const HistoryPageSize As Integer=10
+    ' Ukuran halaman pagination (10 baris per halaman untuk performa rendering optimal)
+    Private Const HistoryPageSize As Integer = 10
 Private Property HistoryPageIndex As Long
  Get
   Return If(ViewState("HistoryPageIndex") Is Nothing,0L,Convert.ToInt64(ViewState("HistoryPageIndex")))
@@ -47,20 +57,30 @@ Private Function HistoryWhereSql() As String
  Return " WHERE " & String.Join(" AND ",filters.ToArray())
 End Function
 
-Private Sub LoadHistory()
- Dim data As New DataTable()
- Try
-  litHistoryMessage.Text=""
-  cnsr.Open()
-  Dim totalRows As Long
-  Using countCommand As New SqlCommand("SELECT COUNT_BIG(*) FROM dbo.BackupTransferJob j" & HistoryWhereSql(),cnsr)
-   AddHistoryParameters(countCommand)
-   totalRows=Convert.ToInt64(countCommand.ExecuteScalar())
-  End Using
-  Dim lastPage=If(totalRows=0,0L,(totalRows-1) \ HistoryPageSize)
-  HistoryPageIndex=Math.Min(HistoryPageIndex,lastPage)
-  ViewState("HistoryLastPage")=lastPage
-  Dim historySql="SELECT j.JobId,j.OperationType,j.TriggerSource,j.CutoffThAkdk,j.StudentNim,j.RestoreThAkdkList,j.SelectedTables,j.Status,j.ProcessedStudents,j.CreatedAt,j.CompletedAt,j.ProgressMessage,j.ResultMessage,j.ErrorMessage,j.TotalStudents,(SELECT COUNT(*) FROM dbo.BackupTransferJobStudent s WHERE s.JobId=j.JobId) TrackedStudents FROM dbo.BackupTransferJob j" & HistoryWhereSql() & " ORDER BY j.CreatedAt DESC,j.JobId DESC OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY"
+    ' =========================================================================================
+    ' PEMUATAN DATA RIWAYAT (SERVER-SIDE PAGINATION DENGAN OFFSET FETCH)
+    ' Mengambil data menggunakan query efisien SQL Server 'OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY'
+    ' agar pembacaan tabel tetap cepat dan ringan walaupun riwayat telah mencapai puluhan ribu baris.
+    ' =========================================================================================
+    Private Sub LoadHistory()
+        Dim data As New DataTable()
+        Try
+            litHistoryMessage.Text = ""
+            cnsr.Open()
+            Dim totalRows As Long
+            
+            ' 1. Hitung total baris yang cocok dengan kriteria filter aktif
+            Using countCommand As New SqlCommand("SELECT COUNT_BIG(*) FROM dbo.BackupTransferJob j" & HistoryWhereSql(), cnsr)
+                AddHistoryParameters(countCommand)
+                totalRows = Convert.ToInt64(countCommand.ExecuteScalar())
+            End Using
+            
+            Dim lastPage = If(totalRows = 0, 0L, (totalRows - 1) \ HistoryPageSize)
+            HistoryPageIndex = Math.Min(HistoryPageIndex, lastPage)
+            ViewState("HistoryLastPage") = lastPage
+            
+            ' 2. Ambil hanya baris yang dibutuhkan pada halaman saat ini
+            Dim historySql = "SELECT j.JobId,j.OperationType,j.TriggerSource,j.CutoffThAkdk,j.StudentNim,j.RestoreThAkdkList,j.SelectedTables,j.Status,j.ProcessedStudents,j.CreatedAt,j.CompletedAt,j.ProgressMessage,j.ResultMessage,j.ErrorMessage,j.TotalStudents,(SELECT COUNT(*) FROM dbo.BackupTransferJobStudent s WHERE s.JobId=j.JobId) TrackedStudents FROM dbo.BackupTransferJob j" & HistoryWhereSql() & " ORDER BY j.CreatedAt DESC,j.JobId DESC OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY"
   Using cmd As New SqlCommand(historySql,cnsr)
    AddHistoryParameters(cmd)
    cmd.Parameters.Add("@Offset",SqlDbType.BigInt).Value=HistoryPageIndex*HistoryPageSize

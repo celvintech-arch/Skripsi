@@ -1,40 +1,64 @@
 <%@ Control Language="VB" ClassName="backup_data_ekspor_control" %>
+
+<%-- 
+=============================================================================================
+MODUL EKSPOR ARSIP BASIS DATA KE FILE FISIK .BAK (ekspor.ascx)
+Menangani pembuatan berkas cadangan mandiri (.BAK) langsung pada penyimpanan sekunder.
+Berkas ini dilengkapi verifikasi integritas bawaan (RESTORE VERIFYONLY) untuk menjamin
+bahwa arsip fisik dapat digunakan untuk pemulihan bencana (disaster recovery).
+=============================================================================================
+--%>
 <!-- #INCLUDE file="con_backup.ascx" -->
 
 <script runat="server">
-Protected Sub Page_Load(sender As Object,e As EventArgs)
- RequireBackupStaff()
- Response.Cache.SetCacheability(HttpCacheability.NoCache):Response.Cache.SetNoStore()
- If Not IsPostBack Then LoadExports()
- btnCreateExport.Enabled=False
- Try
-  btnCreateExport.Enabled=ReadBackupServiceState().IsReady
- Catch ex As Exception
-  System.Diagnostics.Trace.TraceError("Backup Data export service status: {0}",ex)
- End Try
-End Sub
+    ' =========================================================================================
+    ' SIKLUS HIDUP KONTROL: Page_Load
+    ' Memeriksa izin staf, membaca status ekspor terbaru, dan memvalidasi kesiapan agen.
+    ' =========================================================================================
+    Protected Sub Page_Load(sender As Object, e As EventArgs)
+        RequireBackupStaff()
+        Response.Cache.SetCacheability(HttpCacheability.NoCache)
+        Response.Cache.SetNoStore()
+        
+        If Not IsPostBack Then LoadExports()
+        btnCreateExport.Enabled = False
+        Try
+            ' Tombol ekspor hanya aktif jika agen cadangan dalam keadaan siap (READY)
+            btnCreateExport.Enabled = ReadBackupServiceState().IsReady
+        Catch ex As Exception
+            System.Diagnostics.Trace.TraceError("Backup Data export service status: {0}", ex)
+        End Try
+    End Sub
 
-Protected Sub btnCreateExport_Click(sender As Object,e As EventArgs)
- Dim success As Boolean = False
- Try
-  EnsureBackupServiceReady(ReadBackupServiceState(),"Ekspor database")
-  Using cmd As New SqlCommand("dbo.sp_CreateBackupExportJob",cnsr)
-   cmd.CommandType=CommandType.StoredProcedure
-   cmd.Parameters.Add("@RequestedBy",SqlDbType.VarChar,50).Value=BackupRequestedBy()
-   cnsr.Open()
-   Dim jobId=Convert.ToString(cmd.ExecuteScalar())
-   success = True
-  End Using
- Catch ex As Exception
-  ShowAlert("danger","Ekspor gagal dibuat",BackupErrorMessage(ex))
- Finally:tutupsr():End Try
- If success Then
-  Response.Redirect("index.aspx?tab=dashboard&ref=export", False)
-  Context.ApplicationInstance.CompleteRequest()
-  Return
- End If
- LoadExports()
-End Sub
+    ' =========================================================================================
+    ' AKSI: Membuat Permintaan Ekspor .BAK Baru
+    ' Mendaftarkan job antrean bertipe EXPORT ke tabel dbo.BackupTransferJob via sp_CreateBackupExportJob,
+    ' lalu mengalihkan pengguna ke Dashboard untuk memantau proses backup fisik tersebut.
+    ' =========================================================================================
+    Protected Sub btnCreateExport_Click(sender As Object, e As EventArgs)
+        Dim success As Boolean = False
+        Try
+            EnsureBackupServiceReady(ReadBackupServiceState(), "Ekspor database")
+            Using cmd As New SqlCommand("dbo.sp_CreateBackupExportJob", cnsr)
+                cmd.CommandType = CommandType.StoredProcedure
+                cmd.Parameters.Add("@RequestedBy", SqlDbType.VarChar, 50).Value = BackupRequestedBy()
+                cnsr.Open()
+                Dim jobId = Convert.ToString(cmd.ExecuteScalar())
+                success = True
+            End Using
+        Catch ex As Exception
+            ShowAlert("danger", "Ekspor gagal dibuat", BackupErrorMessage(ex))
+        Finally
+            tutupsr()
+        End Try
+        
+        If success Then
+            Response.Redirect("index.aspx?tab=dashboard&ref=export", False)
+            Context.ApplicationInstance.CompleteRequest()
+            Return
+        End If
+        LoadExports()
+    End Sub
 
 Private Sub LoadExports()
  Dim data As New DataTable()

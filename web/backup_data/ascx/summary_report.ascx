@@ -1,11 +1,24 @@
 <%@ Control Language="VB" ClassName="backup_data_summary_report_control" %>
+
+<%-- 
+=============================================================================================
+MODUL LAPORAN RINGKASAN EKSEKUTIF & EKSPOR PDF (summary_report.ascx)
+Menyajikan metrik performa operasional (KPI), rekapitulasi data mahasiswa yang diproses,
+tingkat keberhasilan proses, dan fitur ekspor dokumen laporan PDF resmi LINTAR.
+Dapat diakses oleh peran Staf Operasional maupun Manajer/Pimpinan.
+=============================================================================================
+--%>
 <!-- #INCLUDE file="con_backup.ascx" -->
 <!-- #INCLUDE file="table_helpers.ascx" -->
 <!-- #INCLUDE file="pdf_report_writer.ascx" -->
 
 <script runat="server">
-Protected Sub Page_Load(sender As Object,e As EventArgs)
- RequireBackupReportAccess()
+    ' =========================================================================================
+    ' SIKLUS HIDUP KONTROL: Page_Load
+    ' Memeriksa izin akses laporan (Staff & Manager) dan menetapkan filter default (30 hari terakhir).
+    ' =========================================================================================
+    Protected Sub Page_Load(sender As Object, e As EventArgs)
+        RequireBackupReportAccess()
  Response.Cache.SetCacheability(HttpCacheability.NoCache)
  Response.Cache.SetNoStore()
  If Not IsPostBack Then
@@ -31,38 +44,49 @@ Protected Sub btnApplyReport_Click(sender As Object,e As EventArgs)
  LoadReport()
 End Sub
 
-Protected Sub btnExportPdf_Click(sender As Object,e As EventArgs)
- Dim startDate As DateTime,endDate As DateTime
- If Not ReadDateRange(startDate,endDate) Then Return
- Try
-  LoadSummary(startDate,endDate)
-  Dim jobs=GetJobDetails(startDate,endDate)
-  Dim inventory=GetInventorySummary()
-  Dim summaryItems As New System.Collections.Generic.List(Of System.Collections.Generic.KeyValuePair(Of String,String))()
-  summaryItems.Add(New System.Collections.Generic.KeyValuePair(Of String,String)("Total Proses",litTotalJobs.Text))
-  summaryItems.Add(New System.Collections.Generic.KeyValuePair(Of String,String)("Berhasil",litSuccessJobs.Text))
-  summaryItems.Add(New System.Collections.Generic.KeyValuePair(Of String,String)("Gagal",litFailedJobs.Text))
-  summaryItems.Add(New System.Collections.Generic.KeyValuePair(Of String,String)("Dibatalkan",litCancelledJobs.Text))
-  summaryItems.Add(New System.Collections.Generic.KeyValuePair(Of String,String)("Mahasiswa Diproses",litProcessedStudents.Text))
-  summaryItems.Add(New System.Collections.Generic.KeyValuePair(Of String,String)("Rata-rata Durasi",litAverageDuration.Text))
-  Dim period=startDate.ToString("dd MMM yyyy") & " - " & endDate.ToString("dd MMM yyyy")
-  Dim pdf=BackupSummaryPdfWriter.Create(period,ReportFilterDescription(),summaryItems,jobs,inventory)
-  Dim fileName="LINTAR_Laporan_Ringkasan_" & DateTime.Now.ToString("yyyyMMdd_HHmmss") & ".pdf"
-  Response.Clear()
-  Response.Buffer=True
-  Response.ContentType="application/pdf"
-  Response.AddHeader("Content-Disposition","attachment; filename=" & fileName)
-  Response.AddHeader("Content-Length",pdf.Length.ToString())
-  Response.BinaryWrite(pdf)
-  Response.Flush()
-  Response.SuppressContent=True
-  HttpContext.Current.ApplicationInstance.CompleteRequest()
- Catch ex As Exception
-  litReportMessage.Text="<div class='alert alert-danger'><strong>PDF gagal dibuat.</strong> " & Server.HtmlEncode(BackupErrorMessage(ex)) & "</div>"
- Finally
-  tutupsr()
- End Try
-End Sub
+    ' =========================================================================================
+    ' AKSI: Ekspor Laporan Ringkasan ke Dokumen PDF
+    ' Mengompilasi data ringkasan KPI, detail 100 job, dan status inventaris periode,
+    ' lalu memanggil BackupSummaryPdfWriter untuk menghasilkan berkas biner PDF langsung ke browser.
+    ' =========================================================================================
+    Protected Sub btnExportPdf_Click(sender As Object, e As EventArgs)
+        Dim startDate As DateTime, endDate As DateTime
+        If Not ReadDateRange(startDate, endDate) Then Return
+        Try
+            LoadSummary(startDate, endDate)
+            Dim jobs = GetJobDetails(startDate, endDate)
+            Dim inventory = GetInventorySummary()
+            
+            ' Siapkan item ringkasan metrik
+            Dim summaryItems As New System.Collections.Generic.List(Of System.Collections.Generic.KeyValuePair(Of String, String))()
+            summaryItems.Add(New System.Collections.Generic.KeyValuePair(Of String, String)("Total Proses", litTotalJobs.Text))
+            summaryItems.Add(New System.Collections.Generic.KeyValuePair(Of String, String)("Berhasil", litSuccessJobs.Text))
+            summaryItems.Add(New System.Collections.Generic.KeyValuePair(Of String, String)("Gagal", litFailedJobs.Text))
+            summaryItems.Add(New System.Collections.Generic.KeyValuePair(Of String, String)("Dibatalkan", litCancelledJobs.Text))
+            summaryItems.Add(New System.Collections.Generic.KeyValuePair(Of String, String)("Mahasiswa Diproses", litProcessedStudents.Text))
+            summaryItems.Add(New System.Collections.Generic.KeyValuePair(Of String, String)("Rata-rata Durasi", litAverageDuration.Text))
+            
+            Dim period = startDate.ToString("dd MMM yyyy") & " - " & endDate.ToString("dd MMM yyyy")
+            ' Hasilkan dokumen biner PDF native (spesifikasi PDF 1.4 in-memory stream)
+            Dim pdf = BackupSummaryPdfWriter.Create(period, ReportFilterDescription(), summaryItems, jobs, inventory)
+            Dim fileName = "LINTAR_Laporan_Ringkasan_" & DateTime.Now.ToString("yyyyMMdd_HHmmss") & ".pdf"
+            
+            ' Kirimkan ke browser klien sebagai file download attachment
+            Response.Clear()
+            Response.Buffer = True
+            Response.ContentType = "application/pdf"
+            Response.AddHeader("Content-Disposition", "attachment; filename=" & fileName)
+            Response.AddHeader("Content-Length", pdf.Length.ToString())
+            Response.BinaryWrite(pdf)
+            Response.Flush()
+            Response.SuppressContent = True
+            HttpContext.Current.ApplicationInstance.CompleteRequest()
+        Catch ex As Exception
+            litReportMessage.Text = "<div class='alert alert-danger'><strong>PDF gagal dibuat.</strong> " & Server.HtmlEncode(BackupErrorMessage(ex)) & "</div>"
+        Finally
+            tutupsr()
+        End Try
+    End Sub
 
 Private Sub LoadAcademicPeriods()
  ddlAcademicPeriod.Items.Clear()
