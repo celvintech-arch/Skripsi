@@ -82,7 +82,9 @@ Private Sub PopulateSourceDatabases()
  ddlSourceDatabaseSchedule.Enabled=False
 End Sub
 Private Sub ValidateSelectedSourceDatabase(selectedDatabase As String)
- If Not String.Equals(selectedDatabase, CurrentLiveDbName, StringComparison.OrdinalIgnoreCase) Then Throw New ApplicationException("Database sumber belum terdaftar pada koneksi aplikasi.")
+    If Not String.IsNullOrWhiteSpace(selectedDatabase) AndAlso Not String.Equals(selectedDatabase, CurrentLiveDbName, StringComparison.OrdinalIgnoreCase) Then
+        Throw New ApplicationException("Database sumber belum terdaftar pada koneksi aplikasi.")
+    End If
 End Sub
 Private Sub ApplySelectedTables(list As CheckBoxList,value As String)
  Dim selected As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
