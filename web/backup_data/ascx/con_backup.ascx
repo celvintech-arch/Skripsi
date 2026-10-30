@@ -310,10 +310,5 @@ kesehatan agen background, sistem otorisasi peran (RBAC), dan fungsi pembantu (h
         End Select
     End Function
 
-    ' Menampilkan kotak peringatan (Alert Box) standar Bootstrap
-    Public Sub ShowAlert(lit As Literal, kind As String, title As String, msg As String)
-        If lit Is Nothing Then Return
-        Dim alertKind As String = If(kind = "error", "danger", kind)
-        lit.Text = "<div class='alert alert-" & alertKind & "'><strong>" & Server.HtmlEncode(title) & "</strong> " & Server.HtmlEncode(msg) & "</div>"
-    End Sub
+
 </script>
