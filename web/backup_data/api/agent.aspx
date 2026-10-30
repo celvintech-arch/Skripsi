@@ -477,44 +477,47 @@ Setiap permintaan diautentikasi secara ketat menggunakan header rahasia 'X-Backu
   Return value IsNot Nothing AndAlso System.Text.RegularExpressions.Regex.IsMatch(value,"^[0-9]{9}$")
  End Function
 
- Private Sub RunScheduledBackup(cn As SqlConnection)
-  Dim enabled As Boolean=False,frequency As String="",cutoff As String="",selectedTables As String="tbio01,treg,tkrs06,t_absensi14",requestedBy As String="Application",executionTime As TimeSpan,nextRun As Nullable(Of DateTime)=Nothing
-  Using cmd As New SqlCommand("SELECT IsEnabled,Frequency,ExecutionTime,CutoffThAkdk,NextRunAt,SelectedTables,UpdatedBy FROM dbo.BackupJobConfiguration WHERE ConfigurationId=1",cn)
-   Using rd=cmd.ExecuteReader()
-    If Not rd.Read() Then Return
-    enabled=Convert.ToBoolean(rd("IsEnabled"))
-    frequency=rd("Frequency").ToString().Trim()
-    executionTime=CType(rd("ExecutionTime"),TimeSpan)
-    cutoff=rd("CutoffThAkdk").ToString().Trim()
-    selectedTables=rd("SelectedTables").ToString().Trim()
-    requestedBy=rd("UpdatedBy").ToString().Trim()
-    If Not rd.IsDBNull(rd.GetOrdinal("NextRunAt")) Then nextRun=CType(rd("NextRunAt"),DateTime)
+  Private Sub RunScheduledBackup(cn As SqlConnection)
+   Dim enabled As Boolean=False,frequency As String="",cutoff As String="",selectedTables As String="tbio01,treg,tkrs06,t_absensi14",requestedBy As String="Application",executionTime As TimeSpan,nextRun As Nullable(Of DateTime)=Nothing,selectionMode As String="UP_TO"
+   Using cmd As New SqlCommand("SELECT IsEnabled,Frequency,ExecutionTime,CutoffThAkdk,NextRunAt,SelectedTables,UpdatedBy,ISNULL(SelectionMode,'UP_TO') SelectionMode FROM dbo.BackupJobConfiguration WHERE ConfigurationId=1",cn)
+    Using rd=cmd.ExecuteReader()
+     If Not rd.Read() Then Return
+     enabled=Convert.ToBoolean(rd("IsEnabled"))
+     frequency=rd("Frequency").ToString().Trim()
+     executionTime=CType(rd("ExecutionTime"),TimeSpan)
+     cutoff=rd("CutoffThAkdk").ToString().Trim()
+     selectedTables=rd("SelectedTables").ToString().Trim()
+     requestedBy=rd("UpdatedBy").ToString().Trim()
+     selectionMode=rd("SelectionMode").ToString().Trim().ToUpperInvariant()
+     If Not rd.IsDBNull(rd.GetOrdinal("NextRunAt")) Then nextRun=CType(rd("NextRunAt"),DateTime)
+    End Using
    End Using
-  End Using
-  If Not enabled OrElse Not nextRun.HasValue OrElse nextRun.Value>DateTime.Now Then Return
-  Using cmd As New SqlCommand("SELECT COUNT(*) FROM dbo.BackupTransferJob WHERE OperationType='BACKUP' AND Status IN('WAITING','CLAIMED','TRANSFERRING')",cn)
-   If Convert.ToInt32(cmd.ExecuteScalar())>0 Then Return
-  End Using
-  Using cmd As New SqlCommand("dbo.sp_CreateBackupTransferJob",cn)
-   cmd.CommandType=CommandType.StoredProcedure
-   cmd.Parameters.Add("@CutoffThAkdk",SqlDbType.Char,5).Value=cutoff
-   cmd.Parameters.Add("@RequestedBy",SqlDbType.VarChar,50).Value=requestedBy
-   cmd.Parameters.Add("@TriggerSource",SqlDbType.VarChar,10).Value="SCHEDULED"
-   cmd.Parameters.Add("@SelectedTables",SqlDbType.VarChar,100).Value=selectedTables
-   cmd.CommandTimeout=60
-   cmd.ExecuteNonQuery()
-  End Using
-  Using cmd As New SqlCommand("dbo.sp_SaveBackupJobConfiguration",cn)
-   cmd.CommandType=CommandType.StoredProcedure
-   cmd.Parameters.Add("@IsEnabled",SqlDbType.Bit).Value=True
-   cmd.Parameters.Add("@Frequency",SqlDbType.VarChar,10).Value=frequency
-   cmd.Parameters.Add("@ExecutionTime",SqlDbType.Time).Value=executionTime
-   cmd.Parameters.Add("@CutoffThAkdk",SqlDbType.Char,5).Value=cutoff
-   cmd.Parameters.Add("@AdminUser",SqlDbType.VarChar,50).Value=requestedBy
-   cmd.Parameters.Add("@SelectedTables",SqlDbType.VarChar,100).Value=selectedTables
-   cmd.ExecuteNonQuery()
-  End Using
- End Sub
+   If Not enabled OrElse Not nextRun.HasValue OrElse nextRun.Value>DateTime.Now Then Return
+   Using cmd As New SqlCommand("SELECT COUNT(*) FROM dbo.BackupTransferJob WHERE OperationType='BACKUP' AND Status IN('WAITING','CLAIMED','TRANSFERRING')",cn)
+    If Convert.ToInt32(cmd.ExecuteScalar())>0 Then Return
+   End Using
+   Using cmd As New SqlCommand("dbo.sp_CreateBackupTransferJob",cn)
+    cmd.CommandType=CommandType.StoredProcedure
+    cmd.Parameters.Add("@CutoffThAkdk",SqlDbType.Char,5).Value=cutoff
+    cmd.Parameters.Add("@RequestedBy",SqlDbType.VarChar,50).Value=requestedBy
+    cmd.Parameters.Add("@TriggerSource",SqlDbType.VarChar,10).Value="SCHEDULED"
+    cmd.Parameters.Add("@SelectionMode",SqlDbType.VarChar,10).Value=selectionMode
+    cmd.Parameters.Add("@SelectedTables",SqlDbType.VarChar,100).Value=selectedTables
+    cmd.CommandTimeout=60
+    cmd.ExecuteNonQuery()
+   End Using
+   Using cmd As New SqlCommand("dbo.sp_SaveBackupJobConfiguration",cn)
+    cmd.CommandType=CommandType.StoredProcedure
+    cmd.Parameters.Add("@IsEnabled",SqlDbType.Bit).Value=True
+    cmd.Parameters.Add("@Frequency",SqlDbType.VarChar,10).Value=frequency
+    cmd.Parameters.Add("@ExecutionTime",SqlDbType.Time).Value=executionTime
+    cmd.Parameters.Add("@CutoffThAkdk",SqlDbType.Char,5).Value=cutoff
+    cmd.Parameters.Add("@AdminUser",SqlDbType.VarChar,50).Value=requestedBy
+    cmd.Parameters.Add("@SelectedTables",SqlDbType.VarChar,100).Value=selectedTables
+    cmd.Parameters.Add("@SelectionMode",SqlDbType.VarChar,10).Value=selectionMode
+    cmd.ExecuteNonQuery()
+   End Using
+  End Sub
 
  Private Function GetUnrestoredNims(cn As SqlConnection,jobId As Guid,nims As System.Collections.IList) As HashSet(Of String)
   Dim result As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)

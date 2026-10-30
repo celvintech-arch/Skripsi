@@ -51,8 +51,58 @@ real-time via polling AJAX, serta pusat rekonsiliasi sinkronisasi per Tahun Akad
         End Select
     End Sub
 
+    Private Sub CheckAndTriggerScheduledBackup()
+        Try
+            Using cn As New SqlConnection(connstringLive)
+                Using cmd As New SqlCommand("SELECT TOP(1) IsEnabled,Frequency,ExecutionTime,CutoffThAkdk,NextRunAt,SelectedTables,UpdatedBy,ISNULL(SelectionMode,'UP_TO') SelectionMode FROM dbo.BackupJobConfiguration WHERE ConfigurationId=1", cn)
+                    cn.Open()
+                    Dim enabled As Boolean = False, frequency As String = "", cutoff As String = "", selectedTables As String = "tbio01,treg,tkrs06,t_absensi14", requestedBy As String = "Application", executionTime As TimeSpan, nextRun As Nullable(Of DateTime) = Nothing, selectionMode As String = "UP_TO"
+                    Using rd = cmd.ExecuteReader()
+                        If Not rd.Read() Then Return
+                        enabled = Convert.ToBoolean(rd("IsEnabled"))
+                        frequency = rd("Frequency").ToString().Trim()
+                        executionTime = CType(rd("ExecutionTime"), TimeSpan)
+                        cutoff = rd("CutoffThAkdk").ToString().Trim()
+                        selectedTables = rd("SelectedTables").ToString().Trim()
+                        requestedBy = rd("UpdatedBy").ToString().Trim()
+                        selectionMode = rd("SelectionMode").ToString().Trim().ToUpperInvariant()
+                        If Not rd.IsDBNull(rd.GetOrdinal("NextRunAt")) Then nextRun = CType(rd("NextRunAt"), DateTime)
+                    End Using
+                    If Not enabled OrElse Not nextRun.HasValue OrElse nextRun.Value > DateTime.Now Then Return
+                    Using cmdCheck As New SqlCommand("SELECT COUNT(*) FROM dbo.BackupTransferJob WHERE OperationType='BACKUP' AND Status IN('WAITING','CLAIMED','TRANSFERRING')", cn)
+                        If Convert.ToInt32(cmdCheck.ExecuteScalar()) > 0 Then Return
+                    End Using
+                    Using cmdJob As New SqlCommand("dbo.sp_CreateBackupTransferJob", cn)
+                        cmdJob.CommandType = CommandType.StoredProcedure
+                        cmdJob.Parameters.Add("@CutoffThAkdk", SqlDbType.Char, 5).Value = cutoff
+                        cmdJob.Parameters.Add("@RequestedBy", SqlDbType.VarChar, 50).Value = requestedBy
+                        cmdJob.Parameters.Add("@TriggerSource", SqlDbType.VarChar, 10).Value = "SCHEDULED"
+                        cmdJob.Parameters.Add("@SelectionMode", SqlDbType.VarChar, 10).Value = selectionMode
+                        cmdJob.Parameters.Add("@SelectedTables", SqlDbType.VarChar, 100).Value = selectedTables
+                        cmdJob.CommandTimeout = 60
+                        cmdJob.ExecuteNonQuery()
+                    End Using
+                    Using cmdSave As New SqlCommand("dbo.sp_SaveBackupJobConfiguration", cn)
+                        cmdSave.CommandType = CommandType.StoredProcedure
+                        cmdSave.Parameters.Add("@IsEnabled", SqlDbType.Bit).Value = True
+                        cmdSave.Parameters.Add("@Frequency", SqlDbType.VarChar, 10).Value = frequency
+                        cmdSave.Parameters.Add("@ExecutionTime", SqlDbType.Time).Value = executionTime
+                        cmdSave.Parameters.Add("@CutoffThAkdk", SqlDbType.Char, 5).Value = cutoff
+                        cmdSave.Parameters.Add("@AdminUser", SqlDbType.VarChar, 50).Value = requestedBy
+                        cmdSave.Parameters.Add("@SelectedTables", SqlDbType.VarChar, 100).Value = selectedTables
+                        cmdSave.Parameters.Add("@SelectionMode", SqlDbType.VarChar, 10).Value = selectionMode
+                        cmdSave.ExecuteNonQuery()
+                    End Using
+                End Using
+            End Using
+        Catch ex As Exception
+            System.Diagnostics.Trace.TraceWarning("Scheduled backup check: {0}", ex.Message)
+        End Try
+    End Sub
+
     Private Sub LoadMonitoringOverview()
         Try
+            CheckAndTriggerScheduledBackup()
             Dim serviceState=ReadBackupServiceState()
             litServiceStatus.Text="<span class='monitor-status monitor-status-" & serviceState.CssClass & "'><i class='fa " & If(serviceState.IsReady,"fa-check-circle","fa-exclamation-circle") & "'></i>" & Server.HtmlEncode(serviceState.StatusText) & "</span>"
             litAgentName.Text=Server.HtmlEncode(serviceState.AgentName)
@@ -61,7 +111,7 @@ real-time via polling AJAX, serta pusat rekonsiliasi sinkronisasi per Tahun Akad
             litAgentMessage.Text=If(serviceState.IsReady,"",Server.HtmlEncode(serviceState.LastMessage))
 
             Dim ds As New DataSet()
-            Dim sql="SELECT TOP(1) IsEnabled,Frequency,CutoffThAkdk,NextRunAt FROM dbo.BackupJobConfiguration WHERE ConfigurationId=1;" & _
+            Dim sql="SELECT TOP(1) IsEnabled,Frequency,CutoffThAkdk,NextRunAt,ISNULL(SelectionMode,'UP_TO') SelectionMode FROM dbo.BackupJobConfiguration WHERE ConfigurationId=1;" & _
                 "WITH Latest AS(SELECT OperationType,Status,CreatedAt,CompletedAt,ROW_NUMBER() OVER(PARTITION BY OperationType ORDER BY CreatedAt DESC) rn FROM dbo.BackupTransferJob) SELECT OperationType,Status,CreatedAt,CompletedAt FROM Latest WHERE rn=1;" & _
                 "SELECT TOP(5) JobId,OperationType,Status,ProcessedStudents,TotalStudents,CreatedAt,ProgressMessage FROM dbo.BackupTransferJob WHERE Status IN('WAITING','CLAIMED','TRANSFERRING') ORDER BY CreatedAt;"
             Using cn As New SqlConnection(connstringLive),ad As New SqlDataAdapter(sql,cn)
@@ -72,7 +122,9 @@ real-time via polling AJAX, serta pusat rekonsiliasi sinkronisasi per Tahun Akad
                 Dim config=ds.Tables(0).Rows(0),enabled=Convert.ToBoolean(config("IsEnabled"))
                 litAutomaticStatus.Text="<span class='monitor-status monitor-status-" & If(enabled,"success","neutral") & "'>" & If(enabled,"ON","OFF") & "</span>"
                 litAutomaticFrequency.Text=FrequencyText(config("Frequency").ToString())
-                litAutomaticScope.Text="TA " & Server.HtmlEncode(config("CutoffThAkdk").ToString().Trim()) & " dan sebelumnya"
+                Dim scopeMode = If(config.Table.Columns.Contains("SelectionMode") AndAlso Not config.IsNull("SelectionMode"), config("SelectionMode").ToString().Trim().ToUpperInvariant(), "UP_TO")
+                Dim cutoffStr = Server.HtmlEncode(config("CutoffThAkdk").ToString().Trim())
+                litAutomaticScope.Text = If(scopeMode = "SINGLE", "Hanya TA " & cutoffStr, "TA " & cutoffStr & " dan sebelumnya")
                 litNextSchedule.Text=If(enabled AndAlso Not config.IsNull("NextRunAt"),Convert.ToDateTime(config("NextRunAt")).ToString("dd MMM yyyy HH:mm"),"Belum dijadwalkan")
             Else
                 litAutomaticStatus.Text="<span class='monitor-status monitor-status-neutral'>Belum dikonfigurasi</span>"
@@ -791,23 +843,23 @@ function confirmRestorePeriod(button) {
 
 (function () {
     var activePanelId = "panelActiveProcesses";
-    var pollInterval = 3000;
+    var fastPollInterval = 2500; // Interval polling saat ada proses berjalan (2.5 detik)
+    var idlePollInterval = 5000; // Interval polling saat idle agar otomatis mendeteksi job baru (5 detik)
     var isPolling = false;
+    var hadActiveJobs = document.querySelectorAll("#" + activePanelId + " .progress-bar").length > 0;
 
-    // Auto-scroll halus & highlight fokus jika diarahkan dari halaman backup / pemulihan / ekspor
+    // Auto-scroll jika baru dialihkan dari proses backup / pemulihan
     var urlParams = new URLSearchParams(window.location.search);
     var ref = urlParams.get("ref");
-    if (ref === "backup" || ref === "restore" || ref === "export" || ref === "sync" || urlParams.get("focus") === "active") {
+    if (ref === "backup" || ref === "restore" || ref === "sync" || urlParams.get("focus") === "active") {
         var targetEl = document.getElementById(activePanelId);
         if (targetEl) {
             setTimeout(function () {
                 targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
-                targetEl.style.transition = "box-shadow 0.4s ease, border-color 0.4s ease";
-                targetEl.style.boxShadow = "0 0 0 4px rgba(160, 22, 38, 0.25)";
-                targetEl.style.borderColor = "#A01626";
+                targetEl.style.transition = "box-shadow 0.4s ease";
+                targetEl.style.boxShadow = "0 0 0 4px rgba(220, 38, 38, 0.45)";
                 setTimeout(function () {
                     targetEl.style.boxShadow = "";
-                    targetEl.style.borderColor = "";
                 }, 2200);
             }, 300);
         }
@@ -840,30 +892,38 @@ function confirmRestorePeriod(button) {
                 var curPanel = document.getElementById(activePanelId);
 
                 if (newPanel && curPanel) {
-                    curPanel.innerHTML = newPanel.innerHTML;
+                    if (curPanel.innerHTML !== newPanel.innerHTML) {
+                        curPanel.innerHTML = newPanel.innerHTML;
+                    }
                 }
 
-                // Periksa apakah masih ada proses antrean yang aktif
+                // Periksa apakah ada proses antrean yang sedang aktif pada response baru
                 var hasActiveBars = doc.querySelectorAll("#" + activePanelId + " .progress-bar").length > 0;
                 if (hasActiveBars) {
-                    setTimeout(pollActiveDashboard, pollInterval);
+                    hadActiveJobs = true;
+                    // Ada proses berjalan -> polling cepat
+                    setTimeout(pollActiveDashboard, fastPollInterval);
                 } else {
-                    // Semua proses selesai: simpan posisi scroll lalu refresh 1x untuk update ringkasan database
-                    sessionStorage.setItem("dashboard_scroll_pos", window.scrollY || window.pageYOffset);
-                    setTimeout(function () {
-                        window.location.replace("index.aspx?tab=dashboard&completed=1");
-                    }, 1200);
+                    if (hadActiveJobs) {
+                        // Semua proses selesai: reload 1x agar ringkasan database & kapasitas ter-update
+                        sessionStorage.setItem("dashboard_scroll_pos", window.scrollY || window.pageYOffset);
+                        setTimeout(function () {
+                            window.location.replace("index.aspx?tab=dashboard&completed=1");
+                        }, 1200);
+                    } else {
+                        // Sedang tidak ada proses: tetap lakukan polling berkala setiap 5 detik
+                        // sehingga saat backup otomatis mulai di background, progress bar langsung muncul TANPA REFRESH!
+                        setTimeout(pollActiveDashboard, idlePollInterval);
+                    }
                 }
             })
             .catch(function () {
                 isPolling = false;
-                setTimeout(pollActiveDashboard, 5000);
+                setTimeout(pollActiveDashboard, idlePollInterval);
             });
     }
 
-    var hasActiveNow = document.querySelectorAll("#" + activePanelId + " .progress-bar").length > 0;
-    if (hasActiveNow) {
-        setTimeout(pollActiveDashboard, pollInterval);
-    }
+    // Mulai polling secara otomatis sejak halaman dibuka
+    setTimeout(pollActiveDashboard, hadActiveJobs ? fastPollInterval : idlePollInterval);
 })();
 </script>

@@ -111,53 +111,102 @@ Private Sub PopulateYears(list As DropDownList,prompt As String)
    Finally:tutupsr():End Try
  End Using
 End Sub
-Private Sub PopulateTAByYear(list As DropDownList,prompt As String,tahun As String)
- list.Items.Clear():list.Items.Add(New ListItem(prompt,""))
- If String.IsNullOrWhiteSpace(tahun) Then Exit Sub
- Dim sql=";WITH T AS(SELECT DISTINCT LTRIM(RTRIM(th_akdk)) th_akdk FROM dbo.treg WHERE LEFT(LTRIM(RTRIM(th_akdk)),4)=@tahun AND LTRIM(RTRIM(th_akdk)) LIKE '[0-9][0-9][0-9][0-9][0-9]') SELECT T.th_akdk,COUNT(DISTINCT r.nim1) StudentCount FROM T JOIN dbo.treg r ON LTRIM(RTRIM(r.th_akdk))<=T.th_akdk JOIN dbo.tbio01 b ON b.nim1=r.nim1 GROUP BY T.th_akdk ORDER BY T.th_akdk DESC"
- Using cmd As New SqlCommand(sql,cnsr)
-  cmd.Parameters.Add("@tahun",SqlDbType.Char,4).Value=tahun
-  Try
-   cnsr.Open():Using rd=cmd.ExecuteReader():While rd.Read():Dim ta=rd("th_akdk").ToString().Trim(),studentCount=Convert.ToInt32(rd("StudentCount")):list.Items.Add(New ListItem(ta & " dan sebelumnya - Total mahasiswa: " & studentCount.ToString("N0"),ta)):End While:End Using
-   Finally:tutupsr():End Try
-  End Using
+Private Sub PopulateTAByYear(list As DropDownList, prompt As String, tahun As String, Optional scope As String = "UP_TO")
+    list.Items.Clear()
+    list.Items.Add(New ListItem(prompt, ""))
+    If String.IsNullOrWhiteSpace(tahun) Then Exit Sub
+    Dim isSingle As Boolean = String.Equals(scope, "SINGLE", StringComparison.OrdinalIgnoreCase)
+    Dim sql As String
+    If isSingle Then
+        sql = ";WITH T AS(SELECT DISTINCT LTRIM(RTRIM(th_akdk)) th_akdk FROM dbo.treg WHERE LEFT(LTRIM(RTRIM(th_akdk)),4)=@tahun AND LTRIM(RTRIM(th_akdk)) LIKE '[0-9][0-9][0-9][0-9][0-9]') SELECT T.th_akdk,COUNT(DISTINCT r.nim1) StudentCount FROM T JOIN dbo.treg r ON LTRIM(RTRIM(r.th_akdk))=T.th_akdk JOIN dbo.tbio01 b ON b.nim1=r.nim1 GROUP BY T.th_akdk ORDER BY T.th_akdk DESC"
+    Else
+        sql = ";WITH T AS(SELECT DISTINCT LTRIM(RTRIM(th_akdk)) th_akdk FROM dbo.treg WHERE LEFT(LTRIM(RTRIM(th_akdk)),4)=@tahun AND LTRIM(RTRIM(th_akdk)) LIKE '[0-9][0-9][0-9][0-9][0-9]') SELECT T.th_akdk,COUNT(DISTINCT r.nim1) StudentCount FROM T JOIN dbo.treg r ON LTRIM(RTRIM(r.th_akdk))<=T.th_akdk JOIN dbo.tbio01 b ON b.nim1=r.nim1 GROUP BY T.th_akdk ORDER BY T.th_akdk DESC"
+    End If
+    Using cmd As New SqlCommand(sql, cnsr)
+        cmd.Parameters.Add("@tahun", SqlDbType.Char, 4).Value = tahun
+        Try
+            cnsr.Open()
+            Using rd = cmd.ExecuteReader()
+                While rd.Read()
+                    Dim ta = rd("th_akdk").ToString().Trim()
+                    Dim studentCount = Convert.ToInt32(rd("StudentCount"))
+                    Dim text = If(isSingle, ta & " (Hanya 1 TA ini) - Total mahasiswa: " & studentCount.ToString("N0"), ta & " dan sebelumnya - Total mahasiswa: " & studentCount.ToString("N0"))
+                    list.Items.Add(New ListItem(text, ta))
+                End While
+            End Using
+        Finally
+            tutupsr()
+        End Try
+    End Using
 End Sub
-Protected Sub ddlTahunJadwal_SelectedIndexChanged(sender As Object,e As EventArgs)
- PopulateTAByYear(ddlBatasThAkdk,"- Pilih detail Tahun Akademik -",ddlTahunJadwal.SelectedValue)
+
+Protected Sub ddlTahunJadwal_SelectedIndexChanged(sender As Object, e As EventArgs)
+    PopulateTAByYear(ddlBatasThAkdk, "- Pilih detail Tahun Akademik -", ddlTahunJadwal.SelectedValue, ddlScheduleScope.SelectedValue)
 End Sub
-Private Sub SetValue(list As DropDownList,value As String)
- If list.Items.FindByValue(value) IsNot Nothing Then list.SelectedValue=value
+
+Protected Sub ddlScheduleScope_SelectedIndexChanged(sender As Object, e As EventArgs)
+    PopulateTAByYear(ddlBatasThAkdk, "- Pilih detail Tahun Akademik -", ddlTahunJadwal.SelectedValue, ddlScheduleScope.SelectedValue)
 End Sub
+
+Private Sub SetValue(list As DropDownList, value As String)
+    If list.Items.FindByValue(value) IsNot Nothing Then list.SelectedValue = value
+End Sub
+
 Private Sub SetExecutionTime(value As String)
- If ddlJamEksekusi.Items.FindByValue(value) Is Nothing AndAlso value<>"" Then ddlJamEksekusi.Items.Add(New ListItem("Pukul " & value & " WIB",value))
- SetValue(ddlJamEksekusi,value)
+    If ddlJamEksekusi.Items.FindByValue(value) Is Nothing AndAlso value <> "" Then ddlJamEksekusi.Items.Add(New ListItem("Pukul " & value & " WIB", value))
+    SetValue(ddlJamEksekusi, value)
 End Sub
+
 Private Sub LoadConfig()
- Dim savedTa As String="",savedTables As String="tbio01,treg,tkrs06,t_absensi14":Dim onOff As Boolean=False:Dim nextRun As Nullable(Of DateTime)=Nothing
- Using cmd As New SqlCommand("SELECT IsEnabled,Frequency,CONVERT(varchar(5),ExecutionTime,108) ExecutionTime,CutoffThAkdk,NextRunAt,SelectedTables FROM dbo.BackupJobConfiguration WHERE ConfigurationId=1",cnsr)
-  Try
-   cnsr.Open():Using rd=cmd.ExecuteReader():If rd.Read() Then
-    onOff=CBool(rd("IsEnabled")):savedTa=rd("CutoffThAkdk").ToString().Trim():savedTables=rd("SelectedTables").ToString().Trim():chkJobToggleJS.Checked=onOff:hdnJobActive.Value=If(onOff,"1","0"):SetValue(ddlFrekuensi,rd("Frequency").ToString()):SetExecutionTime(rd("ExecutionTime").ToString()):If Not rd.IsDBNull(4) Then nextRun=CType(rd(4),DateTime)
-   End If:End Using
-  Finally:tutupsr():End Try
- End Using
- ApplySelectedTables(cblScheduleTables,savedTables)
- If savedTa.Length>=4 Then SetValue(ddlTahunJadwal,savedTa.Substring(0,4)):PopulateTAByYear(ddlBatasThAkdk,"- Pilih Detail Tahun Akademik -",ddlTahunJadwal.SelectedValue):SetValue(ddlBatasThAkdk,savedTa)
- Summary(onOff,nextRun)
+    Dim savedTa As String = "", savedTables As String = "tbio01,treg,tkrs06,t_absensi14", savedScope As String = "UP_TO"
+    Dim onOff As Boolean = False
+    Dim nextRun As Nullable(Of DateTime) = Nothing
+    Using cmd As New SqlCommand("SELECT IsEnabled,Frequency,CONVERT(varchar(5),ExecutionTime,108) ExecutionTime,CutoffThAkdk,NextRunAt,SelectedTables,ISNULL(SelectionMode,'UP_TO') SelectionMode FROM dbo.BackupJobConfiguration WHERE ConfigurationId=1", cnsr)
+        Try
+            cnsr.Open()
+            Using rd = cmd.ExecuteReader()
+                If rd.Read() Then
+                    onOff = CBool(rd("IsEnabled"))
+                    savedTa = rd("CutoffThAkdk").ToString().Trim()
+                    savedTables = rd("SelectedTables").ToString().Trim()
+                    savedScope = rd("SelectionMode").ToString().Trim().ToUpperInvariant()
+                    chkJobToggleJS.Checked = onOff
+                    hdnJobActive.Value = If(onOff, "1", "0")
+                    SetValue(ddlFrekuensi, rd("Frequency").ToString())
+                    SetValue(ddlScheduleScope, savedScope)
+                    SetExecutionTime(rd("ExecutionTime").ToString())
+                    If Not rd.IsDBNull(4) Then nextRun = CType(rd(4), DateTime)
+                End If
+            End Using
+        Finally
+            tutupsr()
+        End Try
+    End Using
+    ApplySelectedTables(cblScheduleTables, savedTables)
+    If savedTa.Length >= 4 Then
+        SetValue(ddlTahunJadwal, savedTa.Substring(0, 4))
+        PopulateTAByYear(ddlBatasThAkdk, "- Pilih Detail Tahun Akademik -", ddlTahunJadwal.SelectedValue, savedScope)
+        SetValue(ddlBatasThAkdk, savedTa)
+    End If
+    Summary(onOff, nextRun)
 End Sub
-Private Sub Summary(onOff As Boolean,nextRun As Nullable(Of DateTime))
- lblSummaryScheduleStatus.Text=If(onOff,"ON","OFF")
- lblSummaryScheduleStatus.CssClass="label " & If(onOff,"label-success","label-default")
- pnlSummaryDetails.Visible=onOff
- If onOff Then
-  litSummaryFrekuensi.Text=Server.HtmlEncode(ddlFrekuensi.SelectedItem.Text):litSummaryJam.Text=Server.HtmlEncode(ddlJamEksekusi.SelectedItem.Text):litSummaryTables.Text=Server.HtmlEncode(BackupTableLabels(SelectedTables(cblScheduleTables,True), "")):litSummaryNextRun.Text=If(nextRun.HasValue,nextRun.Value.ToString("dd MMM yyyy HH:mm"),"Belum dijadwalkan")
-  litSummaryCountdown.Text=If(nextRun.HasValue,"<span id='backupCountdown' data-next='" & nextRun.Value.ToString("yyyy-MM-ddTHH:mm:ss") & "'>Menghitung...</span>","-")
- End If
+
+Private Sub Summary(onOff As Boolean, nextRun As Nullable(Of DateTime))
+    lblSummaryScheduleStatus.Text = If(onOff, "ON", "OFF")
+    lblSummaryScheduleStatus.CssClass = "label " & If(onOff, "label-success", "label-default")
+    pnlSummaryDetails.Visible = onOff
+    If onOff Then
+        litSummaryFrekuensi.Text = Server.HtmlEncode(ddlFrekuensi.SelectedItem.Text)
+        litSummaryJam.Text = Server.HtmlEncode(ddlJamEksekusi.SelectedItem.Text)
+                        <div><i class="fa fa-filter text-danger me-1"></i> Cakupan: <strong><asp:Literal ID="litSummaryScope" runat="server" /></strong></div>
+        litSummaryTables.Text = Server.HtmlEncode(BackupTableLabels(SelectedTables(cblScheduleTables, True), ""))
+        litSummaryNextRun.Text = If(nextRun.HasValue, nextRun.Value.ToString("dd MMM yyyy HH:mm"), "Belum dijadwalkan")
+        litSummaryCountdown.Text = If(nextRun.HasValue, "<span id='backupCountdown' data-next='" & nextRun.Value.ToString("yyyy-MM-ddTHH:mm:ss") & "'>Menghitung...</span>", "-")
+        Dim isSingle = (ddlScheduleScope.SelectedValue = "SINGLE")
+        litSummaryScope.Text = If(isSingle, "Hanya TA " & ddlBatasThAkdk.SelectedValue, "TA " & ddlBatasThAkdk.SelectedValue & " dan sebelumnya")
+    End If
 End Sub
-    ' =========================================================================================
-    ' AKSI: Menyimpan Konfigurasi Jadwal Otomatis
-    ' Memanggil stored procedure sp_SaveBackupJobConfiguration dan mengalihkan ke dashboard.
-    ' =========================================================================================
+
     Protected Sub btnSimpanJadwal_Click(sender As Object, e As EventArgs)
         Dim savedSuccessfully As Boolean = False
         Try
@@ -175,6 +224,7 @@ End Sub
                 cmd.Parameters.Add("@CutoffThAkdk", SqlDbType.Char, 5).Value = ddlBatasThAkdk.SelectedValue
                 cmd.Parameters.Add("@AdminUser", SqlDbType.VarChar, 50).Value = BackupRequestedBy()
                 cmd.Parameters.Add("@SelectedTables", SqlDbType.VarChar, 100).Value = selectedTableCsv
+                cmd.Parameters.Add("@SelectionMode", SqlDbType.VarChar, 10).Value = ddlScheduleScope.SelectedValue
                 cnsr.Open()
                 cmd.ExecuteNonQuery()
             End Using
@@ -183,6 +233,7 @@ End Sub
             ShowAlert(litAlertSchedule, "error", "Gagal menyimpan konfigurasi", BackupErrorMessage(ex))
         Finally
             tutupsr()
+        End Try
         End Try
         
         If savedSuccessfully Then
@@ -452,6 +503,11 @@ End Sub
                                 
                                 <div class="form-group backup-u-058">
                                     <span class="backup-source-database" aria-hidden="true"><asp:DropDownList ID="ddlSourceDatabaseSchedule" runat="server" CssClass="form-control"></asp:DropDownList></span>
+                                    <label for="<%= ddlScheduleScope.ClientID %>">Cakupan Data:</label>
+                                    <asp:DropDownList ID="ddlScheduleScope" runat="server" CssClass="form-control" AutoPostBack="true" OnSelectedIndexChanged="ddlScheduleScope_SelectedIndexChanged" aria-label="Cakupan data backup otomatis">
+                                        <asp:ListItem Value="UP_TO">Tahun Akademik ini dan seluruh sebelumnya (Kumulatif)</asp:ListItem>
+                                        <asp:ListItem Value="SINGLE">Hanya 1 Tahun Akademik ini saja (1 TA)</asp:ListItem>
+                                    </asp:DropDownList>
                                     <label for="<%= ddlTahunJadwal.ClientID %>">Pilih Tahun:</label>
                                     <asp:DropDownList ID="ddlTahunJadwal" runat="server" CssClass="form-control" AutoPostBack="true" OnSelectedIndexChanged="ddlTahunJadwal_SelectedIndexChanged"></asp:DropDownList>
                                     <label class="backup-u-069" for="<%= ddlBatasThAkdk.ClientID %>">Detail Tahun Akademik:</label>
