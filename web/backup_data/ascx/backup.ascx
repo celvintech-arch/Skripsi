@@ -1,4 +1,4 @@
-<%@ Control Language="VB" ClassName="backup_data_backup_v3_control" %>
+﻿<%@ Control Language="VB" ClassName="backup_data_backup_v3_control" %>
 
 <%-- 
 =============================================================================================
@@ -198,7 +198,6 @@ Private Sub Summary(onOff As Boolean, nextRun As Nullable(Of DateTime))
     If onOff Then
         litSummaryFrekuensi.Text = Server.HtmlEncode(ddlFrekuensi.SelectedItem.Text)
         litSummaryJam.Text = Server.HtmlEncode(ddlJamEksekusi.SelectedItem.Text)
-                        <div><i class="fa fa-filter text-danger me-1"></i> Cakupan: <strong><asp:Literal ID="litSummaryScope" runat="server" /></strong></div>
         litSummaryTables.Text = Server.HtmlEncode(BackupTableLabels(SelectedTables(cblScheduleTables, True), ""))
         litSummaryNextRun.Text = If(nextRun.HasValue, nextRun.Value.ToString("dd MMM yyyy HH:mm"), "Belum dijadwalkan")
         litSummaryCountdown.Text = If(nextRun.HasValue, "<span id='backupCountdown' data-next='" & nextRun.Value.ToString("yyyy-MM-ddTHH:mm:ss") & "'>Menghitung...</span>", "-")
@@ -233,7 +232,6 @@ End Sub
             ShowAlert(litAlertSchedule, "error", "Gagal menyimpan konfigurasi", BackupErrorMessage(ex))
         Finally
             tutupsr()
-        End Try
         End Try
         
         If savedSuccessfully Then
@@ -435,6 +433,7 @@ End Sub
                     <asp:Panel CssClass="backup-u-026" ID="pnlSummaryDetails" runat="server">
                         <div><i class="fa fa-calendar text-primary me-1"></i> Frekuensi: <strong><asp:Literal ID="litSummaryFrekuensi" runat="server" /></strong></div>
                         <div><i class="fa fa-clock-o text-info me-1"></i> Jam Eksekusi: <strong><asp:Literal ID="litSummaryJam" runat="server" /></strong></div>
+                        <div><i class="fa fa-filter text-danger me-1"></i> Cakupan: <strong><asp:Literal ID="litSummaryScope" runat="server" /></strong></div>
                         <div><i class="fa fa-database text-success me-1"></i> Tabel: <strong><asp:Literal ID="litSummaryTables" runat="server" /></strong></div>
                         <div><i class="fa fa-history text-warning me-1"></i> Jadwal Backup Berikutnya: <strong><asp:Literal ID="litSummaryNextRun" runat="server" /></strong></div>
                         <div><i class="fa fa-hourglass-half text-danger me-1"></i> Hitung Mundur: <strong><asp:Literal ID="litSummaryCountdown" runat="server" /></strong></div>
