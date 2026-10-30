@@ -148,7 +148,7 @@ kesehatan agen background, sistem otorisasi peran (RBAC), dan fungsi pembantu (h
         If TypeOf ex Is ApplicationException Then Return ex.Message
         Dim sqlError = TryCast(ex, SqlException)
         If sqlError IsNot Nothing AndAlso sqlError.Number >= 50000 Then Return sqlError.Message
-        Return "Terjadi kendala pada layanan. Silakan muat ulang halaman; hubungi administrator jika kendala berulang."
+        Return If(ex IsNot Nothing, "Terjadi kendala pada layanan: " & ex.Message, "Terjadi kendala pada layanan.")
     End Function
 
     ' =========================================================================================

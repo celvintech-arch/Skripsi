@@ -106,7 +106,11 @@ real-time via polling AJAX, serta pusat rekonsiliasi sinkronisasi per Tahun Akad
                     row("StatusLabel") = JobStatusText(st)
                     Dim total = If(row.IsNull("TotalStudents"), 0, Convert.ToInt32(row("TotalStudents")))
                     Dim processed = If(row.IsNull("ProcessedStudents"), 0, Convert.ToInt32(row("ProcessedStudents")))
-                    row("ProgressLabel") = processed.ToString("N0") & " / " & If(total > 0, total.ToString("N0"), "-")
+                    If op = "EXPORT" Then
+                        row("ProgressLabel") = "Ekspor database .BAK"
+                    Else
+                        row("ProgressLabel") = processed.ToString("N0") & " dari " & If(total > 0, total.ToString("N0"), "-") & " mhs"
+                    End If
 
                     Dim percent As Integer = 0
                     If total > 0 Then
@@ -584,7 +588,7 @@ real-time via polling AJAX, serta pusat rekonsiliasi sinkronisasi per Tahun Akad
                                     </div>
                                 </div>
                                 <div style="display: flex; justify-content: space-between;" class="small text-muted">
-                                    <span><i class="fa fa-users"></i> <strong><%# Eval("ProcessedStudents", "{0:N0}") %></strong> dari <strong><%# If(Convert.ToInt32(Eval("TotalStudents")) > 0, Eval("TotalStudents", "{0:N0}"), "-") %></strong> mhs</span>
+                                    <span><i class='fa <%# If(Eval("OperationType").ToString().ToUpperInvariant() = "EXPORT", "fa-file-archive-o", "fa-users") %>'></i> <%# Eval("ProgressLabel") %></span>
                                     <span class="text-primary" style="font-weight: 600;"><%# Eval("ProgressPercent") %>%</span>
                                 </div>
                             </div>
