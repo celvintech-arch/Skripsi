@@ -570,14 +570,16 @@ real-time via polling AJAX, serta pusat rekonsiliasi sinkronisasi per Tahun Akad
                     <asp:TemplateField HeaderText="Progress Mahasiswa" HeaderStyle-Width="300px">
                         <ItemTemplate>
                             <div style="min-width: 220px; padding: 2px 0;">
-                                <div class="progress" style="margin-bottom: 5px; height: 20px; border-radius: 4px; background-color: #e9ecef; box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);">
+                                <div class="progress" style="position: relative; margin-bottom: 5px; height: 20px; border-radius: 4px; background-color: #e9ecef; box-shadow: inset 0 1px 2px rgba(0,0,0,0.1); overflow: hidden;">
                                     <div class='progress-bar progress-bar-striped active <%# GetProgressBarClass(Eval("Status")) %>' 
                                          role="progressbar" 
                                          aria-valuenow='<%# Eval("ProgressPercent") %>' 
                                          aria-valuemin="0" 
                                          aria-valuemax="100" 
                                          aria-label='<%# "Progress " & Eval("OperationLabel") & ": " & Eval("ProgressPercent") & "%" %>' 
-                                         style='width: <%# Math.Max(8, Convert.ToInt32(Eval("ProgressPercent"))) %>%; line-height: 20px; font-size: 11px; font-weight: bold;'>
+                                         style='width: <%# Math.Max(0, Convert.ToInt32(Eval("ProgressPercent"))) %>%; height: 100%; transition: width .4s ease;'>
+                                    </div>
+                                    <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; color: #ffffff; text-shadow: 0 1px 2px rgba(0,0,0,0.7), 0 0 1px rgba(0,0,0,0.9); pointer-events: none; z-index: 2;">
                                         <%# Eval("ProgressPercent") %>%
                                     </div>
                                 </div>
