@@ -1,6 +1,6 @@
 # Konfigurasi dan rahasia lokal
 agent.config.json
-agent.config.development.json
+# agent.config.development.json (tracked for easy deployment)
 agent.config.production.json
 *.secrets.json
 .env

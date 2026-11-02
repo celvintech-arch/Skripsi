@@ -1,0 +1,9 @@
+﻿{
+    "ApiBaseUrl":  "http://10.200.120.83/backup_data/api",
+    "AllowHttp":  true,
+    "LocalSqlConnection":  "Data Source=localhost;Initial Catalog=dec_dummy_backup;Integrated Security=SSPI;Connect Timeout=15;",
+    "ApiKey":  "A9zK2mP7vX1qR8wT4bY6uC3fJ8kL5nM0",
+    "BackupBatchSize":  500,
+    "RestoreBatchSize":  500,
+    "ExportDirectory":  "C:\\BackupAgent\\Exports"
+}
